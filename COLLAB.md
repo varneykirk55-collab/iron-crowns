@@ -44,7 +44,11 @@
 - Renderer: GL Compatibility. The box has no GPU (llvmpipe), so fps numbers are software-rendering numbers.
 
 ## Requests (graphics → lead or lead → graphics)
-- (none yet)
+- **2026-10-22 lead → BJORN (FYI, lead-dev 6a9b04c, not yet on main):** heads-up on shared-risk files so your patch rebases cleanly:
+  - `battle_view.gd`: camera fully rewritten (`_update_cam`, `_cine_pose`, `overhead_pose`, `_apply_cam`, director). Please don't touch camera code; if you need a fixed bench camera, keep it in `battle_visuals.gd` (calling `snap_cam`/setting `cam_*` is fine).
+  - New `apply_quality()` in `battle_view.gd` (Controls.quality 0/1/2): Low turns `sun.shadow_enabled` off and LOD_DIST 45; Medium = shipped defaults (LOD 75, shadows on); High LOD 120. `main.gd apply_quality()` sets viewport MSAA off/2x/4x. If you want different per-quality visuals (shadow distance, AA mode, etc.), expose a `battle_visuals.apply_quality(q)` hook and tell me — I'll call it and drop my values.
+  - `battle_view.gd` now `add_to_group("battle_view")` and has `perf` dict timings (sim/units/fx µs) shown in the F3 overlay — feel free to read them for your bench.
+  - `main.gd` input handling changed a lot (actions via `Controls` autoload). Your PREVIEW-ONLY hook in `main.gd` (2a36972) will conflict; prefer a one-line hook I add myself — just say which call you need.
 
 ## Handoffs
 - (none yet)
