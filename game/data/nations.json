@@ -1,0 +1,614 @@
+{
+ "playable": [
+  "USA",
+  "SWE",
+  "JPN"
+ ],
+ "majors": [
+  {
+   "code": "USA",
+   "color": "#3d5a9e",
+   "aggression": 0.55,
+   "diplomacy": 0.6,
+   "flag": [
+    "canton",
+    "#b22234",
+    "#ffffff",
+    "#3c3b6e"
+   ],
+   "playable": true
+  },
+  {
+   "code": "CAN",
+   "color": "#c8453c",
+   "aggression": 0.2,
+   "diplomacy": 0.7,
+   "flag": [
+    "pale",
+    "#d52b1e",
+    "#ffffff",
+    "#d52b1e"
+   ],
+   "playable": false
+  },
+  {
+   "code": "MEX",
+   "color": "#3b8a55",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "pale",
+    "#006847",
+    "#ffffff",
+    "#ce1126"
+   ],
+   "playable": false
+  },
+  {
+   "code": "BRA",
+   "color": "#3f9e4a",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "disc",
+    "#009c3b",
+    "#ffdf00"
+   ],
+   "playable": false
+  },
+  {
+   "code": "ARG",
+   "color": "#78aee0",
+   "aggression": 0.45,
+   "diplomacy": 0.5,
+   "flag": [
+    "fess",
+    "#74acdf",
+    "#ffffff",
+    "#74acdf"
+   ],
+   "playable": false
+  },
+  {
+   "code": "COL",
+   "color": "#e0c040",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "fess",
+    "#fcd116",
+    "#003893",
+    "#ce1126"
+   ],
+   "playable": false
+  },
+  {
+   "code": "PER",
+   "color": "#c0504d",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "pale",
+    "#d91023",
+    "#ffffff",
+    "#d91023"
+   ],
+   "playable": false
+  },
+  {
+   "code": "CHL",
+   "color": "#a93a4a",
+   "aggression": 0.45,
+   "diplomacy": 0.5,
+   "flag": [
+    "fess",
+    "#ffffff",
+    "#ffffff",
+    "#d52b1e"
+   ],
+   "playable": false
+  },
+  {
+   "code": "VEN",
+   "color": "#d9a23c",
+   "aggression": 0.45,
+   "diplomacy": 0.4,
+   "flag": [
+    "fess",
+    "#ffcc00",
+    "#00247d",
+    "#cf142b"
+   ],
+   "playable": false
+  },
+  {
+   "code": "GBR",
+   "color": "#c23b3b",
+   "aggression": 0.6,
+   "diplomacy": 0.6,
+   "flag": [
+    "cross",
+    "#012169",
+    "#ffffff",
+    "#c8102e"
+   ],
+   "playable": false
+  },
+  {
+   "code": "FRA",
+   "color": "#4a6fc8",
+   "aggression": 0.6,
+   "diplomacy": 0.6,
+   "flag": [
+    "pale",
+    "#0055a4",
+    "#ffffff",
+    "#ef4135"
+   ],
+   "playable": false
+  },
+  {
+   "code": "DEU",
+   "color": "#6b6b6b",
+   "aggression": 0.65,
+   "diplomacy": 0.5,
+   "flag": [
+    "fess",
+    "#000000",
+    "#dd0000",
+    "#ffce00"
+   ],
+   "playable": false
+  },
+  {
+   "code": "ITA",
+   "color": "#4aa35a",
+   "aggression": 0.5,
+   "diplomacy": 0.5,
+   "flag": [
+    "pale",
+    "#009246",
+    "#ffffff",
+    "#ce2b37"
+   ],
+   "playable": false
+  },
+  {
+   "code": "ESP",
+   "color": "#e0a030",
+   "aggression": 0.5,
+   "diplomacy": 0.5,
+   "flag": [
+    "fess",
+    "#aa151b",
+    "#f1bf00",
+    "#aa151b"
+   ],
+   "playable": false
+  },
+  {
+   "code": "RUS",
+   "color": "#3f8a5c",
+   "aggression": 0.7,
+   "diplomacy": 0.4,
+   "flag": [
+    "fess",
+    "#ffffff",
+    "#0039a6",
+    "#d52b1e"
+   ],
+   "playable": false
+  },
+  {
+   "code": "POL",
+   "color": "#d65a6a",
+   "aggression": 0.45,
+   "diplomacy": 0.55,
+   "flag": [
+    "fess",
+    "#ffffff",
+    "#ffffff",
+    "#dc143c"
+   ],
+   "playable": false
+  },
+  {
+   "code": "SWE",
+   "color": "#2f7fc1",
+   "aggression": 0.45,
+   "diplomacy": 0.65,
+   "flag": [
+    "cross",
+    "#006aa7",
+    "#fecc00",
+    "#fecc00"
+   ],
+   "playable": true
+  },
+  {
+   "code": "NOR",
+   "color": "#b04a4a",
+   "aggression": 0.35,
+   "diplomacy": 0.6,
+   "flag": [
+    "cross",
+    "#BA0C2F",
+    "#FFFFFF",
+    "#00205B"
+   ],
+   "playable": false
+  },
+  {
+   "code": "FIN",
+   "color": "#f0f0f0",
+   "aggression": 0.35,
+   "diplomacy": 0.6,
+   "flag": [
+    "cross",
+    "#ffffff",
+    "#ffffff",
+    "#002f6c"
+   ],
+   "playable": false
+  },
+  {
+   "code": "DNK",
+   "color": "#d04040",
+   "aggression": 0.35,
+   "diplomacy": 0.65,
+   "flag": [
+    "cross",
+    "#c8102e",
+    "#ffffff",
+    "#ffffff"
+   ],
+   "playable": false
+  },
+  {
+   "code": "NLD",
+   "color": "#e07830",
+   "aggression": 0.35,
+   "diplomacy": 0.7,
+   "flag": [
+    "fess",
+    "#ae1c28",
+    "#ffffff",
+    "#21468b"
+   ],
+   "playable": false
+  },
+  {
+   "code": "TUR",
+   "color": "#a83232",
+   "aggression": 0.6,
+   "diplomacy": 0.45,
+   "flag": [
+    "disc",
+    "#e30a17",
+    "#ffffff"
+   ],
+   "playable": false
+  },
+  {
+   "code": "UKR",
+   "color": "#e8d34a",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "fess",
+    "#0057b7",
+    "#0057b7",
+    "#ffd700"
+   ],
+   "playable": false
+  },
+  {
+   "code": "GRC",
+   "color": "#5f8ed0",
+   "aggression": 0.4,
+   "diplomacy": 0.55,
+   "flag": [
+    "fess",
+    "#0d5eaf",
+    "#ffffff",
+    "#0d5eaf"
+   ],
+   "playable": false
+  },
+  {
+   "code": "ROU",
+   "color": "#d0b040",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "pale",
+    "#002b7f",
+    "#fcd116",
+    "#ce1126"
+   ],
+   "playable": false
+  },
+  {
+   "code": "PRT",
+   "color": "#3a7a3a",
+   "aggression": 0.4,
+   "diplomacy": 0.6,
+   "flag": [
+    "pale",
+    "#006600",
+    "#ff0000",
+    "#ff0000"
+   ],
+   "playable": false
+  },
+  {
+   "code": "AUT",
+   "color": "#e8e0d0",
+   "aggression": 0.45,
+   "diplomacy": 0.6,
+   "flag": [
+    "fess",
+    "#ed2939",
+    "#ffffff",
+    "#ed2939"
+   ],
+   "playable": false
+  },
+  {
+   "code": "CHN",
+   "color": "#d8b030",
+   "aggression": 0.6,
+   "diplomacy": 0.45,
+   "flag": [
+    "canton",
+    "#de2910",
+    "#de2910",
+    "#ffde00"
+   ],
+   "playable": false
+  },
+  {
+   "code": "JPN",
+   "color": "#e8e8e8",
+   "aggression": 0.55,
+   "diplomacy": 0.55,
+   "flag": [
+    "disc",
+    "#ffffff",
+    "#bc002d"
+   ],
+   "playable": true
+  },
+  {
+   "code": "IND",
+   "color": "#e09050",
+   "aggression": 0.45,
+   "diplomacy": 0.55,
+   "flag": [
+    "fess",
+    "#ff9933",
+    "#ffffff",
+    "#138808"
+   ],
+   "playable": false
+  },
+  {
+   "code": "KOR",
+   "color": "#7a9ac8",
+   "aggression": 0.35,
+   "diplomacy": 0.6,
+   "flag": [
+    "disc",
+    "#ffffff",
+    "#cd2e3a"
+   ],
+   "playable": false
+  },
+  {
+   "code": "IDN",
+   "color": "#b05050",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "fess",
+    "#ce1126",
+    "#ce1126",
+    "#ffffff"
+   ],
+   "playable": false
+  },
+  {
+   "code": "IRN",
+   "color": "#4a9a6a",
+   "aggression": 0.55,
+   "diplomacy": 0.4,
+   "flag": [
+    "fess",
+    "#239f40",
+    "#ffffff",
+    "#da0000"
+   ],
+   "playable": false
+  },
+  {
+   "code": "SAU",
+   "color": "#2e7d32",
+   "aggression": 0.45,
+   "diplomacy": 0.45,
+   "flag": [
+    "fess",
+    "#006c35",
+    "#006c35",
+    "#006c35"
+   ],
+   "playable": false
+  },
+  {
+   "code": "PAK",
+   "color": "#2a6a3a",
+   "aggression": 0.5,
+   "diplomacy": 0.45,
+   "flag": [
+    "disc",
+    "#01411c",
+    "#ffffff"
+   ],
+   "playable": false
+  },
+  {
+   "code": "THA",
+   "color": "#6a5acd",
+   "aggression": 0.4,
+   "diplomacy": 0.55,
+   "flag": [
+    "fess",
+    "#a51931",
+    "#2d2a4a",
+    "#a51931"
+   ],
+   "playable": false
+  },
+  {
+   "code": "VNM",
+   "color": "#c04848",
+   "aggression": 0.5,
+   "diplomacy": 0.45,
+   "flag": [
+    "disc",
+    "#da251d",
+    "#ffff00"
+   ],
+   "playable": false
+  },
+  {
+   "code": "PHL",
+   "color": "#5a7ab8",
+   "aggression": 0.3,
+   "diplomacy": 0.55,
+   "flag": [
+    "fess",
+    "#0038a8",
+    "#ffffff",
+    "#ce1126"
+   ],
+   "playable": false
+  },
+  {
+   "code": "KAZ",
+   "color": "#5ab0c8",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "disc",
+    "#00afca",
+    "#fec50c"
+   ],
+   "playable": false
+  },
+  {
+   "code": "EGY",
+   "color": "#c8b060",
+   "aggression": 0.5,
+   "diplomacy": 0.45,
+   "flag": [
+    "fess",
+    "#ce1126",
+    "#ffffff",
+    "#000000"
+   ],
+   "playable": false
+  },
+  {
+   "code": "NGA",
+   "color": "#3aa05a",
+   "aggression": 0.45,
+   "diplomacy": 0.45,
+   "flag": [
+    "pale",
+    "#008751",
+    "#ffffff",
+    "#008751"
+   ],
+   "playable": false
+  },
+  {
+   "code": "ZAF",
+   "color": "#b8863b",
+   "aggression": 0.45,
+   "diplomacy": 0.5,
+   "flag": [
+    "fess",
+    "#de3831",
+    "#ffffff",
+    "#002395"
+   ],
+   "playable": false
+  },
+  {
+   "code": "ETH",
+   "color": "#7aa040",
+   "aggression": 0.45,
+   "diplomacy": 0.45,
+   "flag": [
+    "fess",
+    "#078930",
+    "#fcdd09",
+    "#da121a"
+   ],
+   "playable": false
+  },
+  {
+   "code": "DZA",
+   "color": "#4a8a50",
+   "aggression": 0.45,
+   "diplomacy": 0.45,
+   "flag": [
+    "pale",
+    "#006233",
+    "#ffffff",
+    "#ffffff"
+   ],
+   "playable": false
+  },
+  {
+   "code": "MAR",
+   "color": "#a04040",
+   "aggression": 0.4,
+   "diplomacy": 0.5,
+   "flag": [
+    "disc",
+    "#c1272d",
+    "#006233"
+   ],
+   "playable": false
+  },
+  {
+   "code": "AUS",
+   "color": "#4060a0",
+   "aggression": 0.4,
+   "diplomacy": 0.6,
+   "flag": [
+    "canton",
+    "#00008b",
+    "#00008b",
+    "#ffffff"
+   ],
+   "playable": false
+  },
+  {
+   "code": "NZL",
+   "color": "#304878",
+   "aggression": 0.3,
+   "diplomacy": 0.6,
+   "flag": [
+    "canton",
+    "#00247d",
+    "#00247d",
+    "#cc142b"
+   ],
+   "playable": false
+  }
+ ],
+ "minor_color_seed": 7,
+ "notes": "Countries not listed here are minor polities: they defend and accept peace but never start wars."
+}

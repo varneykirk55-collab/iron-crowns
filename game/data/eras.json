@@ -1,0 +1,61 @@
+{
+ "eras": [
+  {
+   "id": "medieval",
+   "name": "Medieval Age",
+   "start": 1300,
+   "productivity": 1.0,
+   "move_km_day": 22,
+   "naval_range": 1,
+   "siege_days": 120,
+   "battle_range_mult": 1.0
+  },
+  {
+   "id": "early_modern",
+   "name": "Age of Pike and Shot",
+   "start": 1500,
+   "productivity": 1.6,
+   "move_km_day": 26,
+   "naval_range": 4,
+   "siege_days": 90,
+   "battle_range_mult": 1.0
+  },
+  {
+   "id": "c19",
+   "name": "Age of Revolutions",
+   "start": 1800,
+   "productivity": 3.0,
+   "move_km_day": 35,
+   "naval_range": 10,
+   "siege_days": 60,
+   "battle_range_mult": 1.0
+  },
+  {
+   "id": "c20",
+   "name": "Age of Mechanised War",
+   "start": 1914,
+   "productivity": 6.0,
+   "move_km_day": 60,
+   "naval_range": 30,
+   "siege_days": 40,
+   "battle_range_mult": 1.0
+  },
+  {
+   "id": "modern",
+   "name": "Modern Era",
+   "start": 1980,
+   "productivity": 10.0,
+   "move_km_day": 90,
+   "naval_range": 99,
+   "siege_days": 30,
+   "battle_range_mult": 1.0
+  }
+ ],
+ "start_years": [
+  1300,
+  1500,
+  1800,
+  1914,
+  1980
+ ]
+}

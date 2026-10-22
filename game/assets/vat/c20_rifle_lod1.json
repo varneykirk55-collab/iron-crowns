@@ -1,0 +1,49 @@
+{
+ "vertices": 204,
+ "fps": 24,
+ "clips": {
+  "idle": {
+   "start": 0,
+   "count": 24,
+   "loop": true
+  },
+  "walk": {
+   "start": 24,
+   "count": 24,
+   "loop": true
+  },
+  "run": {
+   "start": 48,
+   "count": 16,
+   "loop": true
+  },
+  "fire": {
+   "start": 64,
+   "count": 48,
+   "loop": true
+  },
+  "melee": {
+   "start": 112,
+   "count": 20,
+   "loop": true
+  },
+  "die": {
+   "start": 132,
+   "count": 30,
+   "loop": false
+  }
+ },
+ "frames": 162,
+ "aabb": [
+  [
+   -0.8283123970031738,
+   -0.10709333419799805,
+   -1.3932850360870361
+  ],
+  [
+   0.7157756090164185,
+   2.2700507640838623,
+   2.8437952995300293
+  ]
+ ]
+}

@@ -1,0 +1,17 @@
+{
+ "province_raster": [
+  4096,
+  2048
+ ],
+ "height_raster": [
+  2048,
+  1024
+ ],
+ "sea_raster": [
+  1024,
+  512
+ ],
+ "provinces": 641,
+ "countries": 189,
+ "seazones": 346
+}

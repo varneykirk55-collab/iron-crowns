@@ -1,0 +1,17 @@
+# Godot caches / user data
+.godot/
+*.import.tmp
+# Large or generated, not source
+tools/godot
+tools/venv/
+tools/*.log
+data_src/
+build/
+rec/
+shots/
+deliverables/**/*.zip
+deliverables/*.zip
+*.avi
+*.blend1
+__pycache__/
+*.pyc

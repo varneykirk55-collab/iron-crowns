@@ -1,0 +1,2533 @@
+[
+{
+"code": "RUS",
+"name": "Russia",
+"continent": "Europe",
+"population": 144373535,
+"gdp_md": 1699876,
+"provinces": [
+1,
+2,
+3,
+4,
+5,
+6,
+7,
+8,
+9,
+10,
+11,
+12,
+13,
+14,
+15,
+16,
+17,
+18,
+19,
+20,
+21,
+22,
+23,
+24,
+25,
+26
+],
+"capital": 12
+},
+{
+"code": "CAN",
+"name": "Canada",
+"continent": "North America",
+"population": 37589262,
+"gdp_md": 1736425,
+"provinces": [
+27,
+28,
+29,
+30,
+31,
+32,
+33,
+34,
+35,
+36,
+37,
+38,
+39
+],
+"capital": 30
+},
+{
+"code": "USA",
+"name": "United States of America",
+"continent": "North America",
+"population": 331819670,
+"gdp_md": 21549948,
+"provinces": [
+40,
+41,
+42,
+43,
+44,
+45,
+46,
+47,
+48,
+49,
+50,
+51,
+52,
+53,
+54,
+55,
+56,
+57,
+58,
+59,
+60,
+61,
+62,
+63,
+64,
+65,
+66,
+67,
+68,
+69,
+70,
+71,
+72,
+73,
+74,
+75,
+76,
+77,
+78,
+79,
+80,
+81,
+82,
+83,
+84,
+85,
+86,
+87,
+88,
+89,
+90,
+91,
+92
+],
+"capital": 83
+},
+{
+"code": "CHN",
+"name": "China",
+"continent": "Asia",
+"population": 1405862845,
+"gdp_md": 14762473,
+"provinces": [
+93,
+94,
+95,
+96,
+97,
+98,
+99,
+100,
+101,
+102,
+103,
+104,
+105,
+106,
+107,
+108,
+109,
+110,
+111,
+112,
+113,
+114,
+115,
+116,
+117,
+118,
+119,
+120,
+121,
+122,
+123,
+124
+],
+"capital": 121
+},
+{
+"code": "BRA",
+"name": "Brazil",
+"continent": "South America",
+"population": 211049527,
+"gdp_md": 1839758,
+"provinces": [
+125,
+126,
+127,
+128,
+129,
+130,
+131,
+132,
+133,
+134,
+135,
+136,
+137,
+138,
+139,
+140,
+141,
+142,
+143,
+144,
+145,
+146,
+147,
+148,
+149,
+150,
+151
+],
+"capital": 151
+},
+{
+"code": "AUS",
+"name": "Australia",
+"continent": "Oceania",
+"population": 25368863,
+"gdp_md": 1396634,
+"provinces": [
+152,
+153,
+154,
+155,
+156,
+157,
+158,
+159,
+160
+],
+"capital": 156
+},
+{
+"code": "DNK",
+"name": "Denmark",
+"continent": "Europe",
+"population": 5923456,
+"gdp_md": 356271,
+"provinces": [
+161,
+162,
+163,
+164,
+165,
+166,
+167
+],
+"capital": 165
+},
+{
+"code": "KAZ",
+"name": "Kazakhstan",
+"continent": "Asia",
+"population": 18513930,
+"gdp_md": 181665,
+"provinces": [
+168,
+169,
+170,
+171,
+172,
+173,
+174
+],
+"capital": 171
+},
+{
+"code": "ARG",
+"name": "Argentina",
+"continent": "South America",
+"population": 44938712,
+"gdp_md": 445445,
+"provinces": [
+175,
+176,
+177,
+178,
+179,
+180,
+181,
+182
+],
+"capital": 179
+},
+{
+"code": "IND",
+"name": "India",
+"continent": "Asia",
+"population": 1366423754,
+"gdp_md": 2868944,
+"provinces": [
+183,
+184,
+185,
+186,
+187,
+188,
+189,
+190,
+191,
+192,
+193,
+194,
+195,
+196,
+197,
+198,
+199,
+200,
+201,
+202,
+203,
+204,
+205,
+206,
+207,
+208,
+209,
+210,
+211,
+212,
+213,
+214
+],
+"capital": 204
+},
+{
+"code": "DZA",
+"name": "Algeria",
+"continent": "Africa",
+"population": 43053054,
+"gdp_md": 171091,
+"provinces": [
+215,
+216,
+217,
+218,
+219
+],
+"capital": 216
+},
+{
+"code": "COD",
+"name": "Dem. Rep. Congo",
+"continent": "Africa",
+"population": 86790567,
+"gdp_md": 50400,
+"provinces": [
+220,
+221,
+222,
+223,
+224,
+225
+],
+"capital": 223
+},
+{
+"code": "MNG",
+"name": "Mongolia",
+"continent": "Asia",
+"population": 3225167,
+"gdp_md": 13996,
+"provinces": [
+226,
+227,
+228,
+229,
+230
+],
+"capital": 230
+},
+{
+"code": "MEX",
+"name": "Mexico",
+"continent": "North America",
+"population": 127575529,
+"gdp_md": 1268870,
+"provinces": [
+231,
+232,
+233,
+234,
+235,
+236,
+237,
+238,
+239
+],
+"capital": 233
+},
+{
+"code": "SAU",
+"name": "Saudi Arabia",
+"continent": "Asia",
+"population": 34268528,
+"gdp_md": 792966,
+"provinces": [
+240,
+241,
+242,
+243,
+244
+],
+"capital": 242
+},
+{
+"code": "SDN",
+"name": "Sudan",
+"continent": "Africa",
+"population": 42813238,
+"gdp_md": 30513,
+"provinces": [
+245,
+246,
+247,
+248
+],
+"capital": 247
+},
+{
+"code": "IRN",
+"name": "Iran",
+"continent": "Asia",
+"population": 82913906,
+"gdp_md": 453996,
+"provinces": [
+249,
+250,
+251,
+252,
+253,
+254
+],
+"capital": 253
+},
+{
+"code": "IDN",
+"name": "Indonesia",
+"continent": "Asia",
+"population": 270625568,
+"gdp_md": 1119190,
+"provinces": [
+255,
+256,
+257,
+258,
+259,
+260,
+261,
+262,
+263,
+264,
+265,
+266
+],
+"capital": 266
+},
+{
+"code": "LBY",
+"name": "Libya",
+"continent": "Africa",
+"population": 6777452,
+"gdp_md": 52091,
+"provinces": [
+267,
+268,
+269,
+270
+],
+"capital": 267
+},
+{
+"code": "ZAF",
+"name": "South Africa",
+"continent": "Africa",
+"population": 58558270,
+"gdp_md": 351431,
+"provinces": [
+271,
+272,
+273,
+274,
+275
+],
+"capital": 271
+},
+{
+"code": "TCD",
+"name": "Chad",
+"continent": "Africa",
+"population": 15946876,
+"gdp_md": 11314,
+"provinces": [
+276,
+277,
+278,
+279,
+280,
+281
+],
+"capital": 276
+},
+{
+"code": "MLI",
+"name": "Mali",
+"continent": "Africa",
+"population": 19658031,
+"gdp_md": 17279,
+"provinces": [
+282,
+283,
+284,
+285,
+286,
+287
+],
+"capital": 283
+},
+{
+"code": "PER",
+"name": "Peru",
+"continent": "South America",
+"population": 32510453,
+"gdp_md": 226848,
+"provinces": [
+288,
+289,
+290,
+291
+],
+"capital": 288
+},
+{
+"code": "AGO",
+"name": "Angola",
+"continent": "Africa",
+"population": 31825295,
+"gdp_md": 88815,
+"provinces": [
+292,
+293,
+294,
+295,
+296,
+297
+],
+"capital": 294
+},
+{
+"code": "NER",
+"name": "Niger",
+"continent": "Africa",
+"population": 23310715,
+"gdp_md": 12911,
+"provinces": [
+298,
+299,
+300,
+301,
+302,
+303
+],
+"capital": 298
+},
+{
+"code": "ETH",
+"name": "Ethiopia",
+"continent": "Africa",
+"population": 112078730,
+"gdp_md": 95912,
+"provinces": [
+304,
+305,
+306,
+307,
+308
+],
+"capital": 307
+},
+{
+"code": "COL",
+"name": "Colombia",
+"continent": "South America",
+"population": 50339443,
+"gdp_md": 323615,
+"provinces": [
+309,
+310,
+311,
+312
+],
+"capital": 311
+},
+{
+"code": "BOL",
+"name": "Bolivia",
+"continent": "South America",
+"population": 11513100,
+"gdp_md": 40895,
+"provinces": [
+313,
+314,
+315,
+316,
+317
+],
+"capital": 314
+},
+{
+"code": "EGY",
+"name": "Egypt",
+"continent": "Africa",
+"population": 100388073,
+"gdp_md": 303092,
+"provinces": [
+318,
+319,
+320,
+321
+],
+"capital": 321
+},
+{
+"code": "MRT",
+"name": "Mauritania",
+"continent": "Africa",
+"population": 4525696,
+"gdp_md": 7600,
+"provinces": [
+322,
+323,
+324,
+325,
+326
+],
+"capital": 322
+},
+{
+"code": "NOR",
+"name": "Norway",
+"continent": "Europe",
+"population": 5347896,
+"gdp_md": 403336,
+"provinces": [
+327,
+328,
+329,
+330,
+331
+],
+"capital": 328
+},
+{
+"code": "PAK",
+"name": "Pakistan",
+"continent": "Asia",
+"population": 216565318,
+"gdp_md": 278221,
+"provinces": [
+332,
+333,
+334,
+335,
+336
+],
+"capital": 333
+},
+{
+"code": "TUR",
+"name": "Turkey",
+"continent": "Asia",
+"population": 83429615,
+"gdp_md": 761425,
+"provinces": [
+337,
+338,
+339,
+340,
+341,
+342
+],
+"capital": 339
+},
+{
+"code": "SWE",
+"name": "Sweden",
+"continent": "Europe",
+"population": 10285453,
+"gdp_md": 530883,
+"provinces": [
+343,
+344,
+345,
+346,
+347,
+348,
+349,
+350
+],
+"capital": 344
+},
+{
+"code": "TZA",
+"name": "Tanzania",
+"continent": "Africa",
+"population": 58005463,
+"gdp_md": 63177,
+"provinces": [
+351,
+352,
+353,
+354,
+355
+],
+"capital": 354
+},
+{
+"code": "CHL",
+"name": "Chile",
+"continent": "South America",
+"population": 18952038,
+"gdp_md": 282318,
+"provinces": [
+356,
+357,
+358,
+359,
+360
+],
+"capital": 359
+},
+{
+"code": "NGA",
+"name": "Nigeria",
+"continent": "Africa",
+"population": 200963599,
+"gdp_md": 448120,
+"provinces": [
+361,
+362,
+363,
+364
+],
+"capital": 363
+},
+{
+"code": "VEN",
+"name": "Venezuela",
+"continent": "South America",
+"population": 28515829,
+"gdp_md": 482359,
+"provinces": [
+365,
+366,
+367,
+368,
+369
+],
+"capital": 367
+},
+{
+"code": "NAM",
+"name": "Namibia",
+"continent": "Africa",
+"population": 2494530,
+"gdp_md": 12366,
+"provinces": [
+370,
+371,
+372,
+373
+],
+"capital": 370
+},
+{
+"code": "FRA",
+"name": "France",
+"continent": "Europe",
+"population": 67692632,
+"gdp_md": 2732886,
+"provinces": [
+374,
+375,
+376,
+377,
+378,
+379,
+380,
+381,
+382,
+383,
+384,
+385
+],
+"capital": 374
+},
+{
+"code": "UKR",
+"name": "Ukraine",
+"continent": "Europe",
+"population": 44385155,
+"gdp_md": 153781,
+"provinces": [
+386,
+387,
+388,
+389,
+390
+],
+"capital": 388
+},
+{
+"code": "MOZ",
+"name": "Mozambique",
+"continent": "Africa",
+"population": 30366036,
+"gdp_md": 15291,
+"provinces": [
+391,
+392,
+393,
+394
+],
+"capital": 391
+},
+{
+"code": "ZMB",
+"name": "Zambia",
+"continent": "Africa",
+"population": 17861030,
+"gdp_md": 23309,
+"provinces": [
+395,
+396,
+397,
+398
+],
+"capital": 395
+},
+{
+"code": "AFG",
+"name": "Afghanistan",
+"continent": "Asia",
+"population": 38041754,
+"gdp_md": 19291,
+"provinces": [
+399,
+400,
+401,
+402
+],
+"capital": 399
+},
+{
+"code": "FIN",
+"name": "Finland",
+"continent": "Europe",
+"population": 5550198,
+"gdp_md": 270859,
+"provinces": [
+403,
+404,
+405,
+406,
+407,
+408
+],
+"capital": 407
+},
+{
+"code": "MMR",
+"name": "Myanmar",
+"continent": "Asia",
+"population": 54045420,
+"gdp_md": 76085,
+"provinces": [
+409,
+410,
+411
+],
+"capital": 409
+},
+{
+"code": "MAR",
+"name": "Morocco",
+"continent": "Africa",
+"population": 37075022,
+"gdp_md": 120607,
+"provinces": [
+412,
+413,
+414,
+415
+],
+"capital": 412
+},
+{
+"code": "ESP",
+"name": "Spain",
+"continent": "Europe",
+"population": 47076781,
+"gdp_md": 1393490,
+"provinces": [
+416,
+417,
+418,
+419,
+420,
+421
+],
+"capital": 421
+},
+{
+"code": "MDG",
+"name": "Madagascar",
+"continent": "Africa",
+"population": 26969307,
+"gdp_md": 14114,
+"provinces": [
+422,
+423,
+424
+],
+"capital": 422
+},
+{
+"code": "SDS",
+"name": "S. Sudan",
+"continent": "Africa",
+"population": 11062113,
+"gdp_md": 11998,
+"provinces": [
+425,
+426,
+427
+],
+"capital": 426
+},
+{
+"code": "BWA",
+"name": "Botswana",
+"continent": "Africa",
+"population": 2303697,
+"gdp_md": 18340,
+"provinces": [
+428,
+429,
+430
+],
+"capital": 430
+},
+{
+"code": "CAF",
+"name": "Central African Rep.",
+"continent": "Africa",
+"population": 4745185,
+"gdp_md": 2220,
+"provinces": [
+431,
+432,
+433
+],
+"capital": 432
+},
+{
+"code": "TKM",
+"name": "Turkmenistan",
+"continent": "Asia",
+"population": 5942089,
+"gdp_md": 40761,
+"provinces": [
+434,
+435,
+436
+],
+"capital": 434
+},
+{
+"code": "UZB",
+"name": "Uzbekistan",
+"continent": "Asia",
+"population": 33580650,
+"gdp_md": 57921,
+"provinces": [
+437,
+438,
+439
+],
+"capital": 437
+},
+{
+"code": "KEN",
+"name": "Kenya",
+"continent": "Africa",
+"population": 52573973,
+"gdp_md": 95503,
+"provinces": [
+440,
+441,
+442
+],
+"capital": 442
+},
+{
+"code": "DEU",
+"name": "Germany",
+"continent": "Europe",
+"population": 83132799,
+"gdp_md": 3861123,
+"provinces": [
+443,
+444,
+445,
+446,
+447,
+448
+],
+"capital": 447
+},
+{
+"code": "THA",
+"name": "Thailand",
+"continent": "Asia",
+"population": 69625582,
+"gdp_md": 543548,
+"provinces": [
+449,
+450,
+451
+],
+"capital": 451
+},
+{
+"code": "IRQ",
+"name": "Iraq",
+"continent": "Asia",
+"population": 39309783,
+"gdp_md": 234094,
+"provinces": [
+452,
+453,
+454
+],
+"capital": 454
+},
+{
+"code": "POL",
+"name": "Poland",
+"continent": "Europe",
+"population": 37970874,
+"gdp_md": 595858,
+"provinces": [
+455,
+456,
+457,
+458
+],
+"capital": 455
+},
+{
+"code": "SOM",
+"name": "Somalia",
+"continent": "Africa",
+"population": 15288476,
+"gdp_md": 22555,
+"provinces": [
+459,
+460,
+461
+],
+"capital": 459
+},
+{
+"code": "YEM",
+"name": "Yemen",
+"continent": "Asia",
+"population": 29161922,
+"gdp_md": 22581,
+"provinces": [
+462,
+463
+],
+"capital": 463
+},
+{
+"code": "CMR",
+"name": "Cameroon",
+"continent": "Africa",
+"population": 25876380,
+"gdp_md": 39007,
+"provinces": [
+464,
+465
+],
+"capital": 464
+},
+{
+"code": "JPN",
+"name": "Japan",
+"continent": "Asia",
+"population": 126264931,
+"gdp_md": 5081769,
+"provinces": [
+466,
+467,
+468,
+469,
+470,
+471,
+472,
+473,
+474
+],
+"capital": 474
+},
+{
+"code": "PNG",
+"name": "Papua New Guinea",
+"continent": "Oceania",
+"population": 8776109,
+"gdp_md": 24829,
+"provinces": [
+475,
+476
+],
+"capital": 476
+},
+{
+"code": "PRY",
+"name": "Paraguay",
+"continent": "South America",
+"population": 7044636,
+"gdp_md": 38145,
+"provinces": [
+477,
+478
+],
+"capital": 477
+},
+{
+"code": "ZWE",
+"name": "Zimbabwe",
+"continent": "Africa",
+"population": 14645468,
+"gdp_md": 21440,
+"provinces": [
+479,
+480
+],
+"capital": 480
+},
+{
+"code": "ITA",
+"name": "Italy",
+"continent": "Europe",
+"population": 60297396,
+"gdp_md": 2003576,
+"provinces": [
+481,
+482,
+483,
+484,
+485
+],
+"capital": 482
+},
+{
+"code": "GBR",
+"name": "United Kingdom",
+"continent": "Europe",
+"population": 67317064,
+"gdp_md": 2860494,
+"provinces": [
+486,
+487,
+488,
+489,
+490,
+491,
+492,
+493,
+494,
+495,
+496,
+497,
+498
+],
+"capital": 488
+},
+{
+"code": "NZL",
+"name": "New Zealand",
+"continent": "Oceania",
+"population": 4936079,
+"gdp_md": 207182,
+"provinces": [
+499,
+500,
+501
+],
+"capital": 499
+},
+{
+"code": "BLR",
+"name": "Belarus",
+"continent": "Europe",
+"population": 9466856,
+"gdp_md": 63080,
+"provinces": [
+502,
+503
+],
+"capital": 503
+},
+{
+"code": "COG",
+"name": "Congo",
+"continent": "Africa",
+"population": 5380508,
+"gdp_md": 12267,
+"provinces": [
+504,
+505
+],
+"capital": 504
+},
+{
+"code": "VNM",
+"name": "Vietnam",
+"continent": "Asia",
+"population": 96462106,
+"gdp_md": 261921,
+"provinces": [
+506,
+507
+],
+"capital": 506
+},
+{
+"code": "ROU",
+"name": "Romania",
+"continent": "Europe",
+"population": 19356544,
+"gdp_md": 250077,
+"provinces": [
+508,
+509
+],
+"capital": 509
+},
+{
+"code": "OMN",
+"name": "Oman",
+"continent": "Asia",
+"population": 4974986,
+"gdp_md": 76331,
+"provinces": [
+510,
+511
+],
+"capital": 511
+},
+{
+"code": "MYS",
+"name": "Malaysia",
+"continent": "Asia",
+"population": 31949777,
+"gdp_md": 364681,
+"provinces": [
+512,
+513
+],
+"capital": 513
+},
+{
+"code": "CIV",
+"name": "C\u00f4te d'Ivoire",
+"continent": "Africa",
+"population": 25716544,
+"gdp_md": 58539,
+"provinces": [
+514,
+515
+],
+"capital": 515
+},
+{
+"code": "PHL",
+"name": "Philippines",
+"continent": "Asia",
+"population": 108116615,
+"gdp_md": 376795,
+"provinces": [
+516,
+517,
+518,
+519
+],
+"capital": 517
+},
+{
+"code": "BFA",
+"name": "Burkina Faso",
+"continent": "Africa",
+"population": 20321378,
+"gdp_md": 15990,
+"provinces": [
+520
+],
+"capital": 520
+},
+{
+"code": "KGZ",
+"name": "Kyrgyzstan",
+"continent": "Asia",
+"population": 6456900,
+"gdp_md": 8454,
+"provinces": [
+521
+],
+"capital": 521
+},
+{
+"code": "GAB",
+"name": "Gabon",
+"continent": "Africa",
+"population": 2172579,
+"gdp_md": 16874,
+"provinces": [
+522
+],
+"capital": 522
+},
+{
+"code": "ECU",
+"name": "Ecuador",
+"continent": "South America",
+"population": 17373662,
+"gdp_md": 107435,
+"provinces": [
+523
+],
+"capital": 523
+},
+{
+"code": "GIN",
+"name": "Guinea",
+"continent": "Africa",
+"population": 12771246,
+"gdp_md": 12296,
+"provinces": [
+524
+],
+"capital": 524
+},
+{
+"code": "UGA",
+"name": "Uganda",
+"continent": "Africa",
+"population": 44269594,
+"gdp_md": 35165,
+"provinces": [
+525
+],
+"capital": 525
+},
+{
+"code": "GHA",
+"name": "Ghana",
+"continent": "Africa",
+"population": 30417856,
+"gdp_md": 66983,
+"provinces": [
+526
+],
+"capital": 526
+},
+{
+"code": "LAO",
+"name": "Laos",
+"continent": "Asia",
+"population": 7169455,
+"gdp_md": 18173,
+"provinces": [
+527
+],
+"capital": 527
+},
+{
+"code": "ISL",
+"name": "Iceland",
+"continent": "Europe",
+"population": 361313,
+"gdp_md": 24188,
+"provinces": [
+528
+],
+"capital": 528
+},
+{
+"code": "SYR",
+"name": "Syria",
+"continent": "Asia",
+"population": 17070135,
+"gdp_md": 98830,
+"provinces": [
+529
+],
+"capital": 529
+},
+{
+"code": "GUY",
+"name": "Guyana",
+"continent": "South America",
+"population": 782766,
+"gdp_md": 5173,
+"provinces": [
+530
+],
+"capital": 530
+},
+{
+"code": "URY",
+"name": "Uruguay",
+"continent": "South America",
+"population": 3461734,
+"gdp_md": 56045,
+"provinces": [
+531
+],
+"capital": 531
+},
+{
+"code": "SEN",
+"name": "Senegal",
+"continent": "Africa",
+"population": 16296364,
+"gdp_md": 23578,
+"provinces": [
+532
+],
+"capital": 532
+},
+{
+"code": "TUN",
+"name": "Tunisia",
+"continent": "Africa",
+"population": 11694719,
+"gdp_md": 38796,
+"provinces": [
+533
+],
+"capital": 533
+},
+{
+"code": "KHM",
+"name": "Cambodia",
+"continent": "Asia",
+"population": 16486542,
+"gdp_md": 27089,
+"provinces": [
+534
+],
+"capital": 534
+},
+{
+"code": "TJK",
+"name": "Tajikistan",
+"continent": "Asia",
+"population": 9321018,
+"gdp_md": 8116,
+"provinces": [
+535
+],
+"capital": 535
+},
+{
+"code": "GRC",
+"name": "Greece",
+"continent": "Europe",
+"population": 10716322,
+"gdp_md": 209852,
+"provinces": [
+536
+],
+"capital": 536
+},
+{
+"code": "NPL",
+"name": "Nepal",
+"continent": "Asia",
+"population": 28608710,
+"gdp_md": 30641,
+"provinces": [
+537
+],
+"capital": 537
+},
+{
+"code": "PRK",
+"name": "North Korea",
+"continent": "Asia",
+"population": 25666161,
+"gdp_md": 40000,
+"provinces": [
+538,
+539,
+540
+],
+"capital": 540
+},
+{
+"code": "BGR",
+"name": "Bulgaria",
+"continent": "Europe",
+"population": 6975761,
+"gdp_md": 68558,
+"provinces": [
+541
+],
+"capital": 541
+},
+{
+"code": "BGD",
+"name": "Bangladesh",
+"continent": "Asia",
+"population": 163046161,
+"gdp_md": 302571,
+"provinces": [
+542
+],
+"capital": 542
+},
+{
+"code": "SUR",
+"name": "Suriname",
+"continent": "South America",
+"population": 581363,
+"gdp_md": 3697,
+"provinces": [
+543
+],
+"capital": 543
+},
+{
+"code": "HUN",
+"name": "Hungary",
+"continent": "Europe",
+"population": 9769949,
+"gdp_md": 163469,
+"provinces": [
+544
+],
+"capital": 544
+},
+{
+"code": "NIC",
+"name": "Nicaragua",
+"continent": "North America",
+"population": 6545502,
+"gdp_md": 12520,
+"provinces": [
+545
+],
+"capital": 545
+},
+{
+"code": "ERI",
+"name": "Eritrea",
+"continent": "Africa",
+"population": 6081196,
+"gdp_md": 2065,
+"provinces": [
+546
+],
+"capital": 546
+},
+{
+"code": "AUT",
+"name": "Austria",
+"continent": "Europe",
+"population": 8877067,
+"gdp_md": 445075,
+"provinces": [
+547
+],
+"capital": 547
+},
+{
+"code": "MWI",
+"name": "Malawi",
+"continent": "Africa",
+"population": 18628747,
+"gdp_md": 7666,
+"provinces": [
+548
+],
+"capital": 548
+},
+{
+"code": "CZE",
+"name": "Czechia",
+"continent": "Europe",
+"population": 10669709,
+"gdp_md": 250680,
+"provinces": [
+549
+],
+"capital": 549
+},
+{
+"code": "KOR",
+"name": "South Korea",
+"continent": "Asia",
+"population": 51709098,
+"gdp_md": 1646739,
+"provinces": [
+550,
+551,
+552
+],
+"capital": 550
+},
+{
+"code": "BEN",
+"name": "Benin",
+"continent": "Africa",
+"population": 11801151,
+"gdp_md": 14390,
+"provinces": [
+553
+],
+"capital": 553
+},
+{
+"code": "PRT",
+"name": "Portugal",
+"continent": "Europe",
+"population": 10269417,
+"gdp_md": 238785,
+"provinces": [
+554
+],
+"capital": 554
+},
+{
+"code": "CUB",
+"name": "Cuba",
+"continent": "North America",
+"population": 11333483,
+"gdp_md": 100023,
+"provinces": [
+555,
+556
+],
+"capital": 556
+},
+{
+"code": "LVA",
+"name": "Latvia",
+"continent": "Europe",
+"population": 1912789,
+"gdp_md": 34102,
+"provinces": [
+557
+],
+"capital": 557
+},
+{
+"code": "HND",
+"name": "Honduras",
+"continent": "North America",
+"population": 9746117,
+"gdp_md": 25095,
+"provinces": [
+558
+],
+"capital": 558
+},
+{
+"code": "IRL",
+"name": "Ireland",
+"continent": "Europe",
+"population": 4941444,
+"gdp_md": 388698,
+"provinces": [
+559
+],
+"capital": 559
+},
+{
+"code": "LTU",
+"name": "Lithuania",
+"continent": "Europe",
+"population": 2786844,
+"gdp_md": 54627,
+"provinces": [
+560
+],
+"capital": 560
+},
+{
+"code": "AZE",
+"name": "Azerbaijan",
+"continent": "Asia",
+"population": 10023318,
+"gdp_md": 48047,
+"provinces": [
+561
+],
+"capital": 561
+},
+{
+"code": "GTM",
+"name": "Guatemala",
+"continent": "North America",
+"population": 16604026,
+"gdp_md": 76710,
+"provinces": [
+562
+],
+"capital": 562
+},
+{
+"code": "SRB",
+"name": "Serbia",
+"continent": "Europe",
+"population": 8739223,
+"gdp_md": 59401,
+"provinces": [
+563,
+564
+],
+"capital": 563
+},
+{
+"code": "JOR",
+"name": "Jordan",
+"continent": "Asia",
+"population": 10101694,
+"gdp_md": 44502,
+"provinces": [
+565
+],
+"capital": 565
+},
+{
+"code": "LBR",
+"name": "Liberia",
+"continent": "Africa",
+"population": 4937374,
+"gdp_md": 3070,
+"provinces": [
+566
+],
+"capital": 566
+},
+{
+"code": "GEO",
+"name": "Georgia",
+"continent": "Asia",
+"population": 3720382,
+"gdp_md": 17477,
+"provinces": [
+567
+],
+"capital": 567
+},
+{
+"code": "EST",
+"name": "Estonia",
+"continent": "Europe",
+"population": 1326590,
+"gdp_md": 31471,
+"provinces": [
+568
+],
+"capital": 568
+},
+{
+"code": "ARE",
+"name": "United Arab Emirates",
+"continent": "Asia",
+"population": 9770529,
+"gdp_md": 421142,
+"provinces": [
+569
+],
+"capital": 569
+},
+{
+"code": "HRV",
+"name": "Croatia",
+"continent": "Europe",
+"population": 4067500,
+"gdp_md": 60752,
+"provinces": [
+570
+],
+"capital": 570
+},
+{
+"code": "PAN",
+"name": "Panama",
+"continent": "North America",
+"population": 4246439,
+"gdp_md": 66800,
+"provinces": [
+571
+],
+"capital": 571
+},
+{
+"code": "SVK",
+"name": "Slovakia",
+"continent": "Europe",
+"population": 5454073,
+"gdp_md": 105079,
+"provinces": [
+572
+],
+"capital": 572
+},
+{
+"code": "SLE",
+"name": "Sierra Leone",
+"continent": "Africa",
+"population": 7813215,
+"gdp_md": 4121,
+"provinces": [
+573
+],
+"capital": 573
+},
+{
+"code": "BIH",
+"name": "Bosnia and Herz.",
+"continent": "Europe",
+"population": 3301000,
+"gdp_md": 20164,
+"provinces": [
+574
+],
+"capital": 574
+},
+{
+"code": "LKA",
+"name": "Sri Lanka",
+"continent": "Asia",
+"population": 21803000,
+"gdp_md": 84008,
+"provinces": [
+575
+],
+"capital": 575
+},
+{
+"code": "NLD",
+"name": "Netherlands",
+"continent": "Europe",
+"population": 17637435,
+"gdp_md": 914392,
+"provinces": [
+576,
+577,
+578
+],
+"capital": 576
+},
+{
+"code": "CHE",
+"name": "Switzerland",
+"continent": "Europe",
+"population": 8574832,
+"gdp_md": 703082,
+"provinces": [
+579
+],
+"capital": 579
+},
+{
+"code": "TGO",
+"name": "Togo",
+"continent": "Africa",
+"population": 8082366,
+"gdp_md": 5490,
+"provinces": [
+580
+],
+"capital": 580
+},
+{
+"code": "CRI",
+"name": "Costa Rica",
+"continent": "North America",
+"population": 5047561,
+"gdp_md": 61801,
+"provinces": [
+581
+],
+"capital": 581
+},
+{
+"code": "DOM",
+"name": "Dominican Rep.",
+"continent": "North America",
+"population": 10738958,
+"gdp_md": 88941,
+"provinces": [
+582
+],
+"capital": 582
+},
+{
+"code": "MDA",
+"name": "Moldova",
+"continent": "Europe",
+"population": 2657637,
+"gdp_md": 11968,
+"provinces": [
+583
+],
+"capital": 583
+},
+{
+"code": "BEL",
+"name": "Belgium",
+"continent": "Europe",
+"population": 11484055,
+"gdp_md": 533097,
+"provinces": [
+584
+],
+"capital": 584
+},
+{
+"code": "BTN",
+"name": "Bhutan",
+"continent": "Asia",
+"population": 763092,
+"gdp_md": 2530,
+"provinces": [
+585
+],
+"capital": 585
+},
+{
+"code": "TWN",
+"name": "Taiwan",
+"continent": "Asia",
+"population": 23568378,
+"gdp_md": 1127000,
+"provinces": [
+586
+],
+"capital": 586
+},
+{
+"code": "ARM",
+"name": "Armenia",
+"continent": "Asia",
+"population": 2957731,
+"gdp_md": 13672,
+"provinces": [
+587
+],
+"capital": 587
+},
+{
+"code": "ALB",
+"name": "Albania",
+"continent": "Europe",
+"population": 2854191,
+"gdp_md": 15279,
+"provinces": [
+588
+],
+"capital": 588
+},
+{
+"code": "LSO",
+"name": "Lesotho",
+"continent": "Africa",
+"population": 2125268,
+"gdp_md": 2376,
+"provinces": [
+589
+],
+"capital": 589
+},
+{
+"code": "MKD",
+"name": "North Macedonia",
+"continent": "Europe",
+"population": 2083459,
+"gdp_md": 12547,
+"provinces": [
+590
+],
+"capital": 590
+},
+{
+"code": "GNB",
+"name": "Guinea-Bissau",
+"continent": "Africa",
+"population": 1920922,
+"gdp_md": 1339,
+"provinces": [
+591
+],
+"capital": 591
+},
+{
+"code": "SVN",
+"name": "Slovenia",
+"continent": "Europe",
+"population": 2087946,
+"gdp_md": 54174,
+"provinces": [
+592
+],
+"capital": 592
+},
+{
+"code": "HTI",
+"name": "Haiti",
+"continent": "North America",
+"population": 11263077,
+"gdp_md": 14332,
+"provinces": [
+593
+],
+"capital": 593
+},
+{
+"code": "BDI",
+"name": "Burundi",
+"continent": "Africa",
+"population": 11530580,
+"gdp_md": 3012,
+"provinces": [
+594
+],
+"capital": 594
+},
+{
+"code": "GNQ",
+"name": "Eq. Guinea",
+"continent": "Africa",
+"population": 1355986,
+"gdp_md": 11026,
+"provinces": [
+595
+],
+"capital": 595
+},
+{
+"code": "SLB",
+"name": "Solomon Is.",
+"continent": "Oceania",
+"population": 669823,
+"gdp_md": 1589,
+"provinces": [
+596
+],
+"capital": 596
+},
+{
+"code": "ISR",
+"name": "Israel",
+"continent": "Asia",
+"population": 13738606,
+"gdp_md": 410928,
+"provinces": [
+597,
+598
+],
+"capital": 598
+},
+{
+"code": "RWA",
+"name": "Rwanda",
+"continent": "Africa",
+"population": 12626950,
+"gdp_md": 10354,
+"provinces": [
+599
+],
+"capital": 599
+},
+{
+"code": "BLZ",
+"name": "Belize",
+"continent": "North America",
+"population": 390353,
+"gdp_md": 1879,
+"provinces": [
+600
+],
+"capital": 600
+},
+{
+"code": "DJI",
+"name": "Djibouti",
+"continent": "Africa",
+"population": 973560,
+"gdp_md": 3324,
+"provinces": [
+601
+],
+"capital": 601
+},
+{
+"code": "SLV",
+"name": "El Salvador",
+"continent": "North America",
+"population": 6453553,
+"gdp_md": 27022,
+"provinces": [
+602
+],
+"capital": 602
+},
+{
+"code": "KWT",
+"name": "Kuwait",
+"continent": "Asia",
+"population": 4207083,
+"gdp_md": 134628,
+"provinces": [
+603
+],
+"capital": 603
+},
+{
+"code": "FJI",
+"name": "Fiji",
+"continent": "Oceania",
+"population": 889953,
+"gdp_md": 5496,
+"provinces": [
+604
+],
+"capital": 604
+},
+{
+"code": "SWZ",
+"name": "eSwatini",
+"continent": "Africa",
+"population": 1148130,
+"gdp_md": 4471,
+"provinces": [
+605
+],
+"capital": 605
+},
+{
+"code": "MNE",
+"name": "Montenegro",
+"continent": "Europe",
+"population": 622137,
+"gdp_md": 5542,
+"provinces": [
+606
+],
+"capital": 606
+},
+{
+"code": "TLS",
+"name": "Timor-Leste",
+"continent": "Asia",
+"population": 1293119,
+"gdp_md": 2017,
+"provinces": [
+607
+],
+"capital": 607
+},
+{
+"code": "BHS",
+"name": "Bahamas",
+"continent": "North America",
+"population": 389482,
+"gdp_md": 13578,
+"provinces": [
+608
+],
+"capital": 608
+},
+{
+"code": "QAT",
+"name": "Qatar",
+"continent": "Asia",
+"population": 2832067,
+"gdp_md": 175837,
+"provinces": [
+609
+],
+"capital": 609
+},
+{
+"code": "LBN",
+"name": "Lebanon",
+"continent": "Asia",
+"population": 6855713,
+"gdp_md": 51991,
+"provinces": [
+610
+],
+"capital": 610
+},
+{
+"code": "VUT",
+"name": "Vanuatu",
+"continent": "Oceania",
+"population": 299882,
+"gdp_md": 934,
+"provinces": [
+611
+],
+"capital": 611
+},
+{
+"code": "JAM",
+"name": "Jamaica",
+"continent": "North America",
+"population": 2948279,
+"gdp_md": 16458,
+"provinces": [
+612
+],
+"capital": 612
+},
+{
+"code": "GMB",
+"name": "Gambia",
+"continent": "Africa",
+"population": 2347706,
+"gdp_md": 1826,
+"provinces": [
+613
+],
+"capital": 613
+},
+{
+"code": "CYP",
+"name": "Cyprus",
+"continent": "Asia",
+"population": 1524575,
+"gdp_md": 28548,
+"provinces": [
+614,
+615
+],
+"capital": 615
+},
+{
+"code": "BRN",
+"name": "Brunei",
+"continent": "Asia",
+"population": 433285,
+"gdp_md": 13469,
+"provinces": [
+616
+],
+"capital": 616
+},
+{
+"code": "TTO",
+"name": "Trinidad and Tobago",
+"continent": "North America",
+"population": 1394973,
+"gdp_md": 24269,
+"provinces": [
+617
+],
+"capital": 617
+},
+{
+"code": "LUX",
+"name": "Luxembourg",
+"continent": "Europe",
+"population": 619896,
+"gdp_md": 71104,
+"provinces": [
+618
+],
+"capital": 618
+},
+{
+"code": "CPV",
+"name": "Cabo Verde",
+"continent": "Africa",
+"population": 549935,
+"gdp_md": 1981,
+"provinces": [
+619
+],
+"capital": 619
+},
+{
+"code": "WSM",
+"name": "Samoa",
+"continent": "Oceania",
+"population": 197097,
+"gdp_md": 852,
+"provinces": [
+620
+],
+"capital": 620
+},
+{
+"code": "MUS",
+"name": "Mauritius",
+"continent": "Seven seas (open ocean)",
+"population": 1265711,
+"gdp_md": 14048,
+"provinces": [
+621
+],
+"capital": 621
+},
+{
+"code": "COM",
+"name": "Comoros",
+"continent": "Africa",
+"population": 850886,
+"gdp_md": 1165,
+"provinces": [
+622
+],
+"capital": 622
+},
+{
+"code": "STP",
+"name": "S\u00e3o Tom\u00e9 and Principe",
+"continent": "Africa",
+"population": 215056,
+"gdp_md": 418,
+"provinces": [
+623
+],
+"capital": 623
+},
+{
+"code": "KIR",
+"name": "Kiribati",
+"continent": "Oceania",
+"population": 117606,
+"gdp_md": 194,
+"provinces": [
+624
+],
+"capital": 624
+},
+{
+"code": "DMA",
+"name": "Dominica",
+"continent": "North America",
+"population": 71808,
+"gdp_md": 582,
+"provinces": [
+625
+],
+"capital": 625
+},
+{
+"code": "BHR",
+"name": "Bahrain",
+"continent": "Asia",
+"population": 1641172,
+"gdp_md": 38574,
+"provinces": [
+626
+],
+"capital": 626
+},
+{
+"code": "AND",
+"name": "Andorra",
+"continent": "Europe",
+"population": 77142,
+"gdp_md": 3154,
+"provinces": [
+627
+],
+"capital": 627
+},
+{
+"code": "LCA",
+"name": "Saint Lucia",
+"continent": "North America",
+"population": 182790,
+"gdp_md": 2122,
+"provinces": [
+628
+],
+"capital": 628
+},
+{
+"code": "FSM",
+"name": "Micronesia",
+"continent": "Oceania",
+"population": 113815,
+"gdp_md": 401,
+"provinces": [
+629
+],
+"capital": 629
+},
+{
+"code": "SGP",
+"name": "Singapore",
+"continent": "Asia",
+"population": 5703569,
+"gdp_md": 372062,
+"provinces": [
+630
+],
+"capital": 630
+},
+{
+"code": "TON",
+"name": "Tonga",
+"continent": "Oceania",
+"population": 104494,
+"gdp_md": 512,
+"provinces": [
+631
+],
+"capital": 631
+},
+{
+"code": "ATG",
+"name": "Antigua and Barb.",
+"continent": "North America",
+"population": 97118,
+"gdp_md": 1661,
+"provinces": [
+632
+],
+"capital": 632
+},
+{
+"code": "BRB",
+"name": "Barbados",
+"continent": "North America",
+"population": 287025,
+"gdp_md": 5209,
+"provinces": [
+633
+],
+"capital": 633
+},
+{
+"code": "PLW",
+"name": "Palau",
+"continent": "Oceania",
+"population": 18008,
+"gdp_md": 268,
+"provinces": [
+634
+],
+"capital": 634
+},
+{
+"code": "MLT",
+"name": "Malta",
+"continent": "Europe",
+"population": 502653,
+"gdp_md": 14989,
+"provinces": [
+635
+],
+"capital": 635
+},
+{
+"code": "VCT",
+"name": "St. Vin. and Gren.",
+"continent": "North America",
+"population": 110589,
+"gdp_md": 824,
+"provinces": [
+636
+],
+"capital": 636
+},
+{
+"code": "GRD",
+"name": "Grenada",
+"continent": "North America",
+"population": 112003,
+"gdp_md": 1210,
+"provinces": [
+637
+],
+"capital": 637
+},
+{
+"code": "KNA",
+"name": "St. Kitts and Nevis",
+"continent": "North America",
+"population": 52834,
+"gdp_md": 1053,
+"provinces": [
+638
+],
+"capital": 638
+},
+{
+"code": "MHL",
+"name": "Marshall Is.",
+"continent": "Oceania",
+"population": 58791,
+"gdp_md": 221,
+"provinces": [
+639
+],
+"capital": 639
+},
+{
+"code": "LIE",
+"name": "Liechtenstein",
+"continent": "Europe",
+"population": 38019,
+"gdp_md": 6876,
+"provinces": [
+640
+],
+"capital": 640
+},
+{
+"code": "MDV",
+"name": "Maldives",
+"continent": "Seven seas (open ocean)",
+"population": 530953,
+"gdp_md": 5642,
+"provinces": [
+641
+],
+"capital": 641
+}
+]
