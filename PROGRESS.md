@@ -27,3 +27,12 @@
 - 17:33 all 4 MP4s recorded+inspected (campaign 17s, diplomacy 12s, era 8.5s, battle 44s w/ result panel). Tests 61/61. NEXT: export, docs, package.
 - 17:40 exports rebuilt (build/ had vanished) + Linux smoke OK; FEATURE_STATUS updated; packaging.
 - 17:42 DONE: deliverables repackaged (all 4 MP4s, 25 PNGs, 3 zips).
+
+# v0.2 phase (lead dev) — started 2026-10-22 19:05 EDT
+- Step 0 DONE: git repo (main, tag v0.1), branches lead-dev + graphics, worktree /workspace/ironcrowns-lead (lead-dev). COLLAB.md committed. Graphics = BJORN at /workspace/iron-crowns-visual (do not edit).
+- NEXT: import worktree, task 1 save/load.
+- [x] Task 1 save/load: Sim.serialize_state/apply_state, binary Variant saves in user://saves (meta + state), BattleSim.to_dict/from_dict.
+  - Test `--only=save` 8/8 PASS (deep equality + 180-day forward determinism, missing slot, list).
+  - UI: F5 quicksave, F9 quickload, ☰ Menu (Esc) window with quick save/load, new slot, saved games list; title menu lists saves with Load.
+  - Demo `--demo=saveload` verified (shots/v02/saveload_*.png): saved 31 Jan 1800 -> advanced to 1 May -> F9 -> 31 Jan 1800.
+  - Watched battles load as unwatched; awaiting (deploy) battles re-show the deploy window.

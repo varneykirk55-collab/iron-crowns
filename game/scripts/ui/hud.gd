@@ -58,6 +58,7 @@ func _ready() -> void:
 	_build_econ()
 	_build_deploy()
 	_build_popup()
+	_build_game_menu()
 	toast = Label.new()
 	toast.add_theme_font_size_override("font_size", 22)
 	toast.add_theme_color_override("font_color", PARCH)
@@ -217,6 +218,7 @@ func _build_top_bar() -> void:
 	lbl_stab = L("", 16); lbl_stab.tooltip_text = "Stability: driven by citizens' needs, taxes and war"; lbl_stab.mouse_filter = Control.MOUSE_FILTER_PASS; h.add_child(lbl_stab)
 	lbl_exh = L("", 16); lbl_exh.tooltip_text = "War exhaustion"; lbl_exh.mouse_filter = Control.MOUSE_FILTER_PASS; h.add_child(lbl_exh)
 	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(sp)
+	h.add_child(B("☰ Menu", func(): toggle_game_menu(), false, "Save, load, settings (Esc)"))
 	h.add_child(B("Diplomacy (F1)", func(): toggle_diplomacy()))
 	h.add_child(B("Economy & Army (F2)", func(): toggle_economy()))
 	lbl_era = L("", 16, GOLD); h.add_child(lbl_era)
@@ -409,6 +411,58 @@ func _on_event(ev: Dictionary) -> void:
 	log_text.append_text("[color=#9a9080]%s[/color]  [color=%s]%s[/color]\n" % [ev["date"], col, ev["text"]])
 	if ev["kind"] in ["war", "peace", "capture"] and ev["nations"].has(Sim.player):
 		show_toast(ev["text"])
+
+# ------------------------------------------------------------------ game menu (save / load / settings)
+var menu_win: PanelContainer
+var menu_box: VBoxContainer
+
+func _build_game_menu() -> void:
+	var w := _window(560, 300)
+	menu_win = w[0]
+	menu_box = w[1]
+
+func toggle_game_menu() -> void:
+	menu_win.visible = not menu_win.visible
+	if menu_win.visible:
+		refresh_game_menu()
+
+func refresh_game_menu() -> void:
+	clear(menu_box)
+	var hdr := row([title("Campaign Menu")])
+	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hdr.add_child(sp)
+	hdr.add_child(B("Close", func(): menu_win.visible = false))
+	menu_box.add_child(hdr)
+	menu_box.add_child(L("%s · %s · %s" % [Sim.nations[Sim.player]["name"], Sim.date_string(), GameData.eras[Sim.era]["name"]], 14, DIM))
+	var sv := row([B("Quick save (F5)", func(): main.save_slot("quicksave"); refresh_game_menu()),
+		B("Quick load (F9)", func(): menu_win.visible = false; main.load_slot("quicksave"), not FileAccess.file_exists(Sim.save_path("quicksave"))),
+		B("Save to new slot", func(): main.save_slot("%s_%d" % [Sim.player, Time.get_unix_time_from_system()]); refresh_game_menu())])
+	menu_box.add_child(sv)
+	menu_box.add_child(HSeparator.new())
+	menu_box.add_child(L("Saved games", 16, GOLD))
+	var saves := Sim.list_saves()
+	if saves.is_empty():
+		menu_box.add_child(L("No saves yet.", 14, DIM))
+	for m in saves.slice(0, 8):
+		var slot: String = m["slot"]
+		var when := Time.get_datetime_string_from_unix_time(int(m["saved_unix"]) + int(Time.get_time_zone_from_system()["bias"]) * 60, true)
+		menu_box.add_child(row([L("%s — %s, %s" % [slot, m["nation"], m["date"]], 14), L(when, 12, DIM),
+			B("Load", func(): menu_win.visible = false; main.load_slot(slot))]))
+	if main.has_method("build_settings_rows"):
+		menu_box.add_child(HSeparator.new())
+		main.build_settings_rows(menu_box, self)
+	menu_box.add_child(HSeparator.new())
+	menu_box.add_child(row([B("Quit to desktop", func(): get_tree().quit())]))
+
+func on_game_loaded() -> void:
+	for w in [diplo_win, econ_win, popup, menu_win, deploy_win]:
+		if w: w.visible = false
+	log_text.clear()
+	var evs: Array = Sim.event_log.filter(func(e): return Sim.player_relevant(e))
+	for ev in evs.slice(maxi(0, evs.size() - 40)):
+		var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090"}.get(ev["kind"], "#e8e0c8")
+		log_text.append_text("[color=#9a9080]%s[/color]  [color=%s]%s[/color]\n" % [ev["date"], col, ev["text"]])
+	sel_pid = -1; sel_army = -1
+	refresh_top()
 
 # ------------------------------------------------------------------ diplomacy
 func _build_diplo() -> void:
@@ -811,4 +865,4 @@ func _descendants(n: Node) -> Array:
 	return out
 
 func any_window_open() -> bool:
-	return diplo_win.visible or econ_win.visible or deploy_win.visible or popup.visible
+	return diplo_win.visible or econ_win.visible or deploy_win.visible or popup.visible or menu_win.visible

@@ -35,6 +35,8 @@ func _run() -> void:
 		test_era("SWE")
 	if only == "" or only == "continuity":
 		test_continuity()
+	if only == "" or only == "save":
+		test_save_load()
 	var summary := {"passed": results.size() - fails, "failed": fails, "total": results.size(), "seconds": (Time.get_ticks_msec() - t0) / 1000.0,
 		"godot": Engine.get_version_info()["string"], "results": results}
 	var f := FileAccess.open(out_path, FileAccess.WRITE)
@@ -325,3 +327,71 @@ func test_continuity() -> void:
 	Sim.battle_resolved.disconnect(cb)
 	check("watched battle resolves in real time (15-85 s)", b["done"] and t_real > 15.0 and t_real < 85.0, "%.1f s of real time, winner side %d" % [t_real, b["result"]["winner"]])
 	check("other battles/events continued meanwhile (none skipped)", Sim.day > day0 + 30, "other battles resolved meanwhile: %d, log entries %d" % [other_resolved[0], Sim.event_log.size()])
+
+# ---------------------------------------------------------------- save / load (v0.2)
+func _state_diff(a: Dictionary, b: Dictionary) -> String:
+	var out: Array = []
+	for k in a.keys():
+		if not b.has(k) or var_to_bytes(a[k]) != var_to_bytes(b[k]):
+			out.append(str(k))
+	for k in b.keys():
+		if not a.has(k):
+			out.append("+" + str(k))
+	return ",".join(out)
+
+func test_save_load() -> void:
+	print("== Save / load ==")
+	Sim.auto_deploy = true
+	Sim.auto_respond_player = "decline"
+	Sim.new_game("SWE", 1800, 11)
+	# make the world busy: wars, sieges, ongoing battles
+	var tgt := ""
+	for o in Sim.neighbors_of("SWE"):
+		if Sim.can_declare_war("SWE", o)["ok"]:
+			tgt = o; break
+	if tgt != "":
+		Sim.declare_war("SWE", tgt)
+		for a in Sim.armies.values():
+			if a["owner"] == "SWE":
+				Sim.order_move(a["id"], Sim.nations[tgt]["capital"])
+	Sim.advance_days(120)
+	var waited := 0
+	while waited < 600:
+		var live := Sim.battles.values().filter(func(b): return not b["done"] and b["sim"] != null and b["sim"].t > 0.0)
+		if live.size() > 0 and Sim.wars.size() > 0:
+			break
+		Sim.tick_day(); waited += 1
+	var n_days := Sim.day
+	var live_b := Sim.battles.values().filter(func(b): return not b["done"] and b["sim"] != null).size()
+	check("save: campaign state is non-trivial at save time", Sim.wars.size() > 0 and live_b > 0,
+		"day %d (%s), wars %d, battles in progress %d, armies %d, treaties %d, sieges %d" % [n_days, Sim.date_string(), Sim.wars.size(), live_b, Sim.armies.size(), Sim.treaties.size(), Sim.sieges.size()])
+	var snap := Sim.serialize_state()
+	var r := Sim.save_game("test_slot")
+	check("save: write user://saves/test_slot.save", r["ok"] and FileAccess.file_exists(r.get("path", "")), r["msg"] + " size %d B" % (FileAccess.get_file_as_bytes(r.get("path", "")).size() if r["ok"] else 0))
+	var meta := Sim.read_meta(Sim.save_path("test_slot"))
+	check("save: metadata header readable", meta.get("player", "") == "SWE" and meta.get("date", "") == Sim.date_string(), str(meta))
+	# reference run: continue M days from the in-memory state
+	var M := 180
+	Sim.advance_days(M)
+	var ref_after := Sim.serialize_state()
+	# fresh load: wipe everything by starting an unrelated game, then load
+	Sim.new_game("JPN", 1500, 99)
+	var lr := Sim.load_game("test_slot")
+	var loaded := Sim.serialize_state()
+	var d1 := _state_diff(snap, loaded)
+	check("save: loaded state deep-equals saved state", lr["ok"] and d1 == "", lr["msg"] + ((" differs: " + d1) if d1 != "" else ", %d bytes identical" % var_to_bytes(snap).size()))
+	var bs_ok := true
+	for bid in Sim.battles.keys():
+		var b: Dictionary = Sim.battles[bid]
+		if b["sim"] != null and not (b["sim"] is BattleSim):
+			bs_ok = false
+	check("save: in-progress battles restored as live BattleSim objects", bs_ok and Sim.battles.size() == snap["battles"].size(), "%d battles" % Sim.battles.size())
+	Sim.advance_days(M)
+	var load_after := Sim.serialize_state()
+	var d2 := _state_diff(ref_after, load_after)
+	check("save: determinism, original and loaded runs identical after %d more days" % M, d2 == "",
+		("differs: " + d2) if d2 != "" else "both at %s, %d armies, %d battles, %d events" % [Sim.date_string(), Sim.armies.size(), Sim.battles.size(), Sim.event_log.size()])
+	check("save: missing slot reports an error", not Sim.load_game("no_such_slot")["ok"], "")
+	var listed := Sim.list_saves().any(func(m): return m["slot"] == "test_slot")
+	check("save: slot appears in save list", listed, "")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Sim.save_path("test_slot")))

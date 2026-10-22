@@ -346,6 +346,13 @@ func _make_army_node(a: Dictionary) -> Node3D:
 	add_child(root)
 	return root
 
+## Drop all army marker nodes (after loading a save, army ids can map to different armies).
+func reset_markers() -> void:
+	for aid in army_nodes.keys():
+		army_nodes[aid].queue_free()
+	army_nodes.clear()
+	selected_army = -1; path_army = -1
+
 func _refresh_ships() -> void:
 	for aid in army_nodes.keys():
 		var ship: Node3D = army_nodes[aid].get_node("Ship")

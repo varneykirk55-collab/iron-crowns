@@ -123,6 +123,14 @@ func _build_menu() -> void:
 		b.add_child(bv)
 		b.pressed.connect(func(): _start_game(c, years.get_selected_id()))
 		h.add_child(b)
+	var saves := Sim.list_saves()
+	if not saves.is_empty():
+		var ll := Label.new(); ll.text = "Load a saved campaign"; v.add_child(ll)
+		for m in saves.slice(0, 4):
+			var slot: String = m["slot"]
+			var lb := Button.new(); lb.text = "Load  %s — %s, %s (%s)" % [slot, m["nation"], m["date"], m["era"]]
+			lb.pressed.connect(func(): load_slot(slot))
+			v.add_child(lb)
 	var help := Label.new()
 	help.text = "Left-drag pan · wheel zoom · middle-drag or Q/E orbit · left-click select · right-click move army\nSpace pause · 1-5 speed · F1 diplomacy · F2 economy · Esc close windows"
 	help.add_theme_font_size_override("font_size", 12); help.add_theme_color_override("font_color", Hud.DIM); help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -136,6 +144,14 @@ func _start_game(code: String, year: int, seed: int = 1, doy: int = 0) -> void:
 	Sim.new_game(code, year, seed, doy)
 	map.lut_dirty = true; map.labels_dirty = true
 	map.apply_era()
+	_ensure_hud()
+	cam.input_enabled = true
+	var cp := GameData.node_world(Sim.nations[code]["capital"])
+	cam.look_at_world(cp, 160.0, true)
+	cam.fly_to(cp, 42.0, 2.0)
+	select_province(Sim.nations[code]["capital"])
+
+func _ensure_hud() -> void:
 	if hud_layer == null:
 		hud_layer = CanvasLayer.new(); hud_layer.layer = 10
 		add_child(hud_layer)
@@ -143,11 +159,41 @@ func _start_game(code: String, year: int, seed: int = 1, doy: int = 0) -> void:
 		hud_layer.add_child(hud)
 		hud.deploy_chosen.connect(_on_deploy_chosen)
 		hud.focus_world.connect(func(p): cam.fly_to(p, 24.0, 1.0))
+
+# ------------------------------------------------------------------ save / load
+func save_slot(slot: String = "quicksave") -> Dictionary:
+	if menu_layer != null or not Sim.running:
+		return {"ok": false, "msg": "No campaign to save"}
+	var r := Sim.save_game(slot)
+	if hud: hud.show_toast(r["msg"], 2.5)
+	return r
+
+func load_slot(slot: String = "quicksave") -> Dictionary:
+	if in_battle or transitioning:
+		var r0 := {"ok": false, "msg": "Leave the battle before loading"}
+		if hud: hud.show_toast(r0["msg"], 2.5)
+		return r0
+	var r := Sim.load_game(slot)
+	if not r["ok"]:
+		if hud: hud.show_toast(r["msg"], 2.5)
+		return r
+	if menu_layer:
+		menu_layer.queue_free(); menu_layer = null
+	map.reset_markers()
+	map.lut_dirty = true; map.labels_dirty = true
+	map.apply_era()
+	_ensure_hud()
+	hud.on_game_loaded()
 	cam.input_enabled = true
-	var cp := GameData.node_world(Sim.nations[code]["capital"])
-	cam.look_at_world(cp, 160.0, true)
-	cam.fly_to(cp, 42.0, 2.0)
-	select_province(Sim.nations[code]["capital"])
+	var cp := GameData.node_world(Sim.nations[Sim.player]["capital"])
+	cam.look_at_world(cp, 42.0, true)
+	select_province(Sim.nations[Sim.player]["capital"])
+	hud.show_toast(r["msg"], 2.5)
+	for bid in Sim.battles.keys():
+		if Sim.battles[bid]["awaiting"]:
+			_on_battle_started(bid)
+			break
+	return r
 
 # ------------------------------------------------------------------ selection / commands
 func select_province(pid: int) -> void:
@@ -171,8 +217,13 @@ func _unhandled_input(ev: InputEvent) -> void:
 			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5: Sim.set_speed(ev.keycode - KEY_0)
 			KEY_F1: hud.toggle_diplomacy()
 			KEY_F2: hud.toggle_economy()
+			KEY_F5: save_slot("quicksave")
+			KEY_F9: load_slot("quicksave")
 			KEY_ESCAPE:
-				hud.diplo_win.visible = false; hud.econ_win.visible = false
+				if hud.any_window_open():
+					hud.diplo_win.visible = false; hud.econ_win.visible = false; hud.menu_win.visible = false
+				else:
+					hud.toggle_game_menu()
 	if ev is InputEventMouseButton and ev.pressed:
 		_press_pos = ev.position
 	var consumed = cam.handle_input(ev)
@@ -341,6 +392,21 @@ func _start_demo(kind: String) -> void:
 				[0.5, func(): get_tree().quit()]]
 			for i in range(3, demo_steps.size()):
 				demo_steps[i][0] = -demo_steps[i][0] - 100.0   # relative-delay markers after the wait
+		"saveload":
+			_start_game(code, year, 5)
+			Sim.advance_days(30)
+			Sim.set_speed(0)
+			var cp4 := GameData.node_world(Sim.nations[code]["capital"])
+			demo_steps = [
+				[0.1, func(): cam.fly_t = -1.0; cam.look_at_world(cp4, 55.0, true)],
+				[1.0, func(): demo_state["saved_date"] = Sim.date_string(); _demo_key(KEY_F5)],
+				[1.6, func(): shot("saveload_%s_quicksave" % code)],
+				[2.0, func(): Sim.advance_days(90); demo_state["later_date"] = Sim.date_string()],
+				[2.5, func(): _demo_key(KEY_ESCAPE)],
+				[3.5, func(): shot("saveload_%s_menu" % code)],
+				[4.0, func(): _demo_key(KEY_F9)],
+				[5.0, func(): shot("saveload_%s_loaded" % code); print("SAVELOAD saved=%s later=%s after_load=%s ok=%s" % [demo_state["saved_date"], demo_state["later_date"], Sim.date_string(), str(Sim.date_string() == demo_state["saved_date"])])],
+				[5.5, func(): get_tree().quit()]]
 		"battle":
 			_start_game(code, year, int(args.get("seed", "7")))
 			Sim.set_speed(0)
@@ -396,6 +462,11 @@ func _demo_tick(delta: float) -> void:
 		st[1].call()
 		demo_state["i"] = i + 1
 		demo_state["t0"] = demo_t
+
+func _demo_key(k: Key) -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new(); e.keycode = k; e.physical_keycode = k; e.pressed = pressed
+		Input.parse_input_event(e)
 
 func _demo_target(code: String) -> String:
 	var best := ""; var bs := 1e18

@@ -1473,3 +1473,115 @@ func player_relevant(ev: Dictionary) -> bool:
 		if nations.has(c) and nations[c]["major"]:
 			return ev["kind"] in ["war", "peace", "capture"]
 	return false
+
+# ======================= save / load =======================
+const SAVE_VERSION := 1
+const SAVE_DIR := "user://saves"
+const SAVE_FIELDS := ["speed_idx", "day", "start_year", "start_doy", "era", "player", "nations", "prov_owner", "nation_provs",
+	"sieges", "armies", "next_army_id", "battles", "next_battle_id", "relations", "treaties", "wars", "event_log", "accum",
+	"stats", "pending_offers", "ai_enabled", "slow_during_watch"]
+signal game_loaded
+
+## Full campaign state as plain Variants (no objects). Battle sims are converted with BattleSim.to_dict().
+func serialize_state() -> Dictionary:
+	var d := {"version": SAVE_VERSION, "rng_seed": rng.seed, "rng_state": rng.state}
+	for f in SAVE_FIELDS:
+		if f == "battles":
+			continue
+		var v: Variant = get(f)
+		d[f] = v.duplicate(true) if (v is Array or v is Dictionary) else v
+	var bs := {}
+	for bid in battles.keys():
+		var b: Dictionary = battles[bid]
+		var c := {}
+		for k in b.keys():
+			if k == "sim":
+				c[k] = b[k].to_dict() if b[k] != null else null
+			else:
+				var v2: Variant = b[k]
+				c[k] = v2.duplicate(true) if (v2 is Array or v2 is Dictionary) else v2
+		bs[bid] = c
+	d["battles"] = bs
+	return d
+
+func apply_state(d: Dictionary) -> void:
+	GameData.load_all()
+	for f in SAVE_FIELDS:
+		if f == "battles" or not d.has(f):
+			continue
+		var v: Variant = d[f]
+		set(f, v.duplicate(true) if (v is Array or v is Dictionary) else v)
+	battles = {}
+	for bid in d["battles"].keys():
+		var c: Dictionary = d["battles"][bid].duplicate(true)
+		if c["sim"] != null:
+			c["sim"] = BattleSim.from_dict(c["sim"])
+		battles[bid] = c
+	rng.seed = d["rng_seed"]
+	rng.state = d["rng_state"]
+	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear()
+	# A battle that was being watched continues off-screen after loading (no 3D view is open).
+	watching_battle = -1
+	for b in battles.values():
+		if b["watched"]:
+			b["watched"] = false
+			if b["sim"] != null:
+				b["sim"].record_events = false
+	running = true
+	game_loaded.emit()
+
+static func save_path(slot: String) -> String:
+	return SAVE_DIR.path_join(slot.validate_filename() + ".save")
+
+## Binary Variant file (FileAccess.store_var): exact floats, int keys and Vector2 survive, unlike JSON.
+func save_game(slot: String = "quicksave") -> Dictionary:
+	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
+	var path := save_path(slot)
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		return {"ok": false, "msg": "Cannot write %s (%s)" % [path, error_string(FileAccess.get_open_error())]}
+	var meta := {"magic": "IRONCROWNS", "version": SAVE_VERSION, "player": player,
+		"nation": nations[player]["name"] if nations.has(player) else player, "date": date_string(),
+		"era": GameData.eras[era]["name"], "saved_unix": int(Time.get_unix_time_from_system())}
+	f.store_var(meta)
+	f.store_var(serialize_state())
+	f.close()
+	return {"ok": true, "path": path, "msg": "Saved \"%s\" (%s)" % [slot, date_string()]}
+
+static func read_meta(path: String) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var m: Variant = f.get_var()
+	return m if m is Dictionary and m.get("magic", "") == "IRONCROWNS" else {}
+
+func load_game(slot: String = "quicksave") -> Dictionary:
+	var path := save_path(slot)
+	if not FileAccess.file_exists(path):
+		return {"ok": false, "msg": "No save named \"%s\"" % slot}
+	var f := FileAccess.open(path, FileAccess.READ)
+	var meta: Variant = f.get_var()
+	if not (meta is Dictionary) or meta.get("magic", "") != "IRONCROWNS":
+		return {"ok": false, "msg": "Not an Iron Crowns save"}
+	if int(meta["version"]) > SAVE_VERSION:
+		return {"ok": false, "msg": "Save is from a newer version"}
+	var st: Variant = f.get_var()
+	f.close()
+	if not (st is Dictionary):
+		return {"ok": false, "msg": "Save file is corrupt"}
+	apply_state(st)
+	return {"ok": true, "msg": "Loaded \"%s\" (%s)" % [slot, date_string()]}
+
+static func list_saves() -> Array:
+	var out: Array = []
+	var da := DirAccess.open(SAVE_DIR)
+	if da == null:
+		return out
+	for fn in da.get_files():
+		if fn.ends_with(".save"):
+			var m := read_meta(SAVE_DIR.path_join(fn))
+			if not m.is_empty():
+				m["slot"] = fn.get_basename()
+				out.append(m)
+	out.sort_custom(func(a, b): return a["saved_unix"] > b["saved_unix"])
+	return out
