@@ -37,6 +37,10 @@ func _run() -> void:
 		test_continuity()
 	if only == "" or only == "save":
 		test_save_load()
+	if only == "" or only == "camera":
+		test_camera_determinism()
+	if only == "" or only == "controls":
+		await test_controls()
 	var summary := {"passed": results.size() - fails, "failed": fails, "total": results.size(), "seconds": (Time.get_ticks_msec() - t0) / 1000.0,
 		"godot": Engine.get_version_info()["string"], "results": results}
 	var f := FileAccess.open(out_path, FileAccess.WRITE)
@@ -395,3 +399,337 @@ func test_save_load() -> void:
 	var listed := Sim.list_saves().any(func(m): return m["slot"] == "test_slot")
 	check("save: slot appears in save list", listed, "")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Sim.save_path("test_slot")))
+
+# ---------------------------------------------------------------- battle camera never affects the sim
+func _cam_battle_setup() -> int:
+	Sim.auto_deploy = false
+	Sim.auto_respond_player = "decline"
+	Sim.new_game("SWE", 1800, 11)
+	var tgt := ""
+	for o in Sim.neighbors_of("SWE"):
+		if Sim.can_declare_war("SWE", o)["ok"]:
+			tgt = o; break
+	Sim.declare_war("SWE", tgt)
+	var mine := _strongest_army("SWE")
+	var theirs := _strongest_army(tgt)
+	var bid := Sim._start_battle(int(theirs["node"]), [mine["id"]], [theirs["id"]])
+	Sim.deploy_battle(bid, {"objective": "assault", "formation": "line"}, true)
+	return bid
+
+## Runs the watched battle frame by frame through a real BattleView. toggles: inject camera input events.
+func _cam_run(bid: int, sim_d: Dictionary, toggles: bool, frame_dts: PackedFloat32Array) -> Dictionary:
+	var b: Dictionary = Sim.battles[bid]
+	b["sim"] = BattleSim.from_dict(sim_d)
+	b["sim"].record_events = true
+	b["acc"] = 0.0; b["watched"] = true; b["done"] = false
+	var bv := BattleView.new()
+	add_child(bv)
+	bv.setup(bid)
+	var info := {"toggles": 0, "min_w": 1.0, "max_w": 0.0, "shots": {}, "cuts": 0, "nan": false, "frames": 0}
+	var f := 0
+	while not bv.finished and f < frame_dts.size():
+		if toggles:
+			if f % 53 == 17:
+				var e := InputEventKey.new(); e.keycode = KEY_C; e.physical_keycode = KEY_C; e.pressed = true
+				bv._unhandled_input(e); info["toggles"] += 1
+			if f % 211 == 100:
+				var j := InputEventJoypadButton.new(); j.button_index = JOY_BUTTON_Y; j.pressed = true
+				bv._unhandled_input(j); info["toggles"] += 1
+			if f % 167 == 60:
+				var w := InputEventMouseButton.new(); w.button_index = MOUSE_BUTTON_WHEEL_UP; w.pressed = true
+				bv._unhandled_input(w)
+		bv._process(frame_dts[f])
+		info["min_w"] = minf(info["min_w"], bv.blend_w); info["max_w"] = maxf(info["max_w"], bv.blend_w)
+		info["shots"][bv.shot_kind] = true
+		var cp: Vector3 = bv.cam.global_position
+		if not (is_finite(cp.x) and is_finite(cp.y) and is_finite(cp.z)):
+			info["nan"] = true
+		f += 1
+	info["frames"] = f
+	info["cuts"] = bv.shot_seq
+	var s: BattleSim = b["sim"]
+	info["state"] = s.to_dict()
+	info["result"] = s.result()
+	remove_child(bv)
+	bv.free()
+	return info
+
+func test_camera_determinism() -> void:
+	print("== Battle camera ==")
+	var bid := _cam_battle_setup()
+	var b: Dictionary = Sim.battles[bid]
+	var sim_d: Dictionary = b["sim"].to_dict()
+	var world := Sim.serialize_state()
+	var dts := PackedFloat32Array()
+	var rng := RandomNumberGenerator.new(); rng.seed = 77
+	for i in 20000:
+		dts.append(rng.randf_range(1.0 / 70.0, 1.0 / 20.0))
+	# reference: the bare BattleSim stepped exactly like Sim.step_watched, no view at all
+	var ref := BattleSim.from_dict(sim_d); ref.record_events = true
+	var acc := 0.0; var fi := 0
+	while not ref.done and fi < dts.size():
+		acc += dts[fi]; fi += 1
+		while acc >= BattleSim.DT and not ref.done:
+			acc -= BattleSim.DT; ref.step()
+	var ref_state := ref.to_dict()
+	var quiet := _cam_run(bid, sim_d, false, dts)
+	Sim.apply_state(world.duplicate(true)); Sim.set_watched(bid, true)
+	var noisy := _cam_run(bid, sim_d, true, dts)
+	check("camera: battle under a live view (no toggles) == bare sim", _state_diff(ref_state, quiet["state"]) == "",
+		"winner %d, t=%.1fs, %d frames; %s" % [quiet["result"]["winner"], quiet["result"]["time"], quiet["frames"], _state_diff(ref_state, quiet["state"])])
+	check("camera: %d camera toggles + zoom input give an identical battle" % noisy["toggles"], _state_diff(quiet["state"], noisy["state"]) == "" and noisy["toggles"] >= 10,
+		"steps %d/%d, men %s / %s %s" % [quiet["result"]["steps"], noisy["result"]["steps"], str(quiet["result"]["men"]), str(noisy["result"]["men"]), _state_diff(quiet["state"], noisy["state"])])
+	check("camera: blend reached both overhead (0) and cinematic (1)", noisy["min_w"] <= 0.001 and noisy["max_w"] >= 0.999, "min %.3f max %.3f" % [noisy["min_w"], noisy["max_w"]])
+	var kinds: Array = quiet["shots"].keys()
+	check("camera: director cut between event-driven shots", quiet["cuts"] >= 4 and kinds.size() >= 3 and (kinds.has("low_angle") or kinds.has("flank") or kinds.has("tracking")),
+		"%d cuts, shot kinds %s" % [quiet["cuts"], str(kinds)])
+	check("camera: no invalid (NaN/inf) camera positions", not quiet["nan"] and not noisy["nan"], "")
+	Sim.auto_deploy = true
+
+# ---------------------------------------------------------------- controls (synthesized gamepad / touch events)
+func _frames(n: int) -> void:
+	for i in n:
+		await get_tree().process_frame
+
+func _joy_btn(btn: JoyButton, n: int = 2) -> void:
+	for pressed in [true, false]:
+		var e := InputEventJoypadButton.new(); e.button_index = btn; e.pressed = pressed; e.device = 0
+		Input.parse_input_event(e)
+		await _frames(n)
+
+func _joy_axis(axis: JoyAxis, v: float) -> void:
+	var e := InputEventJoypadMotion.new(); e.axis = axis; e.axis_value = v; e.device = 0
+	Input.parse_input_event(e)
+
+## Synthesized events enter at the window, so map viewport coords -> window coords (headless windows are tiny + stretched).
+func _wx() -> Transform2D:
+	return get_tree().root.get_final_transform()
+
+func _touch(idx: int, pos: Vector2, pressed: bool) -> void:
+	var e := InputEventScreenTouch.new(); e.index = idx; e.position = _wx() * pos; e.pressed = pressed
+	Input.parse_input_event(e)
+
+func _drag(idx: int, from: Vector2, to: Vector2, steps: int = 6) -> void:
+	for i in steps:
+		var e := InputEventScreenDrag.new(); e.index = idx
+		e.position = _wx() * from.lerp(to, float(i + 1) / steps); e.relative = _wx().basis_xform((to - from) / steps)
+		Input.parse_input_event(e)
+		await _frames(1)
+
+func _pinch(a0: Vector2, a1: Vector2, b0: Vector2, b1: Vector2, steps: int = 8) -> void:
+	for i in steps:
+		var t := float(i + 1) / steps
+		for k in 2:
+			var e := InputEventScreenDrag.new(); e.index = k
+			var from: Vector2 = a0 if k == 0 else b0
+			var to: Vector2 = a1 if k == 0 else b1
+			e.position = _wx() * from.lerp(to, t); e.relative = _wx().basis_xform((to - from) / steps)
+			Input.parse_input_event(e)
+		await _frames(1)
+
+func _army_screen(m: Node, aid: int) -> Vector2:
+	return m.map.camera.unproject_position(m.map.army_nodes[aid].global_position)
+
+func test_controls() -> void:
+	print("== Controls: InputMap, gamepad, touch ==")
+	Sim.auto_deploy = true
+	var missing: Array = []
+	var joyless: Array = []
+	for act in Controls.ACTIONS.keys():
+		if not InputMap.has_action(act):
+			missing.append(act)
+	for act in ["select", "command_move", "cancel", "pause", "cycle_army_next", "cycle_province_next", "toggle_diplomacy", "toggle_economy", "game_menu", "camera_toggle", "cursor_left", "orbit_left", "zoom_in", "speed_up"]:
+		var has_joy := false
+		for e in InputMap.action_get_events(act):
+			if e is InputEventJoypadButton or e is InputEventJoypadMotion:
+				has_joy = true
+		if not has_joy:
+			joyless.append(act)
+	var ui_joy := false
+	for e in InputMap.action_get_events("ui_accept"):
+		if e is InputEventJoypadButton and e.button_index == JOY_BUTTON_A:
+			ui_joy = true
+	check("controls: %d InputMap actions registered, gameplay actions all have gamepad bindings" % Controls.ACTIONS.size(), missing.is_empty() and joyless.is_empty() and ui_joy,
+		"missing %s, no-joy %s" % [str(missing), str(joyless)])
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	# --- title menu: gamepad gives focus to the first nation, D-pad moves it
+	await _joy_btn(JOY_BUTTON_DPAD_RIGHT, 3)
+	var fo := get_viewport().gui_get_focus_owner()
+	check("controls: gamepad focus lands on title-menu buttons", Controls.last_device == "joy" and fo != null and fo is Button, "focus %s, device %s" % [str(fo), Controls.last_device])
+	m._start_game("SWE", 1800, 3)
+	await _frames(4)
+	Sim.set_speed(0)
+	# a second army so cycling has something to cycle through
+	var a0: Dictionary = Sim.armies[Sim.armies.keys().filter(func(k): return Sim.armies[k]["owner"] == "SWE")[0]]
+	Sim._spawn_army("SWE", Sim.nation_provs["SWE"][-1], a0["units"].duplicate(true))
+	await _frames(3)
+	# --- cycle armies / provinces
+	await _joy_btn(JOY_BUTTON_RIGHT_SHOULDER)
+	var a1: int = m.map.selected_army
+	await _joy_btn(JOY_BUTTON_RIGHT_SHOULDER)
+	var a2: int = m.map.selected_army
+	var mine := Sim.armies.keys().filter(func(k): return Sim.armies[k]["owner"] == "SWE")
+	check("controls: RB cycles through own armies", a1 in mine and a2 in mine and (a1 != a2 or mine.size() == 1), "armies %s -> %d, %d" % [str(mine), a1, a2])
+	await _joy_btn(JOY_BUTTON_DPAD_DOWN)
+	var p1: int = m.map.selected_pid
+	await _joy_btn(JOY_BUTTON_DPAD_DOWN)
+	var p2: int = m.map.selected_pid
+	check("controls: D-pad up/down cycles own provinces", p1 in Sim.nation_provs["SWE"] and p2 in Sim.nation_provs["SWE"] and p1 != p2, "%d -> %d" % [p1, p2])
+	# --- speed / pause
+	await _joy_btn(JOY_BUTTON_Y)
+	var sp_a: int = Sim.speed_idx
+	await _joy_btn(JOY_BUTTON_DPAD_RIGHT)
+	var sp_b: int = Sim.speed_idx
+	await _joy_btn(JOY_BUTTON_Y)
+	check("controls: Y pauses/unpauses, D-pad right raises speed", sp_a == 2 and sp_b == 3 and Sim.speed_idx == 0, "Y->%d, right->%d, Y->%d" % [sp_a, sp_b, Sim.speed_idx])
+	# --- windows: Back opens diplomacy with focus inside, D-pad moves focus without touching the map, B closes
+	await _joy_btn(JOY_BUTTON_BACK, 3)
+	fo = get_viewport().gui_get_focus_owner()
+	var in_win: bool = fo != null and m.hud.diplo_win.is_ancestor_of(fo)
+	var pid_before: int = m.map.selected_pid
+	await _joy_btn(JOY_BUTTON_DPAD_DOWN, 3)
+	var fo2 := get_viewport().gui_get_focus_owner()
+	check("controls: Back opens diplomacy with gamepad focus inside; D-pad navigates it", m.hud.diplo_win.visible and in_win and fo2 != null and fo2 != fo and m.hud.diplo_win.is_ancestor_of(fo2) and m.map.selected_pid == pid_before,
+		"visible %s, focus %s -> %s" % [m.hud.diplo_win.visible, str(fo), str(fo2)])
+	await _joy_btn(JOY_BUTTON_B, 3)
+	check("controls: B closes the window", not m.hud.diplo_win.visible and not m.hud.any_window_open(), "")
+	await _joy_btn(JOY_BUTTON_LEFT_STICK, 3)
+	var econ_ok: bool = m.hud.econ_win.visible
+	await _joy_btn(JOY_BUTTON_B, 3)
+	await _joy_btn(JOY_BUTTON_START, 3)
+	fo = get_viewport().gui_get_focus_owner()
+	var menu_ok: bool = m.hud.menu_win.visible and fo != null and m.hud.menu_win.is_ancestor_of(fo)
+	await _joy_btn(JOY_BUTTON_START, 3)
+	check("controls: L3 economy, Start game menu (focused), Start again closes", econ_ok and menu_ok and not m.hud.menu_win.visible, "econ %s menu %s" % [econ_ok, menu_ok])
+	# --- stick cursor + A select + X move order
+	var cur0: Vector2 = m.hud.pad_cursor.position
+	_joy_axis(JOY_AXIS_LEFT_X, 1.0)
+	await _frames(15)
+	_joy_axis(JOY_AXIS_LEFT_X, 0.0)
+	await _frames(2)
+	var cur1: Vector2 = m.hud.pad_cursor.position
+	check("controls: left stick moves the map cursor reticle (no on-screen controller)", cur1.x > cur0.x + 20.0 and m.hud.pad_cursor.visible, "%s -> %s" % [str(cur0), str(cur1)])
+	var aid: int = mine[0]
+	m.select_province(-1)
+	m.cam.fly_to(GameData.node_world(int(Sim.armies[aid]["node"])), 30.0, 0.05)
+	await _frames(20)
+	m.hud.pad_cursor.position = _army_screen(m, aid)
+	await _joy_btn(JOY_BUTTON_A)
+	check("controls: A selects the army under the cursor", m.map.selected_army == aid, "selected %d want %d at %s" % [m.map.selected_army, aid, str(m.hud.pad_cursor.position)])
+	var dest := -1
+	for nb in Sim.find_path("SWE", int(Sim.armies[aid]["node"]), Sim.nation_provs["SWE"][-1]):
+		dest = nb
+	var dest_ok := false
+	for pid in Sim.nation_provs["SWE"]:
+		if pid != int(Sim.armies[aid]["node"]):
+			var sp: Vector2 = m.map.camera.unproject_position(GameData.node_world(pid))
+			var vs := get_viewport().get_visible_rect().size
+			if sp.x > 80 and sp.y > 80 and sp.x < vs.x - 80 and sp.y < vs.y - 120 and m.map.province_at_screen(sp) == pid and m.map.army_at_screen(sp) < 0:
+				m.hud.pad_cursor.position = sp; dest = pid; dest_ok = true; break
+	await _joy_btn(JOY_BUTTON_X)
+	check("controls: X orders the selected army to the province under the cursor", dest_ok and int(Sim.armies[aid].get("goal", -1)) == dest and not Sim.armies[aid]["path"].is_empty(), "dest %d goal %s" % [dest, str(Sim.armies[aid].get("goal", -1))])
+	Sim.order_move(aid, int(Sim.armies[aid]["node"])); Sim.armies[aid]["goal"] = -1
+	# --- touch: tap select, drag pan, pinch zoom, twist rotate, long press move, taps on UI ignored
+	Controls.set_setting("touch_rotate", true)
+	m.select_province(-1)
+	await _frames(2)
+	var ap := _army_screen(m, aid)
+	_touch(0, ap, true); await _frames(2); _touch(0, ap, false); await _frames(3)
+	check("controls: touch tap selects the army", m.map.selected_army == aid and Controls.last_device == "touch", "selected %d" % m.map.selected_army)
+	var tb: Vector2 = m.hud.top_bar.get_global_rect().get_center()
+	m.select_province(-1)
+	_touch(0, tb, true); await _frames(2); _touch(0, tb, false); await _frames(3)
+	check("controls: touch tap on the HUD bar does not select on the map", m.map.selected_army < 0 and m.map.selected_pid < 0, "army %d pid %d" % [m.map.selected_army, m.map.selected_pid])
+	var t0: Vector3 = m.cam._t_target
+	var c := get_viewport().get_visible_rect().size * 0.5
+	_touch(0, c, true); await _frames(1)
+	await _drag(0, c, c + Vector2(-220, 90))
+	_touch(0, c + Vector2(-220, 90), false); await _frames(3)
+	var t1: Vector3 = m.cam._t_target
+	check("controls: one-finger drag pans the map (and is not a tap)", t0.distance_to(t1) > 1.0 and m.map.selected_pid < 0, "target moved %.2f" % t0.distance_to(t1))
+	var d0: float = m.cam._t_dist
+	var y0: float = m.cam._t_yaw
+	_touch(0, c - Vector2(60, 0), true); _touch(1, c + Vector2(60, 0), true); await _frames(1)
+	await _pinch(c - Vector2(60, 0), c - Vector2(200, 0), c + Vector2(60, 0), c + Vector2(200, 0))
+	var d1: float = m.cam._t_dist
+	await _pinch(c - Vector2(200, 0), c + Vector2(-140, -140), c + Vector2(200, 0), c + Vector2(140, 140))
+	_touch(1, c, false); _touch(0, c, false); await _frames(3)
+	var y1: float = m.cam._t_yaw
+	check("controls: pinch out zooms in, two-finger twist rotates", d1 < d0 * 0.6 and absf(y1 - y0) > 0.5, "dist %.1f -> %.1f, yaw %.2f -> %.2f" % [d0, d1, y0, y1])
+	m.cam.fly_to(GameData.node_world(int(Sim.armies[aid]["node"])), 30.0, 0.05)
+	await _frames(20)
+	ap = _army_screen(m, aid)
+	_touch(0, ap, true); await _frames(2); _touch(0, ap, false); await _frames(2)
+	var lp := Vector2.ZERO
+	for pid in Sim.nation_provs["SWE"]:
+		if pid != int(Sim.armies[aid]["node"]):
+			var sp: Vector2 = m.map.camera.unproject_position(GameData.node_world(pid))
+			var vs := get_viewport().get_visible_rect().size
+			if sp.x > 80 and sp.y > 80 and sp.x < vs.x - 80 and sp.y < vs.y - 120 and m.map.province_at_screen(sp) == pid and m.map.army_at_screen(sp) < 0:
+				lp = sp; dest = pid; break
+	_touch(0, lp, true)
+	var tw := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - tw < 800:
+		await _frames(1)
+	_touch(0, lp, false); await _frames(3)
+	check("controls: long-press marches the selected army to the pressed province", int(Sim.armies[aid].get("goal", -1)) == dest and not Sim.armies[aid]["path"].is_empty() and m.map.selected_army == aid, "dest %d goal %s" % [dest, str(Sim.armies[aid].get("goal", -1))])
+	# --- settings: UI scale + large touch targets + perf overlay + quality
+	Controls.set_setting("ui_scale", 1.25)
+	Controls.set_setting("large_targets", true)
+	await _frames(2)
+	var bsb: StyleBox = m.hud.theme.get_stylebox("normal", "Button")
+	var scale_ok := is_equal_approx(get_tree().root.content_scale_factor, 1.25)
+	var big_ok := bsb.content_margin_top >= 12
+	Controls.set_setting("show_perf", true)
+	Controls.set_setting("quality", 0)
+	await _frames(20)
+	var pt: String = m.perf.lbl.text
+	var q_ok: bool = get_viewport().msaa_3d == Viewport.MSAA_DISABLED
+	check("controls: UI scale, large touch targets, F3 perf overlay and quality settings apply", scale_ok and big_ok and m.perf.visible and pt.contains("CPU") and q_ok,
+		"scale %s big %s perf '%s' msaa %d" % [scale_ok, big_ok, pt.get_slice("\n", 0), get_viewport().msaa_3d])
+	Controls.set_setting("ui_scale", 1.0); Controls.set_setting("large_targets", false); Controls.set_setting("show_perf", false); Controls.set_setting("quality", 1)
+	var vj := _count_class(get_tree().root, "TouchScreenButton")
+	check("controls: no virtual joystick / on-screen gamepad nodes in the scene tree", vj == 0, "%d TouchScreenButton" % vj)
+	Controls.last_device = "kbm"
+	m.queue_free()
+	await _frames(2)
+	# --- battle view: gamepad speed / leave / sticks, touch pinch
+	var bid := _cam_battle_setup()
+	var bv := BattleView.new()
+	add_child(bv)
+	bv.setup(bid)
+	bv.set_cinematic(true)
+	var left := [false]
+	bv.leave_requested.connect(func(_b): left[0] = true)
+	var rb := InputEventJoypadButton.new(); rb.button_index = JOY_BUTTON_RIGHT_SHOULDER; rb.pressed = true
+	bv._unhandled_input(rb)
+	var ts1: float = bv.time_scale
+	_joy_axis(JOY_AXIS_RIGHT_X, 1.0)
+	await _frames(1)
+	var yaw0: float = bv.cam_yaw
+	bv._pad_cam(0.2)
+	_joy_axis(JOY_AXIS_RIGHT_X, 0.0)
+	await _frames(1)
+	var stick_ok: bool = not bv.cam_auto and absf(bv.cam_yaw - yaw0) > 0.1
+	var dd0: float = bv.cam_dist
+	for k in 2:
+		var t := InputEventScreenTouch.new(); t.index = k; t.pressed = true; t.position = Vector2(600 + k * 100, 400); bv._unhandled_input(t)
+	for i in 5:
+		for k in 2:
+			var d := InputEventScreenDrag.new(); d.index = k; d.position = Vector2(600 - (i + 1) * 20 + k * (100 + (i + 1) * 40), 400); bv._unhandled_input(d)
+	var pinch_ok: bool = bv.cam_dist < dd0 * 0.8
+	var back := InputEventJoypadButton.new(); back.button_index = JOY_BUTTON_BACK; back.pressed = true
+	bv._unhandled_input(back)
+	check("controls: battle view — RB speeds up, right stick orbits (leaves cinematic), pinch zooms, Back leaves", ts1 == 2.0 and stick_ok and pinch_ok and left[0],
+		"speed %.0fx stick %s pinch %.0f->%.0f leave %s" % [ts1, stick_ok, dd0, bv.cam_dist, left[0]])
+	bv.queue_free()
+	Sim.auto_deploy = true
+	await _frames(2)
+
+func _count_class(n: Node, cls: String) -> int:
+	var c := 1 if n.is_class(cls) else 0
+	for ch in n.get_children():
+		c += _count_class(ch, cls)
+	return c

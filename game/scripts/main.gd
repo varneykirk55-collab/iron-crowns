@@ -24,6 +24,8 @@ var demo_state := {}
 var shot_dir := "res://../shots"
 var _press_pos := Vector2.ZERO
 var _cam_was_drag := false
+var perf: Control
+var menu_first_btn: Button
 
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
@@ -41,7 +43,14 @@ func _ready() -> void:
 	add_child(cam)
 	map.camera = cam
 	cam.make_current()
+	cam.tapped.connect(_on_touch_tap)
+	cam.long_pressed.connect(_on_touch_long)
 	_build_fade()
+	perf = PerfOverlay.new()
+	var pl := CanvasLayer.new(); pl.layer = 60; add_child(pl); pl.add_child(perf)
+	Controls.settings_changed.connect(apply_quality)
+	Controls.device_changed.connect(_on_device_changed)
+	apply_quality()
 	Sim.battle_started.connect(_on_battle_started)
 	Sim.era_changed.connect(func(_e): map.apply_era(); map.lut_dirty = true)
 	Sim.ownership_changed.connect(func(_p, _o, _n): map.lut_dirty = true; map.labels_dirty = true)
@@ -123,6 +132,8 @@ func _build_menu() -> void:
 		b.add_child(bv)
 		b.pressed.connect(func(): _start_game(c, years.get_selected_id()))
 		h.add_child(b)
+		if menu_first_btn == null:
+			menu_first_btn = b
 	var saves := Sim.list_saves()
 	if not saves.is_empty():
 		var ll := Label.new(); ll.text = "Load a saved campaign"; v.add_child(ll)
@@ -132,11 +143,17 @@ func _build_menu() -> void:
 			lb.pressed.connect(func(): load_slot(slot))
 			v.add_child(lb)
 	var help := Label.new()
-	help.text = "Left-drag pan · wheel zoom · middle-drag or Q/E orbit · left-click select · right-click move army\nSpace pause · 1-5 speed · F1 diplomacy · F2 economy · Esc close windows"
+	help.text = "Mouse: left-drag pan · wheel zoom · middle-drag or Q/E orbit · click select · right-click move · Space pause · 1-5 speed · F1/F2 panels · F5/F9 save/load\nGamepad: D-pad/stick navigate menus, A choose, B back · Touch: tap, drag, pinch, long-press to march"
 	help.add_theme_font_size_override("font_size", 12); help.add_theme_color_override("font_color", Hud.DIM); help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(help)
 	cam.look_at_world(Vector3(180 + 10, 0, 90 - 45), 200.0, true)
 	cam.input_enabled = false
+	if Controls.last_device == "joy":
+		menu_first_btn.grab_focus.call_deferred()
+
+func _on_device_changed(kind: String) -> void:
+	if kind == "joy" and menu_layer != null and is_instance_valid(menu_first_btn) and get_viewport().gui_get_focus_owner() == null:
+		menu_first_btn.grab_focus()
 
 func _start_game(code: String, year: int, seed: int = 1, doy: int = 0) -> void:
 	if menu_layer:
@@ -209,41 +226,140 @@ func select_army(aid: int) -> void:
 	if hud: hud.select_army(aid)
 
 func _unhandled_input(ev: InputEvent) -> void:
+	if ev.is_action_pressed("perf_overlay"):
+		Controls.set_setting("show_perf", not Controls.show_perf)
+		return
 	if in_battle or transitioning or menu_layer != null or hud == null:
 		return
-	if ev is InputEventKey and ev.pressed and not ev.echo:
-		match ev.keycode:
-			KEY_SPACE: Sim.set_speed(0 if Sim.speed_idx > 0 else 2)
-			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5: Sim.set_speed(ev.keycode - KEY_0)
-			KEY_F1: hud.toggle_diplomacy()
-			KEY_F2: hud.toggle_economy()
-			KEY_F5: save_slot("quicksave")
-			KEY_F9: load_slot("quicksave")
-			KEY_ESCAPE:
-				if hud.any_window_open():
-					hud.diplo_win.visible = false; hud.econ_win.visible = false; hud.menu_win.visible = false
-				else:
-					hud.toggle_game_menu()
+	if ev.is_action_pressed("pause"): Sim.set_speed(0 if Sim.speed_idx > 0 else 2)
+	elif ev.is_action_pressed("speed_up"): Sim.set_speed(mini(Sim.speed_idx + 1, Sim.SPEED_NAMES.size() - 1))
+	elif ev.is_action_pressed("speed_down"): Sim.set_speed(maxi(Sim.speed_idx - 1, 0))
+	elif ev.is_action_pressed("toggle_diplomacy"): hud.toggle_diplomacy()
+	elif ev.is_action_pressed("toggle_economy"): hud.toggle_economy()
+	elif ev.is_action_pressed("quick_save"): save_slot("quicksave")
+	elif ev.is_action_pressed("quick_load"): load_slot("quicksave")
+	elif ev.is_action_pressed("game_menu"):
+		if not hud.close_windows():
+			hud.toggle_game_menu()
+	elif ev.is_action_pressed("cancel"):
+		if not hud.close_windows():
+			if hud.ui_has_focus():
+				get_viewport().gui_get_focus_owner().release_focus()
+			else:
+				select_province(-1)
+	elif ev.is_action_pressed("cycle_army_next", false, true): cycle_army(1)
+	elif ev.is_action_pressed("cycle_army_prev", false, true): cycle_army(-1)
+	elif ev.is_action_pressed("cycle_province_next"): cycle_province(1)
+	elif ev.is_action_pressed("cycle_province_prev"): cycle_province(-1)
+	elif ev.is_action_pressed("focus_hud"): hud.focus_panels()
+	elif ev.is_action_pressed("select"): world_select(pointer_pos())
+	elif ev.is_action_pressed("command_move"): world_command(pointer_pos())
+	else:
+		for i in range(1, 6):
+			if ev.is_action_pressed("speed_%d" % i):
+				Sim.set_speed(i)
+	if ev is InputEventKey or ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
+		return
+	if (ev is InputEventScreenTouch and ev.pressed) and hud.is_point_over_ui(ev.position):
+		return
 	if ev is InputEventMouseButton and ev.pressed:
 		_press_pos = ev.position
 	var consumed = cam.handle_input(ev)
 	if ev is InputEventMouseButton and not ev.pressed and not consumed and _press_pos.distance_to(ev.position) < 6.0:
 		if ev.button_index == MOUSE_BUTTON_LEFT:
-			var aid := map.army_at_screen(ev.position)
-			if aid >= 0:
-				select_army(aid)
-			else:
-				var pid := map.province_at_screen(ev.position)
-				if pid > 0:
-					select_province(pid)
-		elif ev.button_index == MOUSE_BUTTON_RIGHT and map.selected_army >= 0 and Sim.armies.has(map.selected_army):
-			var a: Dictionary = Sim.armies[map.selected_army]
-			if a["owner"] == Sim.player:
-				var pid2 := map.province_at_screen(ev.position)
-				if pid2 > 0:
-					var r := Sim.order_move(map.selected_army, pid2)
-					hud.show_toast(("Marching to %s (~%d days)" % [GameData.provinces[pid2]["name"], int(r.get("days", 0))]) if r["ok"] else r["msg"], 2.5)
-					hud.select_army(map.selected_army)
+			world_select(ev.position)
+		elif ev.button_index == MOUSE_BUTTON_RIGHT:
+			world_command(ev.position)
+
+## Quality setting: Medium = shipped defaults. Low drops MSAA (battle view also drops sun shadows + shorter LOD),
+## High = 4x MSAA + longer full-detail LOD distance in battles.
+func apply_quality() -> void:
+	var q: int = Controls.quality
+	get_viewport().msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][q]
+
+## Where gamepad/keyboard "select"/"move here" act: the pad cursor when the gamepad is in use, else the mouse.
+func pointer_pos() -> Vector2:
+	if Controls.last_device == "joy" and hud and hud.pad_cursor:
+		return hud.pad_cursor.position
+	return get_viewport().get_mouse_position()
+
+func world_select(pos: Vector2) -> void:
+	var aid := map.army_at_screen(pos)
+	if aid >= 0:
+		select_army(aid)
+	else:
+		var pid := map.province_at_screen(pos)
+		if pid > 0:
+			select_province(pid)
+
+func world_command(pos: Vector2) -> void:
+	if map.selected_army < 0 or not Sim.armies.has(map.selected_army):
+		return
+	var a: Dictionary = Sim.armies[map.selected_army]
+	if a["owner"] != Sim.player:
+		return
+	var pid2 := map.province_at_screen(pos)
+	if pid2 > 0:
+		var r := Sim.order_move(map.selected_army, pid2)
+		hud.show_toast(("Marching to %s (~%d days)" % [GameData.provinces[pid2]["name"], int(r.get("days", 0))]) if r["ok"] else r["msg"], 2.5)
+		hud.select_army(map.selected_army)
+
+func _on_touch_tap(pos: Vector2) -> void:
+	if in_battle or transitioning or menu_layer != null or hud == null or hud.is_point_over_ui(pos):
+		return
+	world_select(pos)
+
+func _on_touch_long(pos: Vector2) -> void:
+	if in_battle or transitioning or menu_layer != null or hud == null or hud.is_point_over_ui(pos):
+		return
+	if map.selected_army >= 0 and Sim.armies.has(map.selected_army) and Sim.armies[map.selected_army]["owner"] == Sim.player:
+		world_command(pos)
+	else:
+		world_select(pos)
+
+func cycle_army(dir: int) -> void:
+	var ids: Array = Sim.armies.keys().filter(func(k): return Sim.armies[k]["owner"] == Sim.player)
+	if ids.is_empty():
+		return
+	ids.sort()
+	var i := ids.find(map.selected_army)
+	var nid: int = ids[(i + dir) % ids.size() if i >= 0 else (0 if dir > 0 else ids.size() - 1)]
+	select_army(nid)
+	var ll := Sim.army_pos_lonlat(Sim.armies[nid])
+	var w := GameData.lonlat_to_world(ll.x, ll.y)
+	cam.fly_to(Vector3(w.x, 0, w.y), minf(cam.dist, 30.0), 0.6)
+
+func cycle_province(dir: int) -> void:
+	var ps: Array = Sim.nation_provs.get(Sim.player, []).duplicate()
+	if ps.is_empty():
+		return
+	ps.sort()
+	var i := ps.find(map.selected_pid)
+	var np: int = ps[(i + dir) % ps.size() if i >= 0 else 0]
+	select_province(np)
+	cam.fly_to(GameData.node_world(np), minf(cam.dist, 30.0), 0.6)
+
+func _update_pad_cursor(delta: float) -> void:
+	if hud == null or hud.pad_cursor == null:
+		return
+	var vs := get_viewport().get_visible_rect().size
+	if not hud.pad_cursor.has_meta("init"):
+		hud.pad_cursor.set_meta("init", true); hud.pad_cursor.position = vs * 0.5
+	cam.edge_pan = Vector2.ZERO
+	if Controls.last_device != "joy" or hud.ui_has_focus() or in_battle:
+		return
+	var v := Input.get_vector("cursor_left", "cursor_right", "cursor_up", "cursor_down")
+	var p: Vector2 = hud.pad_cursor.position + v * 700.0 * delta
+	var m := vs * 0.08
+	p = p.clamp(m * 0.5, vs - m * 0.5)
+	hud.pad_cursor.position = p
+	# pushing against the edge band pans the map
+	var e := Vector2.ZERO
+	if p.x < m.x: e.x = -1.0
+	elif p.x > vs.x - m.x: e.x = 1.0
+	if p.y < m.y: e.y = -1.0
+	elif p.y > vs.y - m.y: e.y = 1.0
+	cam.edge_pan = e * v.abs().max(Vector2(0.4, 0.4))
 
 func _process(delta: float) -> void:
 	map.cam_dist = cam.dist
@@ -253,12 +369,13 @@ func _process(delta: float) -> void:
 		if dbg_t > 3.0:
 			dbg_t = 0.0
 			print("DBG t=%.1f fps=%d battle_t=%s day=%s" % [demo_t, Engine.get_frames_per_second(), str(battle_view.sim.t) if battle_view != null else "-", str(Sim.day)] + ((" cam=%s ct=%s auto=%s shot=%d hs=%s" % [battle_view.cam.global_position, battle_view._ct, battle_view.cam_auto, battle_view.shot_i, battle_view._hot_spot()] + " mms=" + str(battle_view.mms.keys().map(func(k): return "%s:%d/%d" % [k, battle_view.mms[k]["n"], battle_view.mms[k]["cap"]]))) if battle_view != null and battle_view.visible and battle_view.sim != null else ""))
+	_update_pad_cursor(delta)
 	if in_battle or menu_layer != null:
 		return
 	hover_t -= delta
 	if hover_t <= 0.0 and hud != null:
 		hover_t = 0.1
-		var mp := get_viewport().get_mouse_position()
+		var mp := pointer_pos()
 		var pid := map.province_at_screen(mp)
 		map.set_hover_country(Sim.prov_owner.get(pid, "") if pid > 0 else "")
 
@@ -426,7 +543,7 @@ func _start_demo(kind: String) -> void:
 				[-100.01, func(): if args.has("closeup"): battle_view.snap_cam(battle_view.first_reg(1), 30.0, -0.25, 2.8)],
 				[-100.3, func(): if args.has("closeup"): shot("battle_%s_close1" % code)],
 				[-100.01, func(): if args.has("closeup"): battle_view.snap_cam(-1, 230.0, -0.85, 0.0)],
-				[-100.3, func(): if args.has("closeup"): shot("battle_%s_top" % code); battle_view.cam_auto = true],
+				[-100.3, func(): if args.has("closeup"): shot("battle_%s_top" % code); battle_view.set_cinematic(true)],
 				[-1.0, func(): return in_battle and battle_view != null and (battle_view.sim.t > 12.0 or battle_view.finished)],
 				[-100.01, func(): shot("battle_%s_engage" % code)],
 				[-1.0, func(): return in_battle and battle_view != null and (battle_view.sim.t > 22.0 or battle_view.finished)],
@@ -442,6 +559,22 @@ func _start_demo(kind: String) -> void:
 
 func _demo_tick(delta: float) -> void:
 	demo_t += delta
+	if args.has("camtoggle") and in_battle and not transitioning and battle_view != null and not battle_view.finished:
+		var ct: float = demo_state.get("cam_t", 0.0) + delta
+		demo_state["cam_t"] = ct
+		var period := float(args.get("camtoggle", "6"))
+		var n := int(ct / period)
+		if n > demo_state.get("cam_n", 0):
+			demo_state["cam_n"] = n
+			_demo_key(KEY_C)
+			demo_state["cam_shot_at"] = ct + 0.55
+			demo_state["cam_shot2_at"] = ct + 2.0
+		if demo_state.has("cam_shot_at") and ct >= demo_state["cam_shot_at"]:
+			demo_state.erase("cam_shot_at")
+			shot("camera_%02d_blend_%s" % [n, "to_cine" if battle_view.cam_auto else "to_overhead"])
+		if demo_state.has("cam_shot2_at") and ct >= demo_state["cam_shot2_at"]:
+			demo_state.erase("cam_shot2_at")
+			shot("camera_%02d_%s" % [n, ("cine_" + battle_view.shot_kind) if battle_view.cam_auto else "overhead"])
 	var i: int = demo_state.get("i", 0)
 	if i >= demo_steps.size():
 		return

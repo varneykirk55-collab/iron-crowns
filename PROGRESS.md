@@ -36,3 +36,20 @@
   - UI: F5 quicksave, F9 quickload, ☰ Menu (Esc) window with quick save/load, new slot, saved games list; title menu lists saves with Load.
   - Demo `--demo=saveload` verified (shots/v02/saveload_*.png): saved 31 Jan 1800 -> advanced to 1 May -> F9 -> 31 Jan 1800.
   - Watched battles load as unwatched; awaiting (deploy) battles re-show the deploy window.
+
+## v0.2 — Task 2 cinematic camera (DONE, tested)
+- battle_view.gd: two rigs (overhead/cinematic) blended over 1.25 s smoothstep; event-driven director (establishing, tracking on charge, flank on first volleys, low_angle at melee start, rout, aftermath); deterministic, read-only on sim.
+- C key / joy Y (InputMap `camera_toggle`) + HUD button; wheel/drag/stick returns to overhead.
+- test `--only=camera` 5/5 PASS (27 toggles + zoom → identical battle, 365/365 steps).
+- tools/rec.sh records demos (movie maker 30 fps) → rec/<name>_demo.mp4.
+
+## v0.2 — Task 3 controls (DONE, tested headless)
+- core/controls.gd autoload `Controls`: 37 InputMap actions (kbm + joypad), settings (ui_scale, large_targets, touch_rotate, quality, show_perf) persisted in user://settings.cfg.
+- main.gd input is action-based; gamepad map cursor reticle (ui/pad_cursor.gd), A select / X move at cursor, LB/RB armies, D-pad ↑↓ provinces ←→ speed, Y pause, Back diplomacy, L3 economy, R3 panels, Start menu, B back.
+- HUD: visible focus ring, gamepad focus auto-grabbed in open windows, follow_focus scroll, settings rows in game menu, device-specific hint text.
+- Touch (map_camera.gd): tap select, drag pan, pinch zoom, twist rotate, long-press move; emulated mouse ignored; taps on HUD ignored. Battle view: pinch/drag/twist, sticks, RB speed, Back leave.
+- No virtual joysticks/overlays (checked in test).
+- test `--only=controls` 19/19 PASS with synthesized InputEventJoypadButton/Motion, ScreenTouch, ScreenDrag.
+- Task 4 groundwork: ui/perf_overlay.gd (F3), Sim.perf_tick_us, BattleView.perf timings, quality setting (MSAA + battle LOD/sun shadow).
+
+NEXT: Task 4 profiling report + hotspot fixes; Task 5 eras; Task 6 BJORN handoff; Task 7; merge/export.

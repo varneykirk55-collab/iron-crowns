@@ -183,9 +183,14 @@ func date_string() -> String:
 	var p := date_parts()
 	return "%d %s %d" % [p[2], MONTH_NAMES[p[1]], p[0]]
 
+var perf_tick_us := 0      # CPU time spent in campaign ticks this frame (not saved)
+var perf_days := 0
+
 func _process(delta: float) -> void:
+	perf_tick_us = 0; perf_days = 0
 	if not running or speed_idx == 0 or _awaiting_deploy():
 		return
+	var t0 := Time.get_ticks_usec()
 	var spd: float = SPEEDS[speed_idx]
 	if watching_battle >= 0 and slow_during_watch:
 		spd = minf(spd, WATCH_DAYS_PER_SEC)
@@ -195,6 +200,8 @@ func _process(delta: float) -> void:
 		accum -= 1.0
 		tick_day()
 		n += 1
+	perf_days = n
+	perf_tick_us = Time.get_ticks_usec() - t0
 
 func set_speed(i: int) -> void:
 	speed_idx = clampi(i, 0, SPEEDS.size() - 1)
