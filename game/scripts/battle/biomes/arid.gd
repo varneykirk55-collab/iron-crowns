@@ -46,7 +46,9 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	var grey := asia or (americas and lat < 0.0) or china_e                          # grey-brown gravel / volcanic
 
 	b["forest"] = clampf(0.1 + semi * 0.45 + (0.1 if terr in ["hills", "mountains"] else 0.0), 0.08, 0.6)
-	b["dry"] = clampf(0.75 + core * 0.25, 0.7, 1.0)
+	b["dry"] = clampf(0.45 + core * 0.25, 0.4, 0.7)        # pale drift sand only on crests / open flats; the rest is soil / pavement mosaic
+	b["snow_h"] = maxf(float(b["snow_h"]), 4600.0 if elev < 2.5 else 3800.0)   # desert ranges are bare rock, not snow-capped
+	b["treeline"] = float(b["snow_h"]) - 700.0
 	b["rocks"] = clampf(float(b["rocks"]) + core * 0.3 + (0.2 if red else 0.0), 0.4, 1.6)
 	b["relief"] = float(b["relief"]) * (1.0 + core * 0.15)
 	b["tree_cell"] = 11.0 - semi * 2.5; b["tree_p"] = 0.24 + semi * 0.34; b["tree_scale"] = Vector2(0.75, 1.15)
@@ -110,29 +112,29 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	var pave := soil * Color(0.78, 0.76, 0.74)                               # darker gravel / desert pavement
 	var grass := Color(0.4, 0.4, 0.24).lerp(Color(0.34, 0.38, 0.18), semi)   # dusty bunchgrass on the margins
 	b["palette"] = {"grass_a": grass.lerp(pave, core * 0.8), "grass_b": grass.lerp(soil, core * 0.75),
-		"dry": sand, "earth": soil * 0.86, "floor_col": soil * Color(0.86, 0.85, 0.84), "needle": soil * Color(0.8, 0.78, 0.76),
+		"dry": sand, "earth": soil * 0.86, "floor_col": soil * Color(0.95, 0.94, 0.93), "needle": soil * Color(0.9, 0.88, 0.86),
 		"rock": (Color(0.56, 0.4, 0.3) if red else (Color(0.48, 0.45, 0.41) if grey else Color(0.6, 0.53, 0.43))),
-		"scree": soil * 0.85, "far_forest": soil * Color(0.7, 0.72, 0.62), "straw": Color(0.76, 0.68, 0.48),
+		"scree": soil * Color(0.78, 0.74, 0.72), "snow_col": soil * 1.2, "far_forest": soil * Color(0.7, 0.72, 0.62), "straw": Color(0.76, 0.68, 0.48),
 		"lichen": soil * 0.7, "lichen_amt": 0.2}
-	var leaf := [Color(0.95, 0.95, 0.88), Color(0.18, 0.16, 0.12)]
+	var leaf := [Color(1.0, 0.84, 0.82), Color(0.16, 0.14, 0.1)]      # dusty olive / grey-green desert foliage
 	var rk := [Color(1.25, 1.2, 1.15), Color(0.2, 0.18, 0.16)]
 	if red: rk = [Color(1.05, 0.8, 0.68), Color(0.16, 0.1, 0.08)]          # red Navajo / Hejaz sandstone
 	elif grey: rk = [Color(0.86, 0.88, 0.92), Color(0.14, 0.14, 0.14)]     # grey-brown gravel / volcanic
 	else: rk = [Color(1.06, 1.02, 0.96), Color(0.14, 0.12, 0.1)]          # pale buff sandstone / limestone
 	b["tints"] = {"env_mesquite": leaf, "env_acacia_a": leaf, "env_acacia_b": leaf, "env_date_palm": leaf, "env_poplar": leaf,
 		"env_tamarisk": leaf, "env_saxaul": leaf, "env_creosote": leaf, "env_saltbush": leaf, "env_prickly": leaf,
-		"env_saguaro_a": [Color(0.95, 0.98, 0.92), Color(0.1, 0.1, 0.08)], "env_saguaro_b": [Color(0.95, 0.98, 0.92), Color(0.1, 0.1, 0.08)],
+		"env_saguaro_a": [Color(0.98, 0.8, 0.82), Color(0.1, 0.1, 0.08)], "env_saguaro_b": [Color(0.98, 0.8, 0.82), Color(0.1, 0.1, 0.08)],
 		"env_juniper": [Color(0.8, 0.86, 0.74), Color(0.16, 0.14, 0.1)],
 		"env_spinifex": [Color(0.95, 0.95, 0.85), Color(0.14, 0.12, 0.06)], "env_dry_tuft": [Color(0.95, 0.92, 0.85), Color(0.12, 0.1, 0.06)],
 		"env_grass_dry": [Color(0.9, 0.86, 0.72), Color(0.12, 0.1, 0.06)], "env_reeds": [Color(0.85, 0.85, 0.7), Color(0.16, 0.12, 0.08)],
 		"env_gravel": rk, "env_sandstone_a": rk, "env_sandstone_b": rk, "env_sandstone_c": rk, "env_mesa_outcrop": rk,
 		"env_arid_far": [Color(0.88, 0.86, 0.76), Color(0.14, 0.12, 0.08)]}
 	# --- light: high harsh sun, short soft shadows lifted by bright ground bounce, pale dusty sky, warm haze
-	var haze := Color(0.78, 0.72, 0.62).lerp(Color(0.74, 0.76, 0.78), semi * 0.6)
+	var haze := Color(0.72, 0.7, 0.68).lerp(Color(0.72, 0.75, 0.78), semi * 0.6)   # dusty grey-violet distance, not cream
 	b["look"] = {"sky_top": Color(0.36, 0.52, 0.74).lerp(Color(0.32, 0.48, 0.72), semi), "sky_horizon": Color(0.86, 0.82, 0.74).lerp(Color(0.8, 0.82, 0.84), semi),
 		"ground_horizon": Color(0.74, 0.64, 0.5), "ground_bottom": Color(0.36, 0.3, 0.22),
 		"ambient": 0.86, "exposure": 0.94, "contrast": 1.08, "saturation": 0.92 + semi * 0.06,
-		"fog_begin": 260.0, "fog_end": 4600.0, "fog_density": 0.5 + core * 0.1, "fog_color": haze, "fog_scatter": 0.28, "fog_sky": 0.38,
+		"fog_begin": 320.0, "fog_end": 7000.0, "fog_density": 0.42 + core * 0.08, "fog_color": haze, "fog_scatter": 0.28, "fog_sky": 0.38,
 		"sun_rot": Vector3(-58.0 + semi * 10.0, 205.0, 0.0), "sun_color": Color(1.0, 0.95, 0.84), "sun_energy": 1.65 - semi * 0.15, "shadow_opacity": 0.8}
 	b["water"] = {"deep": Color(0.05, 0.12, 0.13), "sky": Color(0.74, 0.78, 0.8)}
 	b["mats"] = {"tree": 2.3, "rock": 1.15, "cover": 1.0, "far": 2.0, "wind": 0.6}
