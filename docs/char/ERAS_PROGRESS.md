@@ -17,7 +17,7 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
 - [x] infra: kit selector in char_v2_build.py (V3_KIT)
 - [x] 1 grenadier (1800)          kid v3_c19_grenadier   unit c19_grenadier   tris 11984 / 1997 / 685
 - [x] 2 artillery crewman (1800)  kid v3_c19_artillery   unit c19_artillery (rammer clips)   tris 11881 / 1997 / 693
-- [ ] push + report (after 2 kits)
+- [x] push + report (after 2 kits): 9076875, tests 163/163, outcome + 3 sim hashes = main
 - [ ] 3 hussar rider (1800)       unit c19_hussar (cavalry rig: see blockers)
 - [ ] 4 medieval pikeman (1300)   unit med_spear
 - [ ] push + report
@@ -40,3 +40,4 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
   red turnbacks w/ blue grenades, blue breeches + waistcoat via kit pal, short black gaiters, red epaulettes, 1806 bell-top
   shako w/ lozenge plate + crossed cannons, red cords + plume), sabre-briquet crossbelt, small pouch, rammer / sponge (TIP (0,1.70,0)).
   Clip needs in docs/char/ROB_CLIP_REQUESTS.md.
+- 17:13 EDT pushed proto/eras-v3 at 9076875 (tests 163/163, outcome 553cc500..., SWE1800/USA1914/JPN1500 sim hashes = main). Next: kit 3 hussar.
