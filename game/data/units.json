@@ -221,7 +221,7 @@
    "era": "c19",
    "name": "Grenadiers",
    "role": "inf",
-   "model": "c19_line",
+   "model": "c19_grenadier",
    "kind": "vat",
    "men": 900,
    "cost": 160,

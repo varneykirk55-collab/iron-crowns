@@ -19,7 +19,7 @@ func apply_quality() -> void:
 		LOD_DIST = _lod_forced_dist   # debug --lod-dist= overrides the preset
 
 const BattleVisuals := preload("res://scripts/battle/battle_visuals.gd")
-const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_musket", "c19": "c19_line", "c20": "c20_rifle", "modern": "mod_rifle"}
+const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_gunner", "c19": "c19_artillery", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
 var bid := -1
@@ -94,6 +94,7 @@ func setup(battle_id: int) -> void:
 	_build_hud()
 	BattleVisuals.apply_quality(Controls.quality)   # store the level first: apply() uses it even if we're not in the tree yet
 	BattleVisuals.apply(self)   # graphics pass (rendering only; idempotent; c19 look only, quality presets all eras)
+	_officer_check()
 	apply_quality()
 	Controls.settings_changed.connect(apply_quality)
 
@@ -357,6 +358,11 @@ func _build_units() -> void:
 			for lod in 2:
 				for alive in 2:
 					_mm("%s|%d|%d" % [d["model"], r["side"], lod], vat[d["model"]]["mesh"][lod], _vat_mat(d["model"], lod, r["side"]), n, true)
+			if str(d["model"]) in OFFICER_REGS and _officer_vat():
+				# R3 (render only): one officer per c19 infantry regiment, dressed by BattleVisuals._char_materials
+				v["officer"] = true
+				for lod in 2:
+					_mm("%s|%d|%d" % [BattleVisuals.OFFICER_MODEL, r["side"], lod], vat[BattleVisuals.OFFICER_MODEL]["mesh"][lod], null, 1, true)
 		else:
 			var mesh := _mesh_of("res://assets/models/%s.glb" % d["model"])
 			_mm("P%s|%d" % [d["model"], r["side"]], mesh, WorldMap.team_material(side_col[r["side"]]), n, false)
@@ -388,6 +394,68 @@ func _build_units() -> void:
 	for e in mms.values():
 		e["mm"].instance_count = e["cap"]
 		e["buf"].resize(e["cap"] * e["stride"])
+
+## R3 officer: c19 infantry regiments get one c19sr officer (BattleVisuals.officer_vat()); false if the bake is missing.
+const OFFICER_REGS := ["c19_line", "c19_grenadier"]
+var officers_on := true
+func _officer_vat() -> bool:
+	var om: String = BattleVisuals.OFFICER_MODEL
+	if not vat.has(om):
+		var ov: Dictionary = BattleVisuals.officer_vat()
+		if ov.is_empty():
+			return false
+		vat[om] = ov
+	return true
+
+## After BattleVisuals.apply(): officers only draw if their multimeshes got the c19sr material (no swap = no officers).
+func _officer_check() -> void:
+	var om: String = BattleVisuals.OFFICER_MODEL
+	for key in mms.keys():
+		if str(key).split("|")[0] == om and not (mms[key]["mmi"].material_override is ShaderMaterial):
+			officers_on = false
+	if not officers_on:
+		for key in mms.keys():
+			if str(key).split("|")[0] == om: mms[key]["mmi"].visible = false
+
+## Officer on the right of the front rank; state from the regiment (render only, no rng, no sim access beyond reads).
+func _put_officer(v: Dictionary, r: Dictionary, center: Vector2, facing: Vector2, st: String, hidden: bool, alive_n: int, spd_base: float, cpos: Vector3, vt: float, dt: float) -> void:
+	var om: String = BattleVisuals.OFFICER_MODEL
+	var right := Vector2(facing.y, -facing.x)
+	var sp: Vector2 = v["sp"]
+	var slot: Vector2 = center + right * ((float(v["files"]) - 1.0) * 0.5 * sp.x + 1.3) + facing * ((float(v["ranks"]) - 1.0) * 0.5 * sp.y + 0.4)
+	if not v.has("off_p"):
+		v["off_p"] = slot; v["off_yaw"] = atan2(facing.x, facing.y); v["off_clip"] = 0; v["off_t0"] = 0.0; v["off_dead"] = -1.0
+	if float(v["off_dead"]) < 0.0 and (st == "dead" or alive_n <= 0):
+		v["off_dead"] = vt
+	var dk: float = v["off_dead"]
+	if hidden and dk < 0.0:
+		return
+	var p: Vector2 = v["off_p"]
+	var cur := 0
+	if dk < 0.0:
+		var dv: Vector2 = slot - p; var dist: float = dv.length()
+		var maxs := maxf(spd_base, 1.0) * 1.35 * dt
+		if dist > 0.001: p += dv / dist * minf(dist, maxs if dist < 8.0 else maxs * 2.0)
+		var face := facing
+		if dist > 1.0: face = dv.normalized()
+		v["off_yaw"] = lerp_angle(float(v["off_yaw"]), atan2(face.x, face.y), minf(dt * 6.0, 1.0))
+		if st == "rout" or st == "fled": cur = 2
+		elif dist > 0.6: cur = 2 if (r["running"] or dist > 4.0) else 1
+		elif st == "melee": cur = 4
+		if cur != int(v["off_clip"]):
+			v["off_clip"] = cur; v["off_t0"] = vt
+		v["off_p"] = p
+	var c := Vector2.ZERO; var ct := 0.0; var spd := 1.0
+	if dk >= 0.0:
+		cur = 5; c = _clip(om, "die"); ct = dk
+	else:
+		c = _clip(om, ["idle", "walk", "run", "fire", "melee"][cur]); ct = float(v["off_t0"])
+		if cur == 1: spd = clampf(spd_base / 1.4, 0.6, 1.8)
+	if not v.has("xf_off"): v["xf_off"] = {"n": 1}
+	var xc := BattleVisuals.xfade(v["xf_off"], 0, cur, c, ct, spd, vt)
+	var y := h_at(p.x, p.y)
+	var lod := 1 if cpos.distance_to(Vector3(p.x, y, p.y)) > LOD_DIST else 0
+	_put(mms["%s|%d|%d" % [om, int(r["side"]), lod]], float(v["off_yaw"]), Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd), xc)
 
 func _slot_local(r: Dictionary, v: Dictionary, k: int) -> Vector2:
 	var files: int = v["files"]; var ranks: int = v["ranks"]
@@ -1166,7 +1234,11 @@ func _update_units(dt: float) -> void:
 					if clip[k] == 1: spd = clampf(spd_base / (3.0 if v["kind"] == "cav" else 1.4), 0.6, 1.8)
 					elif clip[k] == 2: spd = 1.0 + phase[k] * 0.15
 					elif clip[k] == 3: c = Vector2(c.x, -c.y)
-				_put(mms["%s|%d|%d" % [model, side, lod]], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd))
+				# instance COLOR = clip crossfade (BJORN R1). White (= no crossfade) for every non-"sr" model, exactly as before.
+				var xc := Color(1, 1, 1, 1)
+				if vat[model].has("sr"):
+					xc = BattleVisuals.xfade(v, k, 5 if dk >= 0.0 else clip[k], c, ct, spd, vt)
+				_put(mms["%s|%d|%d" % [model, side, lod]], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd), xc)
 			else:
 				var rec: PackedFloat32Array = v["recoil"]
 				var back := Vector2(sin(yaw[k]), cos(yaw[k])) * rec[k] * -0.8
@@ -1193,11 +1265,18 @@ func _update_units(dt: float) -> void:
 							cc = _clip(cm, "run"); cct = phase[k]
 						else:
 							cc = _clip(cm, "idle" if vt - float(v["fire_t"]) > 1.5 or q == 2 else "melee"); cct = phase[k] * 2.0 + q
-						_put(mms["%s|%d|%d" % [cm, side, lod2]], yaw[k], Vector3(cp.x, cy, cp.y), 1.0, Vector4(cc.x, cc.y, cct, 1.0))
+						var ccur := 0   # crew clip crossfade (BJORN xfade_crew, state keyed by k*3+q); white for non-"sr" crews
+						if dk >= 0.0 or st == "dead": ccur = 5
+						elif st == "rout" or st == "fled": ccur = 2
+						elif not (vt - float(v["fire_t"]) > 1.5 or q == 2): ccur = 4
+						var cxc := BattleVisuals.xfade_crew(v, k, q, ccur, cc, cct, 1.0, vt) if vat[cm].has("sr") else Color(1, 1, 1, 1)
+						_put(mms["%s|%d|%d" % [cm, side, lod2]], yaw[k], Vector3(cp.x, cy, cp.y), 1.0, Vector4(cc.x, cc.y, cct, 1.0), cxc)
 			# dust under fast cavalry / vehicles
 			if dk < 0.0 and (v["kind"] == "cav" or v["kind"] == "veh") and r["moving"] and rng.randf() < dt * (0.6 if v["kind"] == "cav" else 2.0):
 				puff("mix", Vector3(p.x, y + 0.4, p.y), Vector3(0, 0.6, 0), 2.5, 1.0, 3.5, Color(0.55, 0.47, 0.36, 0.45))
 		v["pos"] = pos; v["yaw"] = yaw; v["clip"] = clip; v["clip_t"] = clip_t
+		if officers_on and v.has("officer"):
+			_put_officer(v, r, center, facing, st, hidden, alive.size(), spd_base, cpos, vt, dt)
 		# banner follows the regiment's centre
 		var bn: Node3D = banners[i]
 		var show_b := st != "dead" and not hidden and alive.size() > 0
@@ -1212,7 +1291,7 @@ func _update_units(dt: float) -> void:
 		mm.buffer = m["buf"]
 		mm.visible_instance_count = m["n"]
 
-func _put(m: Dictionary, a: float, o: Vector3, s: float, custom: Vector4) -> void:
+func _put(m: Dictionary, a: float, o: Vector3, s: float, custom: Vector4, col: Color = Color(1, 1, 1, 1)) -> void:
 	var k: int = m["n"]
 	if k >= m["cap"]:
 		return
@@ -1223,7 +1302,7 @@ func _put(m: Dictionary, a: float, o: Vector3, s: float, custom: Vector4) -> voi
 	buf[i] = c; buf[i + 1] = 0.0; buf[i + 2] = sn; buf[i + 3] = o.x
 	buf[i + 4] = 0.0; buf[i + 5] = s; buf[i + 6] = 0.0; buf[i + 7] = o.y
 	buf[i + 8] = -sn; buf[i + 9] = 0.0; buf[i + 10] = c; buf[i + 11] = o.z
-	buf[i + 12] = 1.0; buf[i + 13] = 1.0; buf[i + 14] = 1.0; buf[i + 15] = 1.0
+	buf[i + 12] = col.r; buf[i + 13] = col.g; buf[i + 14] = col.b; buf[i + 15] = col.a
 	if st == 20:
 		buf[i + 16] = custom.x; buf[i + 17] = custom.y; buf[i + 18] = custom.z; buf[i + 19] = custom.w
 	m["buf"] = buf

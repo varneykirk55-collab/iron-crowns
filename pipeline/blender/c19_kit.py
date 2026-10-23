@@ -189,3 +189,130 @@ def wheel(b, x, y, z, r, w, col):
         b.box((w * 0.5, 0.04, 2 * (r - 0.08)), (x, y, z), col, 'body', rot=(a, 0, 0), mat=MAT_WOOD)
     b.cyl(0.11, 0.11, w * 1.8, (x, y, z), col, 'body', rot=(0, 90, 0), segs=8, mat=MAT_WOOD)
     b.cyl(0.05, 0.05, w * 2.4, (x, y, z), IRON, 'body', rot=(0, 90, 0), segs=6, mat=MAT_IRON)
+
+# ------------------------------------------------------------------ polish pass: grenadier + foot artillery (same rig / proportions as line_infantry)
+FUR_BLACK = hexc('34302c')   # bearskin: lifted off pure black so it doesn't read as a hole at distance
+GUNNER_COAT = (0.4, 0.42, 0.52, 0.6)   # artillery coat: dark base, 60 % team tint so the side reads at battle distance (crews stay darker than the line)
+RAMMER_HEAD = hexc('3a342e')
+
+def _c19_legs(b, legs_col):
+    for side, x in (('R', 0.09), ('L', -0.09)):
+        b.box((0.13, 0.15, 0.44), (x, 0, 0.74), legs_col, 'thigh.' + side, taper=1.1, mat=MAT_WOOL)
+        b.box((0.11, 0.13, 0.17), (x, 0, 0.405), legs_col, 'shin.' + side, taper=1.1, mat=MAT_WOOL)
+        b.box((0.118, 0.138, 0.17), (x, 0, 0.165), BLACK_LEATHER, 'shin.' + side, taper=1.08, mat=MAT_LEATHER)
+        b.box((0.11, 0.24, 0.09), (x, 0.04, 0.05), BLACK_LEATHER, 'shin.' + side, mat=MAT_LEATHER)
+
+def _c19_head(b, detail, s):
+    b.box((0.09, 0.09, 0.06), (0, 0, 1.52), SKIN, 'head', mat=MAT_SKIN)
+    b.sphere(0.115, (0, 0.01, 1.64), SKIN, 'head', segs=s, rings=5 if detail else 4, scale=(0.95, 1, 1.12), mat=MAT_SKIN)
+    if detail:
+        b.box((0.2, 0.07, 0.1), (0, -0.075, 1.63), HAIR, 'head', mat=MAT_HAIR)
+
+def _c19_arms(b, detail, coat, cuff):
+    for side, x in (('R', 0.24), ('L', -0.24)):
+        b.box((0.1, 0.11, 0.3), (x, 0, 1.31), coat, 'upper_arm.' + side, mat=MAT_WOOL)
+        b.box((0.09, 0.1, 0.26), (x, 0, 1.06), coat, 'forearm.' + side, taper=0.9, mat=MAT_WOOL)
+        if detail or cuff is TEAM:
+            b.box((0.096, 0.106, 0.06), (x, 0, 0.965), cuff, 'forearm.' + side, mat=MAT_WOOL)
+        b.box((0.08, 0.09, 0.09), (x, 0, 0.89), SKIN, 'hand.' + side, mat=MAT_SKIN)
+
+def _c19_musket(b, detail):
+    hx, hz = 0.24, 0.89
+    gx = hx
+    b.box((0.05, 0.1, 0.17), (gx, 0.02, hz + 0.2), WALNUT, 'hand.R', mat=MAT_WOOD)
+    b.box((0.042, 0.06, 0.3), (gx, 0.02, hz - 0.0), WALNUT, 'hand.R', mat=MAT_WOOD)
+    b.box((0.036, 0.046, 0.72), (gx, 0.025, hz - 0.5), WALNUT, 'hand.R', mat=MAT_WOOD)
+    b.cyl(0.014, 0.014, 1.12, (gx, 0.045, hz - 0.59), STEEL, 'hand.R', segs=4 if not detail else 6, mat=MAT_STEEL)
+    b.cyl(0.011, 0.0, 0.42, (gx + 0.02, 0.045, hz - 1.15 - 0.21), STEEL, 'hand.R', rot=(180, 0, 0), segs=3, mat=MAT_STEEL)
+    if detail:
+        b.box((0.016, 0.05, 0.07), (gx + 0.026, 0.03, hz + 0.02), STEEL, 'hand.R', mat=MAT_STEEL)
+        b.box((0.054, 0.104, 0.02), (gx, 0.02, hz + 0.29), BRASS, 'hand.R', mat=MAT_BRASS)
+        b.box((0.008, 0.012, 0.66), (gx, -0.012, hz - 0.42), PIPECLAY, 'hand.R', mat=MAT_PIPECLAY)
+
+def grenadier(name, groups, detail):
+    """c19 grenadier: line-infantry body, kit and musket, plus a tall bearskin (brass plate, white cords, team plume
+    and team back patch), white-fringed wings/epaulettes and a brass match case on the crossbelt."""
+    s = 8 if detail else 5
+    b = MeshBuilder(name, groups)
+    _c19_legs(b, WOOL_WHITE)
+    b.box((0.34, 0.2, 0.24), (0, 0, 1.1), TEAM, 'spine', taper=1.12, mat=MAT_WOOL)
+    b.box((0.4, 0.23, 0.26), (0, 0, 1.36), TEAM, 'chest', taper=1.05, mat=MAT_WOOL)
+    b.box((0.2, 0.17, 0.07), (0, 0, 1.5), TEAM_FACING, 'chest', mat=MAT_WOOL)
+    b.box((0.3, 0.045, 0.26), (0, -0.105, 0.88), TEAM, 'hips', taper=1.15, mat=MAT_WOOL)
+    b.box((0.065, 0.245, 0.52), (0.0, 0.0, 1.25), PIPECLAY, 'chest', rot=(0, 30, 0), mat=MAT_PIPECLAY)
+    b.box((0.065, 0.245, 0.52), (0.0, 0.0, 1.25), PIPECLAY, 'chest', rot=(0, -30, 0), mat=MAT_PIPECLAY)
+    b.box((0.26, 0.1, 0.22), (0, -0.165, 1.24), KNAPSACK, 'chest', mat=MAT_LEATHER)
+    for x in (0.085, -0.085):
+        b.box((0.045, 0.02, 0.4), (x, -0.222, 1.3), PIPECLAY, 'chest', mat=MAT_PIPECLAY)
+    b.box((0.26, 0.02, 0.035), (0, -0.222, 1.42), PIPECLAY, 'chest', mat=MAT_PIPECLAY)
+    # grenadier wings / epaulettes: white fringe, read at distance (both LODs)
+    for x in (0.215, -0.215):
+        b.box((0.13, 0.15, 0.05), (x, 0, 1.49), PIPECLAY, 'chest', mat=MAT_PIPECLAY)
+    if detail:
+        b.box((0.06, 0.02, 0.06), (0, 0.126, 1.27), BRASS, 'chest', mat=MAT_BRASS)
+        b.box((0.08, 0.046, 0.22), (0, -0.112, 0.89), PIPECLAY, 'hips', mat=MAT_PIPECLAY)
+        b.cyl(0.055, 0.055, 0.34, (0, -0.17, 1.5), BLANKET, 'chest', rot=(0, 90, 0), segs=6, mat=MAT_WOOL)
+        b.box((0.16, 0.075, 0.11), (0.12, -0.14, 1.0), BLACK_LEATHER, 'hips', mat=MAT_LEATHER)
+        b.box((0.035, 0.05, 0.3), (-0.18, -0.07, 0.84), BLACK_LEATHER, 'hips', rot=(18, 0, 0), mat=MAT_LEATHER)
+        b.cyl(0.018, 0.018, 0.07, (-0.07, 0.13, 1.36), BRASS, 'chest', rot=(0, 30, 0), segs=5, mat=MAT_BRASS)  # match case
+        for x in (0.215, -0.215):
+            b.box((0.135, 0.155, 0.03), (x, 0, 1.455), TEAM_FACING, 'chest', mat=MAT_WOOL)                  # wing lace
+    _c19_arms(b, detail, TEAM, TEAM_FACING)
+    _c19_head(b, detail, s)
+    # bearskin: tall, slightly swelling fur cap (taller than the shako, same footprint), brass plate in front
+    b.cyl(0.125, 0.15, 0.2, (0, 0.0, 1.8), FUR_BLACK, 'head', segs=s, mat=MAT_FUR)
+    b.cyl(0.15, 0.12, 0.17, (0, -0.01, 1.985), FUR_BLACK, 'head', segs=s, mat=MAT_FUR)
+    b.sphere(0.12, (0, -0.015, 2.07), FUR_BLACK, 'head', segs=s, rings=4, scale=(1, 1, 0.45), mat=MAT_FUR)
+    b.box((0.1, 0.02, 0.1), (0, 0.13, 1.75), BRASS, 'head', rot=(-6, 0, 0), mat=MAT_BRASS)         # front plate (both LODs: reads as a glint)
+    b.cyl(0.028, 0.034, 0.2, (-0.11, 0.03, 2.04), TEAM, 'head', segs=5, mat=MAT_WOOL)              # plume, left side
+    if detail:
+        b.box((0.11, 0.04, 0.1), (0, -0.12, 1.96), TEAM, 'head', mat=MAT_WOOL)                    # back patch (reads from behind)
+        b.box((0.26, 0.02, 0.02), (0, 0.13, 1.86), PIPECLAY, 'head', rot=(0, 0, -8), mat=MAT_PIPECLAY)  # cords
+        b.box((0.02, 0.02, 0.14), (0.13, 0.08, 1.82), PIPECLAY, 'head', mat=MAT_PIPECLAY)         # cord tassels
+        b.box((0.17, 0.04, 0.018), (0, 0.12, 1.705), BLACK_LEATHER, 'head', mat=MAT_LEATHER)      # chin strap / peakless rim
+    _c19_musket(b, detail)
+    return b.to_object()
+
+def artillery_crew(name, groups, detail):
+    """c19 foot artillery gun crew: same body, dark artillery coat (35 % team tint) with full team-coloured collar,
+    lapels (plastron), cuffs and turnbacks, single white pouch belt, no knapsack, light-grey trousers, tall shako with
+    team plume and brass plate, and a rammer / sponge staff in the hand instead of the musket."""
+    s = 8 if detail else 5
+    b = MeshBuilder(name, groups)
+    _c19_legs(b, hexc('cfcfc8'))
+    b.box((0.34, 0.2, 0.24), (0, 0, 1.1), GUNNER_COAT, 'spine', taper=1.12, mat=MAT_WOOL)
+    b.box((0.4, 0.23, 0.26), (0, 0, 1.36), GUNNER_COAT, 'chest', taper=1.05, mat=MAT_WOOL)
+    b.box((0.2, 0.17, 0.07), (0, 0, 1.5), TEAM, 'chest', mat=MAT_WOOL)                       # collar (full team)
+    b.box((0.26, 0.03, 0.26), (0, 0.112, 1.34), TEAM, 'chest', taper=0.8, mat=MAT_WOOL)      # lapels / plastron (front)
+    b.box((0.3, 0.045, 0.26), (0, -0.105, 0.88), GUNNER_COAT, 'hips', taper=1.15, mat=MAT_WOOL)
+    b.box((0.2, 0.05, 0.24), (0, -0.112, 0.89), TEAM, 'hips', mat=MAT_WOOL)                  # turnbacks (team, read from behind)
+    b.box((0.065, 0.245, 0.52), (0.0, 0.0, 1.25), PIPECLAY, 'chest', rot=(0, 30, 0), mat=MAT_PIPECLAY)  # single pouch belt
+    b.box((0.36, 0.235, 0.045), (0, 0, 1.0), PIPECLAY, 'hips', mat=MAT_PIPECLAY)             # waist belt (sword)
+    for x in (0.2, -0.2):
+        b.box((0.1, 0.13, 0.03), (x, 0, 1.49), TEAM, 'chest', mat=MAT_WOOL)                  # team shoulder straps
+    if detail:
+        b.box((0.06, 0.02, 0.05), (0, 0.124, 1.0), BRASS, 'hips', mat=MAT_BRASS)             # belt plate
+        b.box((0.14, 0.07, 0.1), (-0.13, -0.13, 1.02), BLACK_LEATHER, 'hips', mat=MAT_LEATHER)  # pouch
+        b.box((0.04, 0.05, 0.34), (0.19, -0.05, 0.82), BLACK_LEATHER, 'hips', rot=(14, 0, 0), mat=MAT_LEATHER)  # briquet scabbard
+        b.box((0.03, 0.03, 0.06), (0.19, -0.03, 1.0), BRASS, 'hips', mat=MAT_BRASS)          # hilt
+        for z in (1.25, 1.32, 1.39):
+            for x in (0.1, -0.1):
+                b.box((0.018, 0.012, 0.018), (x, 0.128, z), BRASS, 'chest', mat=MAT_BRASS)   # lapel buttons
+        b.cyl(0.05, 0.05, 0.32, (0, -0.14, 1.46), BLANKET, 'chest', rot=(0, 90, 0), segs=6, mat=MAT_WOOL)  # small roll
+    _c19_arms(b, detail, GUNNER_COAT, TEAM)
+    _c19_head(b, detail, s)
+    # artillery shako: taller, bell-topped, with a tall team plume and brass plate (crossed-barrels plate in LOD0)
+    b.cyl(0.118, 0.14, 0.23, (0, 0.01, 1.815), FELT, 'head', segs=s, mat=MAT_WOOL)
+    b.box((0.17, 0.06, 0.02), (0, 0.125, 1.71), BLACK_LEATHER, 'head', rot=(-12, 0, 0), mat=MAT_LEATHER)
+    b.cyl(0.026, 0.02, 0.2, (0, 0.06, 2.02), TEAM, 'head', segs=5, mat=MAT_WOOL)            # plume (both LODs)
+    if detail:
+        b.cyl(0.143, 0.143, 0.03, (0, 0.01, 1.915), BLACK_LEATHER, 'head', segs=s, mat=MAT_LEATHER)
+        b.box((0.09, 0.016, 0.09), (0, 0.14, 1.8), BRASS, 'head', rot=(-3, 0, 0), mat=MAT_BRASS)
+        b.box((0.2, 0.02, 0.018), (0, 0.128, 1.745), TEAM, 'head', rot=(0, 0, 4), mat=MAT_WOOL)   # team cords
+    # rammer / sponge staff in the right hand (same hand + axis as the musket, so the 'gun' clips still fit)
+    hx, hz = 0.24, 0.89
+    b.cyl(0.018, 0.018, 1.75, (hx, 0.035, hz - 0.45), WALNUT, 'hand.R', segs=4 if not detail else 6, mat=MAT_WOOD)
+    b.cyl(0.045, 0.045, 0.16, (hx, 0.035, hz - 1.37), RAMMER_HEAD, 'hand.R', segs=6, mat=MAT_FUR)   # sponge
+    if detail:
+        b.cyl(0.04, 0.04, 0.12, (hx, 0.035, hz + 0.45), WALNUT, 'hand.R', segs=6, mat=MAT_WOOD)     # rammer head
+    return b.to_object()

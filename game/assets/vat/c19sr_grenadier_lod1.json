@@ -1,0 +1,59 @@
+{
+ "vertices": 478,
+ "fps": 24,
+ "clips": {
+  "idle": {
+   "start": 0,
+   "count": 96,
+   "loop": true
+  },
+  "walk": {
+   "start": 96,
+   "count": 24,
+   "loop": true
+  },
+  "run": {
+   "start": 120,
+   "count": 16,
+   "loop": true
+  },
+  "fire": {
+   "start": 136,
+   "count": 48,
+   "loop": false
+  },
+  "melee": {
+   "start": 184,
+   "count": 20,
+   "loop": true
+  },
+  "die": {
+   "start": 204,
+   "count": 30,
+   "loop": false
+  },
+  "die_b": {
+   "start": 234,
+   "count": 30,
+   "loop": false
+  }
+ },
+ "frames": 264,
+ "tris": 629,
+ "kit": "c19sr_grenadier",
+ "lod": 1,
+ "normals": "vatn rgba8 (n*0.5+0.5), same rows/cols as .vat",
+ "aabb": [
+  [
+   -0.7733745574951172,
+   -0.09784218668937683,
+   -1.9262363910675049
+  ],
+  [
+   1.3595054149627686,
+   2.7839725017547607,
+   1.6427162885665894
+  ]
+ ],
+ "max_reach": 1.005
+}

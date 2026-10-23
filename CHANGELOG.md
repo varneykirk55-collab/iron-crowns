@@ -26,6 +26,74 @@
 - Exported builds not run with audio.
 - Known issue: when the demo is recorded with `--write-movie`, Godot reports at exit that 8 ObjectDB instances leaked and 4 resources were still in use (`music_tension.ogg`, `sting_victory.ogg`). The movie writer stops mixing audio on the frame the demo calls `quit()`, so playbacks that were just stopped are never released. Normal runs (the demo without movie, the main scene, the tests) exit clean, and the baseline has no such warning.
 
+## v0.3.2 — 2026-10-23 (BJORN's semi-realistic Napoleonic c19 soldiers)
+### Added
+- **New 1800s soldiers** (BJORN `character-refinement` d93f576, applied as 456aa8d): semi-realistic Napoleonic line infantry (shako),
+  grenadiers (bearskin) and artillery crews with musket + bayonet, built on a shared rigged body and baked to VAT (idle, walk, run, fire with
+  recoil, reload, melee, two death variants). Nation uniforms for all 47 major nations. Two LODs per model plus an in-shader near/far
+  split at 20/30/45 m (Low/Medium/High). In-place swap: model ids, multimeshes and units.json are unchanged; other eras untouched.
+- 0.25 s animation crossfade between clips for the new soldiers (battle_view `_put` instance colour + `BattleVisuals.xfade`, ffcafd3).
+  Artillery crews still switch clips without a crossfade.
+- Debug-only BattleVisuals node restored for `--bench`, `--perflog`, `--vispass` (main.gd; no effect without those flags).
+- `game/tests/battle_shots` harness: battle screenshots and frame timing at fixed camera views on the production battle.
+### Verified
+- 140/140 tests; gameplay outcome hash `0e814dda…`; sim hashes SWE1800 `f7255ebb…`, USA1914 `45cf5510…`, JPN1500 `9bb2394d…` unchanged;
+  0 shader errors. Other eras render as in v0.3.1.
+- Battle frame time on llvmpipe (1800 SWE, mean of 4 views): Low −11 %, Medium +4 %, High −17 % vs v0.3.1 (single runs; ±15 % noise per view).
+### Not done / limitations
+- Readability: in the 1800 Norway-vs-Sweden battle both armies wear blue coats, so at mid range and overhead on snow the sides are hard to tell
+  apart (v0.3.1 read red vs blue). Sent to BJORN; his brighter-far-coats / mid-LOD delta was not ready and comes in v0.3.3.
+- No officer per regiment yet (model is built; needs battle_visuals support). Windows build exported but not run.
+
+## v0.3.1 — 2026-10-23 (overworld terrain refinement, Victoria-style map)
+### Added
+- **New campaign-map look** (`game/shaders/map.gdshader` rewritten; branch `graphics-map` 53b3dcd): relief shading from baked
+  normal/cavity maps, a natural biome albedo with forests, rock on steep slopes and snow on high peaks (prominence-based, so the Tibetan
+  plateau is not white), depth-shaded oceans with shallows, waves, shore foam and fresnel, light haze at oblique views, smooth antialiased
+  coasts. Borders come from a signed distance field: national borders are thicker and darker than province lines and keep a constant
+  pixel width across zoom. The political tint is strong at world/region zoom and fades so terrain dominates close up.
+- **Terrain LOD**: the map is 16x8 chunks with 3 LODs and skirts (`world_map.gd`); Low quality hides the finest LOD and uses a simpler
+  shader path. Quality follows `Controls.settings_changed`.
+- `pipeline/build_map_visuals.py` regenerates the 5 terrain textures in `game/assets/map_terrain/`. Harnesses `game/tests/map_shots`
+  (screenshots, perf, province-pick grid, selection/conquest/zoom checks) and `game/tests/map_flyover` (movie capture).
+### Fixed
+- Horizontal streaks over the open ocean at world zoom (v0.2–v0.3). Cause: the deep-ocean backdrop plane sat 0.06 units under the
+  ocean surface, below the depth-buffer resolution at world-zoom distances, so the two z-fought. The backdrop now sits at y −1.5.
+### Unchanged (verified)
+- Picking, the political LUT, army markers (`map_visuals.gd`, R5), labels, sim and battles. 641 provinces, 186 AI nations.
+### Verified
+- 140/140 tests including the marker click/selection tests; gameplay outcome hash `0e814dda…` unchanged; sim hashes USA1914 `45cf5510…`,
+  JPN1500 `9bb2394d…`, SWE1800 `f7255ebb…` unchanged from v0.3. Province picks identical to v0.3 on 15 views x 576 screen points (and to
+  v0.2.1 on the original 12). Selection highlight, conquest recolour (Oslo → Sweden, re-pick 328) and zoom extremes 4/230 OK.
+- Map frame time on llvmpipe (mean of 8 views): Low −47 %, Medium −29 %, High −34 % vs v0.3; close mountain views at Medium/High are
+  up to +28 % slower (more triangles in the finest LOD). Not measured on a GPU.
+### Not done / limitations
+- At region and close zoom the national colours are deliberately muted (terrain first, like the reference); some neighbours with similar
+  colours are told apart mainly by the dark border line. No cities, fleets or gameplay changes. The terrain is shaded, not re-meshed:
+  mountain height still uses the existing height scale (picking depends on it). Windows build exported but not run.
+
+## v0.3 — 2026-10-23 (BJORN's eras batch + polish pass merged)
+### Added
+- **Battle graphics for every era** by BJORN (`battle_visuals.gd`, eras batch 1c951b9): medieval, pike & shot, c20 and modern now get
+  the material classes, team dye and lighting the c19 pass introduced in v0.2.1.
+- **Overworld army markers** (`map_visuals.gd`, hooked into `world_map.gd`, R5): era-specific standard meshes on the campaign map.
+  Cosmetic only; clicking, selecting and moving armies are unchanged (new tests click a marker through the real input path).
+- **Polish pass** by BJORN (5adecc2): depth-range fog (the field inside 260 m stays clear) and a winter grade for tundra/mountain battles
+  (lower exposure, more contrast, deeper snow ground), which removes the pale haze of the overhead view; a c19 grenadier model
+  (bearskin cap); artillery-uniform gun crews (`c19_artillery`, `em_gunner`).
+### Changed
+- `units.json` (generated by `pipeline/make_gamedata.py`): c19 grenadiers use `c19_grenadier`. `battle_view.gd` `CREW_MODEL`:
+  c19 → `c19_artillery`, early modern → `em_gunner`. BJORN's runtime swaps for these are now no-ops (tested).
+- Test "eras outside the pass keep the legacy look" now checks medieval is in the pass (R6).
+### Verified
+- 140/140 tests (new: marker click/selection, polish models, idempotent re-apply, winter fog/grade). The original 61 gameplay checks
+  give the same outcome hash as v0.2.1 (`0e814dda…`). Sim hashes: USA1914 and JPN1500 unchanged; SWE1800 changes only because the
+  saved regiment data now carries the `c19_grenadier` model name (the full state dumps differ in exactly those 2 lines).
+- One q1 battle per era re-rendered with the polish pass: BATTLERESULT identical to the earlier recordings in all 5 eras, no script errors.
+### Not done
+- R3 (era artillery models in `units.json`) not applied; c20/modern still use `art_howitzer`. Team colour in the overhead view is
+  still weak for c20/modern and for pale nation colours (Japan). Android export; Windows build not run; no GPU measurements.
+
 ## v0.2.1 — 2026-10-22 (BJORN's c19 graphics pass merged)
 ### Added
 - **c19 graphics pass** by BJORN (`game/scripts/battle/battle_visuals.gd`, visual-pass 116c310, final handoff): new 1800s line infantry

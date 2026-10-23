@@ -82,6 +82,56 @@
   - Tests: 130/131. The only failure is your "eras outside the pass keep the legacy look (medieval)" check, which is expected now that medieval is in the pass (see R6). The original 61 gameplay checks give an identical outcome hash `0e814dda…`.
   - Requests (exact code in INTEGRATION.md E3): **R5** one line in `world_map.gd` to add `map_visuals.gd` (needed for the new markers; it only swaps each army's "Standard" mesh/material, so selection and movement are untouched); **R6** update that legacy-look test; **R3** optional: point `units.json` at the era artillery models; **R4** don't merge f62ae41.
   - Open: c20/mod team colour is on accents only (team dye could go 0.55 to 0.7 if you want more); perf on llvmpipe is noise-dominated (draw calls unchanged, tris +2–4%); era demos were short bench runs, not full battles to a result.
+- **MERGED v0.3 (lead, 2026-10-23 00:20 EDT):** your eras batch 1c951b9 and polish pass 5adecc2 are on `main` and tagged `v0.3` (`graphics` 1f7f279 + 882366e → `lead-dev` → main). The tree matches 5adecc2 except the PREVIEW-ONLY `main.gd` (R4 still excluded, so `--vx-terrain` / `--bench-focus` / `--vispass` don't work in the lead build; production uses `BattleView.setup()` → `apply()`).
+  - R5 done: one line in `world_map.gd` adds `map_visuals.gd`; new tests click a marker through the real input path and check selection + move orders still work.
+  - R6 done: the legacy-look test now expects medieval in the pass.
+  - Polish requests done: `make_gamedata.py` sets grenadiers → `c19_grenadier` (units.json regenerated; only that one line changed); `CREW_MODEL` c19 → `c19_artillery`, early_modern → `em_gunner`; `--import` run for the new glbs (0 errors). Your runtime swaps are now no-ops (tested: re-apply adds no multimeshes).
+  - Results: 140/140 tests; 61-check gameplay outcome hash `0e814dda…` unchanged; sim hashes USA1914/JPN1500 unchanged, SWE1800 changes only through the regiment `model` string (state dumps differ in exactly 2 lines). One q1 battle per era re-rendered: BATTLERESULT identical in all 5 eras. Overhead views are no longer washed out (snow included).
+  - R3 still not applied: c20/modern keep `art_howitzer`.
+  - Note: your `out/` directory (INTEGRATION.md incl. the Polish section, hash.sh, MP4s, compares) was gone after a box restart, and there is no polish READY entry here; I worked from the commits and code comments. Please re-post the polish notes if anything there needs action.
+  - Requests for you: (1) overhead team colour is still weak for c20/modern (dye on accents only) and pale nation colours (Japan white vs Russia green at 230 m); (2) `map_visuals._mesh()` calls `load(path).instantiate()` without a null check, so a marker glb that exists but isn't imported crashes; (3) pre-existing horizontal streaks over the western ocean at world zoom (`campaign_USA_world.png`, also in v0.2) — map terrain/shader, so it may belong to the `graphics-map` work.
+  - **@BJORN: base all your next work on `main@v0.3`.**
+
+## MAP READY: overworld visual refinement (Rob, branch `graphics-map`, 2026-10-23 ~01:10 EDT)
+Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style geographic map: terrain relief from normal and cavity maps, a biome albedo, snow on peaks, depth-shaded oceans with shallows, waves, foam and fresnel, haze, and smooth antialiased coasts. Borders are crisp and scale with zoom (signed distance field), and the political tint is adaptive: strong at world and region zoom, with terrain taking over close up. There are no new cities, fleets or gameplay.
+- **Changed files:**
+  - `game/shaders/map.gdshader` (rewritten)
+  - `game/scripts/map/world_map.gd`: loads 5 terrain textures; 16x8 chunked terrain with 3 LODs and skirts; `_apply_map_quality` on `Controls.settings_changed`. Low hides LOD0 and uses the simple shader path. Picking, LUT, markers and labels are untouched.
+  - `game/assets/map_terrain/*` (5 textures + .import)
+  - `pipeline/build_map_visuals.py` (regenerates the textures)
+  - `game/tests/map_shots.{gd,tscn}` (screenshot/perf/pick/interact harness)
+  - `game/tests/map_flyover.{gd,tscn}` (movie capture)
+  - `MAP_PROGRESS.md`
+  - Untouched: `map_visuals.gd`, the battle files, `update_markers`, sim/data, and `main.gd`.
+- **Verified:**
+  - Tests: 131/131.
+  - SIMHASH identical (SWE 1800, USA 1914, JPN 1500).
+  - Picking: 12/12 views return the same ids as the baseline.
+  - Selection highlight, conquest recolour (Oslo→SWE, re-pick 328) and zoom extremes 4/230 all OK.
+- **Perf, pck and outputs:**
+  - Perf (llvmpipe): `out/perf_table.md`.
+  - Outputs: `out/compare/`, `out/before|after/`, `out/map_flyover.mp4`.
+- **MERGED v0.3.1 (lead, 2026-10-23 ~01:50 EDT):** the overworld terrain refinement (`graphics-map` 53b3dcd) is on `main` and tagged `v0.3.1` (`graphics-map` → `lead-dev` 6db2728 + streak fix 3012eab → main).
+  - Files: `map.gdshader` (rewritten), the terrain parts of `world_map.gd` (chunked LOD terrain, `_apply_map_quality`), `game/assets/map_terrain/*`, `pipeline/build_map_visuals.py`, `game/tests/map_shots*`, `game/tests/map_flyover*`. These stay lead-owned.
+  - Your R5 hook in `world_map.gd` is kept and unchanged (`add_child(map_visuals.gd)` at the end of `build()`); marker click/selection tests pass. `map_visuals.gd` and all battle files are untouched.
+  - Fix for your request (3) from the v0.3 note: the world-zoom ocean streaks were z-fighting between the deep-ocean backdrop plane and the ocean surface; the backdrop now sits at y −1.5. Fixed and verified.
+  - Results: 140/140 tests; gameplay outcome hash `0e814dda…`; sim hashes USA1914 `45cf5510…`, JPN1500 `9bb2394d…`, SWE1800 `f7255ebb…` (all unchanged from v0.3); province picks identical on 15 views.
+  - Visual note for marker work: the map is now darker/more natural and the political tint is muted at region/close zoom, so check marker team colours against it.
+  - **@BJORN: base all your next work on `main@v0.3.1`** (rebase `character-refinement` onto it). Hand off patches against that commit as before.
+- **READY: 2026-10-23 05:25 EDT, BJORN, character-refinement (Kirk-directed: semi-realistic Napoleonic c19 soldiers + skeletal-authored anims)**
+  - Branch `character-refinement` HEAD `d93f576` in `/workspace/ic_rebase`, based on main@v0.3.1 `5bffeb0` (no conflicts).
+  - Patch: `/workspace/iron-crowns-visual/out/character-refinement.patch` (36 files, excludes PREVIEW-ONLY). Binaries: `out/character-refinement-binaries.tar.gz` (28 files, 32 MB). Hooks (NOT for merge, see Requests): `out/character-refinement-PREVIEW-ONLY-hooks.patch`.
+  - Verified on clean v0.3.1 + patch + tarball: `--import` clean, 140/140, outcome hash `0e814dda...`, 0 shader errors. Model ids, multimesh names and units.json unchanged (in-place VAT/mesh swap, c19 only; other eras untouched).
+  - Kits line/grenadier/artillery/officer, tris LOD0 ~2.5-3.2k / LOD1 512-629; clips idle/walk/run/fire/melee/die/die_b; nation uniforms for all 47 majors. Perf vs same-build control: q0/q1 within 10%, q2 close/mid -11..-22% (follow-up in progress: mid LOD + brighter far coats).
+  - Docs: `out/INTEGRATION.md` (Requests 1-4: battle_view `_put` colour + `BattleVisuals.xfade` hook; restore main.gd debug node; optional officer instance; optional naming). Bench `out/char/BENCH_AFTER.md`, compares `out/char/compare/`, `out/char/stage7/close/cmp/`, MP4s `out/char/char_closecam.mp4`, `out/char/char_wide.mp4`.
+  - **Lead status / MERGED v0.3.2 (lead, 2026-10-23 ~05:50 EDT):** applied as `456aa8d` (author BJORN; patch sha256 `17475580…`, tarball `f7b0dfc4…`, tree == `d93f576` minus the two PREVIEW-ONLY hook commits; hooks patch NOT applied) → lead-dev → main, tag `v0.3.2`.
+    - R1 DONE (`ffcafd3`, battle_view.gd): `_put(..., col: Color = Color(1,1,1,1))` writes the instance colour; the VAT branch passes `BattleVisuals.xfade(v, k, 5 if dk >= 0.0 else clip[k], c, ct, spd, vt)` when `vat[model].has("sr")`, white otherwise (non-sr eras byte-identical). Artillery crews (`crew_model` loop) still pass white: `xfade` keys state by soldier index `k` in `v`, and 3 crew per gun would collide, so crews hard-cut. If you want crews crossfaded, give me an xfade variant keyed by (k, q).
+    - R2 DONE (`ffcafd3`, main.gd): `if args.has("perflog") or args.has("bench") or args.has("vispass"): add_child(load("res://scripts/battle/battle_visuals.gd").new())` after the Sim signal connects. No flag = no node.
+    - R3 NOT DONE: `c19sr_officer` has no vat id; `_swap_char` only swaps CHAR_MODEL ids that BattleView already loaded, and `_char_materials` only dresses `sr` ids, so an officer instance needs battle_visuals support first. If you add a `c19_officer` → `c19sr_officer` entry that `_swap_char`/`_char_materials` handle (I would create the multimesh `c19_officer|side|lod` from a stub vat entry, 1 instance per c19 infantry regiment next to the banner, render-only), send it as a READY request and I will do the battle_view side.
+    - R4 NOT DONE: renaming ids would change the serialized regiment `model` string (SWE1800 sim hash) and the polish tests; not worth it for v0.3.2.
+    - Verified on lead-dev and main: `--import` 0 errors, 140/140, outcome hash `0e814dda…`, SIMHASH SWE1800 `f7255ebb…` USA1914 `45cf5510…` JPN1500 `9bb2394d…`, 0 SHADER ERROR. Renders: `deliverables/v0.3.2/screenshots/compare/` (1800 SWE q0/q1/q2 close/close_def/mid/top + other eras q1). Perf vs v0.3.1 (llvmpipe, 1600x900): 1800 SWE mean q0 −11 %, q1 +4 %, q2 −17 % (`perf_table.md`).
+    - **@BJORN readability request (please address in the delta):** in the default 1800 Norway-vs-Sweden battle both sides now read blue: NOR `coat 3a5f95` (light blue) vs SWE `2a3d6e` (navy), with white trousers/crossbelts on snow. At mid (70 m) and overhead the two lines are hard to tell apart and neither matches the HUD/banner colours (Norway red, Sweden blue); v0.3.1 read red vs blue. The `_side_palettes` separation check (coat distance < 0.22) does fire here but only darkens/shifts the defender, which doesn't help on snow. Ask: guarantee a minimum side contrast at distance (e.g. tint the coat toward `side_col` beyond `char_lod`, or a stronger team accent on shako/crossbelts at LOD1). See `compare_1800SWE_q2_mid.png`, `crop_1800SWE_q2_close.png`. Swedish navy coats also go quite dark in the close defender view.
+    - Your delta (mid LOD + brighter far coats) was not in `out/` when v0.3.2 was cut; it goes in v0.3.3. Base it on `main@v0.3.2`.
 - **READY: 2026-10-23 01:00 EDT, audio bot, music and military audio system**
   - Branch `audio` (worktree `/workspace/ic_audio`), based on `lead-dev` fa2081b. Not pushed and not merged.
   - What changed:
