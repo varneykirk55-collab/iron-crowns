@@ -2,8 +2,11 @@
 class_name WorldMap
 extends Node3D
 
-const CHUNKS_X := 8
-const CHUNKS_Z := 4
+const CHUNKS_X := 16
+const CHUNKS_Z := 8
+## terrain LODs: grid spacing (world units) and the camera distance up to which each LOD is used
+const LOD_SPACING := [0.15, 0.45, 1.125]
+const LOD_RANGE := [34.0, 95.0, 100000.0]
 const LUT_W := 1024
 
 signal province_clicked(pid: int, button: int)
@@ -35,6 +38,7 @@ var _font: Font
 var _time := 0.0
 var trees: Array = []
 var cities_root: Node3D
+var terrain_lods: Array = []   # [lod] -> Array[MeshInstance3D]
 
 func build() -> void:
 	GameData.load_all()
@@ -45,31 +49,23 @@ func build() -> void:
 	lut_img = Image.create(LUT_W, 2, false, Image.FORMAT_RGBA8)
 	lut_tex = ImageTexture.create_from_image(lut_img)
 	mat.set_shader_parameter("height_tex", htex)
-	mat.set_shader_parameter("albedo_tex", GameData.albedo_texture)
 	mat.set_shader_parameter("prov_tex", ptex)
 	mat.set_shader_parameter("lut_tex", lut_tex)
 	mat.set_shader_parameter("prov_size", Vector2(GameData.raster_w, GameData.raster_h))
 	mat.set_shader_parameter("height_scale", GameData.HEIGHT_SCALE)
-	var cw := GameData.MAP_W / CHUNKS_X
-	var ch := GameData.MAP_H / CHUNKS_Z
-	for cx in CHUNKS_X:
-		for cz in CHUNKS_Z:
-			var pm := PlaneMesh.new()
-			pm.size = Vector2(cw, ch)
-			pm.subdivide_width = int(cw * 2.2)
-			pm.subdivide_depth = int(ch * 2.2)
-			pm.custom_aabb = AABB(Vector3(-cw / 2, -1.0, -ch / 2), Vector3(cw, 6.0, ch))
-			var mi := MeshInstance3D.new()
-			mi.mesh = pm
-			mi.material_override = mat
-			mi.position = Vector3(cx * cw + cw / 2, 0, cz * ch + ch / 2)
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(mi)
+	mat.set_shader_parameter("albedo_tex", load("res://assets/map_terrain/terrain_albedo.jpg"))
+	mat.set_shader_parameter("normal_tex", load("res://assets/map_terrain/terrain_normal.jpg"))
+	mat.set_shader_parameter("data_tex", load("res://assets/map_terrain/terrain_data.png"))
+	mat.set_shader_parameter("nbr_tex", load("res://assets/map_terrain/terrain_nbr.png"))
+	mat.set_shader_parameter("detail_tex", load("res://assets/map_terrain/terrain_detail.png"))
+	_build_terrain_lods()
+	Controls.settings_changed.connect(_apply_map_quality)
+	_apply_map_quality()
 	# deep ocean backdrop beyond the map edges
 	var back := MeshInstance3D.new()
 	var bp := PlaneMesh.new(); bp.size = Vector2(1400, 900)
 	back.mesh = bp
-	var bm := StandardMaterial3D.new(); bm.albedo_color = Color(0.03, 0.09, 0.17); bm.roughness = 0.5
+	var bm := StandardMaterial3D.new(); bm.albedo_color = Color(0.028, 0.095, 0.19); bm.roughness = 0.5
 	back.material_override = bm
 	back.position = Vector3(180, -0.12, 90)
 	add_child(back)
@@ -96,6 +92,76 @@ func build() -> void:
 	Sim.era_changed.connect(func(_e): apply_era(); _refresh_ships())
 	Sim.game_started.connect(func(): lut_dirty = true; labels_dirty = true; apply_era())
 	apply_era()
+
+# ---------------- terrain mesh LODs ----------------
+## Flat grid with a skirt ring (UV2.x = 1, pushed down in the vertex shader) so LOD seams never show gaps.
+static func _grid_mesh(w: float, h: float, nx: int, nz: int) -> ArrayMesh:
+	var verts := PackedVector3Array(); var uv2 := PackedVector2Array(); var idx := PackedInt32Array()
+	var normals := PackedVector3Array()
+	for j in nz + 1:
+		for i in nx + 1:
+			verts.append(Vector3(-w / 2 + w * i / nx, 0, -h / 2 + h * j / nz)); uv2.append(Vector2.ZERO); normals.append(Vector3.UP)
+	for j in nz:
+		for i in nx:
+			var a := j * (nx + 1) + i
+			idx.append_array([a, a + 1, a + nx + 1, a + 1, a + nx + 2, a + nx + 1])
+	# skirt: walk the border loop, duplicate each edge vertex hanging below
+	var loop: Array = []
+	for i in nx + 1: loop.append(i)
+	for j in range(1, nz + 1): loop.append(j * (nx + 1) + nx)
+	for i in range(nx - 1, -1, -1): loop.append(nz * (nx + 1) + i)
+	for j in range(nz - 1, 0, -1): loop.append(j * (nx + 1))
+	loop.append(0)
+	var base := verts.size()
+	for k in loop.size():
+		verts.append(verts[loop[k]]); uv2.append(Vector2(1, 0)); normals.append(Vector3.UP)
+	for k in loop.size() - 1:
+		var t0: int = loop[k]; var t1: int = loop[k + 1]; var s0 := base + k; var s1 := base + k + 1
+		idx.append_array([t0, s0, t1, t1, s0, s1])
+		idx.append_array([t0, t1, s0, t1, s1, s0])   # both windings: skirt is visible from either side
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts; arr[Mesh.ARRAY_NORMAL] = normals; arr[Mesh.ARRAY_TEX_UV2] = uv2; arr[Mesh.ARRAY_INDEX] = idx
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	m.custom_aabb = AABB(Vector3(-w / 2, -1.0, -h / 2), Vector3(w, 6.0, h))
+	return m
+
+func _build_terrain_lods() -> void:
+	var cw := GameData.MAP_W / CHUNKS_X
+	var ch := GameData.MAP_H / CHUNKS_Z
+	terrain_lods.clear()
+	for lod in LOD_SPACING.size():
+		var mesh := _grid_mesh(cw, ch, int(round(cw / LOD_SPACING[lod])), int(round(ch / LOD_SPACING[lod])))
+		var arr: Array = []
+		for cx in CHUNKS_X:
+			for cz in CHUNKS_Z:
+				var mi := MeshInstance3D.new()
+				mi.mesh = mesh
+				mi.material_override = mat
+				mi.position = Vector3(cx * cw + cw / 2, 0, cz * ch + ch / 2)
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				mi.name = "Terrain_L%d_%d_%d" % [lod, cx, cz]
+				add_child(mi)
+				arr.append(mi)
+		terrain_lods.append(arr)
+
+## Map quality: Low drops the finest terrain LOD and the detail shading (close to the original map cost).
+func _apply_map_quality() -> void:
+	var q: int = Controls.quality
+	mat.set_shader_parameter("quality", q)
+	var ranges: Array = LOD_RANGE.duplicate()
+	var first := 0 if q > 0 else 1
+	for lod in terrain_lods.size():
+		var begin := 0.0 if lod == first else float(ranges[lod - 1]) if lod > 0 else 0.0
+		var end_r := float(ranges[lod])
+		for mi in terrain_lods[lod]:
+			mi.visible = lod >= first
+			mi.visibility_range_begin = begin
+			mi.visibility_range_end = end_r
+			mi.visibility_range_begin_margin = 0.0
+			mi.visibility_range_end_margin = 0.0
+			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 
 # ---------------- political LUT ----------------
 func refresh_lut() -> void:

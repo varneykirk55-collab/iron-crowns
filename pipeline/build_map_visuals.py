@@ -101,7 +101,13 @@ BR = 48.0
 bdist = np.sqrt(np.clip((dist + 0.5) / BR, 0, 1))
 bdist[~land] = 1.0
 # keep the field smooth across the coast for the bilinear filter
-nb_img = np.stack([(nbr & 255), (nbr >> 8), np.zeros_like(nbr)], -1).astype(np.uint8)
+# signed border distance for crisp close-zoom lines: the sign flips across each border (id < neighbour id), so a
+# bilinear interpolation of neighbouring texels crosses zero exactly on the boundary between the two provinces.
+SR = 8.0
+sgn = np.where(idl < nbr, 1.0, -1.0)
+sdist = sgn * np.sqrt(np.clip((dist + 0.5) / SR, 0, 1))
+sb = np.where(land, 0.5 + 0.5 * sdist, 1.0)
+nb_img = np.stack([(nbr & 255), (nbr >> 8), np.round(sb * 255)], -1).astype(np.uint8)
 Image.fromarray(nb_img).save(os.path.join(OUT, 'terrain_nbr.png'), optimize=True)
 
 # ---------------- colour: biome palette driven by Natural Earth I land cover ----------------
@@ -145,7 +151,7 @@ alb = alb * np.clip(var, 0.85, 1.15)
 forest = ndimage.gaussian_filter(smoothstep(0.03, 0.11, gr) * (1 - w_ice), 1.0)
 forest = np.clip(forest * 1.2, 0, 1); forest[~land] = 0
 glacier = w_ice
-snowline = 5.2 - 4.4 * smoothstep(20.0, 68.0, alat)
+snowline = 4.9 - 4.3 * smoothstep(18.0, 66.0, alat)
 snow = np.maximum(glacier, smoothstep(snowline - 0.2, snowline + 0.9, land_e) * smoothstep(0.02, 0.25, slope + 0.05))
 snow = np.clip(ndimage.gaussian_filter(snow, 0.8), 0, 1); snow[~land] = 0
 rock = np.clip(smoothstep(0.5, 1.6, slope) * 0.55 + smoothstep(2.0, 4.0, land_e) * 0.45, 0, 0.8) * (1 - snow)
