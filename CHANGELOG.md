@@ -33,7 +33,8 @@
 - **Throttling:** one pending offer per nation and kind; declined offers are not repeated for 120–300 days; unanswered ones lapse after 90 days.
 - **Urgent offers** (peace or alliance while at war) get a one-line notice and a "Needs attention" section. Routine offers are grouped with Accept all / Decline all / Set aside all routine. Recent warnings are listed in the Inbox too.
 ### Verified
-- Full suite (see `test_results.txt`) including new suites `--only=medieval|aistrategy|detection|reinforce|inbox`; test_audio 28/28.
+- Full suite 205/205 after merging main's Scandinavian battle environment (`test_results.txt`), including the new suites `--only=medieval|aistrategy|detection|reinforce|inbox`; test_audio 28/28; test_env 0 failures.
+- Demos: `deliverables/videos/reinforce_JPN_demo.mp4` (the 2nd Army arrives on the Sapporo battlefield, 15 → 19 regiments) and `alerts_SWE_demo.mp4`; screenshots `deliverables/screenshots/reinf_*`, `alert_*`.
 - **Saves:** new fields `spotted`, `offer_block`, per-army `prev`/`reinforce`/`rmode`, battle `axis`/`late`, BattleSim `pending`. Older saves load.
 - **Sim hashes change** as expected, because the AI and battle pacing changed. Determinism is unchanged.
 ### Not done / limitations
