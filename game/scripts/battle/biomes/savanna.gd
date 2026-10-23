@@ -112,8 +112,8 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	var green := Color(0.3, 0.4, 0.15)
 	var straw := Color(0.66, 0.56, 0.32)
 	if sub in ["highland", "campos"]: green = Color(0.26, 0.38, 0.14)
-	var gr_a := green.lerp(straw * 0.86, 0.15 if wet else 0.72)
-	var gr_b := green.lerp(straw, 0.3 if wet else 0.88)
+	var gr_a := green.lerp(straw * 0.86, 0.35 if wet else 0.72)
+	var gr_b := green.lerp(straw, 0.5 if wet else 0.88)
 	b["palette"] = {"grass_a": gr_a, "grass_b": gr_b, "dry": straw.lerp(Color(0.78, 0.68, 0.44), 0.4), "earth": soil,
 		"floor_col": soil.lerp(gr_a, 0.5) * 0.88, "needle": soil * 0.85, "rock": Color(0.55, 0.51, 0.46), "scree": soil.lerp(Color(0.5, 0.46, 0.4), 0.5),
 		"snow_col": Color(0.9, 0.92, 0.95), "far_forest": Color(0.24, 0.27, 0.13) if wet else Color(0.32, 0.3, 0.17),
@@ -131,7 +131,7 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	var haze := Color(0.8, 0.76, 0.68) if not wet else Color(0.74, 0.8, 0.84)
 	b["look"] = {"sky_top": Color(0.3, 0.5, 0.78) if wet else Color(0.4, 0.54, 0.72), "sky_horizon": Color(0.82, 0.86, 0.88) if wet else Color(0.88, 0.82, 0.72),
 		"ground_horizon": Color(0.7, 0.62, 0.48), "ground_bottom": Color(0.32, 0.26, 0.18),
-		"ambient": 0.88, "exposure": 0.98, "contrast": 1.06, "saturation": 1.0 if wet else 0.94,
+		"ambient": 0.88, "exposure": 0.98, "contrast": 1.06, "saturation": 0.95 if wet else 0.92,
 		"fog_begin": 300.0, "fog_end": 5200.0 if wet else 4200.0, "fog_density": 0.5 if wet else 0.62, "fog_color": haze, "fog_scatter": 0.3, "fog_sky": 0.36,
 		"sun_rot": Vector3(-56.0, 200.0, 0.0), "sun_color": Color(1.0, 0.94, 0.82), "sun_energy": 1.6, "shadow_opacity": 0.82}
 	b["water"] = {"deep": Color(0.08, 0.1, 0.07), "sky": Color(0.72, 0.76, 0.78)}

@@ -35,7 +35,7 @@ def umbrella_thorn(name, seed, height, width):
     fork = height * 0.32
     b.cyl(0.26, 0.2, fork, (0, 0, fork / 2), bark, 'body', segs=6)
     cols = [hexc('4a5a26', 1.0), hexc('55642c', 1.0), hexc('3f5022', 1.0), hexc('5d6a30', 1.0)]
-    hi = hexc('8a9446', 1.0)
+    hi = hexc('76803e', 1.0)
     nl = 5
     for k in range(nl):
         a = k / nl * math.tau + rnd.uniform(-0.3, 0.3)
@@ -65,7 +65,7 @@ def baobab(name='env_baobab', seed=211, height=14.0):
         _limb(b, p0, p1, 0.5, 0.18, bark2, segs=5)
         p2 = p1 + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0.8, 1.5)))
         _limb(b, p1, p2, 0.18, 0.08, bark2, segs=4)
-        _clump(b, p2 + Vector((0, 0, 0.3)), rnd.uniform(1.1, 1.5), (1.3, 1.3, 0.75), cols, hexc('8aa04a', 1.0), rnd, seed, k, rough=0.4)
+        _clump(b, p2 + Vector((0, 0, 0.3)), rnd.uniform(1.1, 1.5), (1.3, 1.3, 0.75), cols, hexc('768a40', 1.0), rnd, seed, k, rough=0.4)
     return finish(b, name, smooth=True)
 
 def miombo(name, seed, height, width, cols, hi):
@@ -111,7 +111,7 @@ def thornbush(name='env_thornbush', seed=241):
         a = rnd.uniform(0, math.tau); d = rnd.uniform(0.2, 0.9)
         c = Vector((math.cos(a) * d, math.sin(a) * d, rnd.uniform(0.9, 1.5)))
         _limb(b, Vector((0, 0, 0)), c, 0.05, 0.03, bark, segs=3)
-        _clump(b, c, rnd.uniform(0.6, 0.85), (1.4, 1.4, 0.6), cols, hexc('94984e', 1.0), rnd, seed, k, rough=0.45)
+        _clump(b, c, rnd.uniform(0.6, 0.85), (1.4, 1.4, 0.6), cols, hexc('84884a', 1.0), rnd, seed, k, rough=0.45)
     return finish(b, name, smooth=True)
 
 def sav_grass(name='env_sav_grass', seed=251, n=12, h=0.85):
@@ -129,7 +129,7 @@ def termite_mound(name, seed, height):
     """Laterite termite mound: a lumpy red-earth cone with a couple of chimney spires."""
     rnd = random.Random(seed)
     b = MeshBuilder(name, G)
-    earth = [hexc('9a5a36'), hexc('8a5030'), hexc('a2643c')]
+    earth = [hexc('7e5a40'), hexc('74523a'), hexc('86603f')]
     _stone(b, (0, 0, 0), (1.3, 1.2, height * 0.45), rnd, seed, subdiv=2, flat=1.0, rough=0.22, pal=earth, moss=[], moss_p=0.0, crev='6a3a22')
     for k in range(2):
         o = Vector((rnd.uniform(-0.4, 0.4), rnd.uniform(-0.4, 0.4), 0))
@@ -162,10 +162,10 @@ def sav_far(name='env_sav_far'):
     rnd = random.Random(9)
     b = MeshBuilder(name, G)
     b.cyl(0.3, 0.22, 5.0, (0, 0, 2.5), hexc('4a3f34'), 'body', segs=4)
-    _clump(b, Vector((0, 0, 6.0)), 3.6, (1.4, 1.4, 0.4), [hexc('4a5a28', 1.0)], hexc('7a8a40', 1.0), rnd, 3, 0, rough=0.2, sub=1)
+    _clump(b, Vector((0, 0, 6.0)), 3.6, (1.4, 1.4, 0.4), [hexc('4a5a28', 1.0)], hexc('6e7a3c', 1.0), rnd, 3, 0, rough=0.2, sub=1)
     return finish(b, name, smooth=True)
 
-MIOMBO = ([hexc('4a6226', 1.0), hexc('56702c', 1.0), hexc('6a6a2c', 1.0), hexc('425a22', 1.0)], hexc('94a04a', 1.0))
+MIOMBO = ([hexc('4a6226', 1.0), hexc('56702c', 1.0), hexc('6a6a2c', 1.0), hexc('425a22', 1.0)], hexc('7e8a42', 1.0))
 
 BUILDERS = {
     'env_umbrella_a': lambda: umbrella_thorn('env_umbrella_a', 201, 9.0, 12.0),
