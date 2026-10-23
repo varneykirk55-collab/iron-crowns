@@ -69,6 +69,7 @@ uniform sampler2D v2_idmap : hint_default_black, filter_nearest, repeat_disable;
 uniform sampler2D v2_albmap : hint_default_black, filter_linear_mipmap, repeat_disable;   // painted skin / eye albedo (MH base), black = none
 uniform float nmap_strength = 1.0;
 uniform float nmap_ao = 0.85;
+uniform float v3_grade = 1.0;   // stage 5b material grade (desaturated indigo wool, off-white pipeclay, darker semi-gloss leather, brass)
 varying vec2 atl_uv;
 varying float nmap_k;   // 1 = near set (id map + normal map), 0.6 = mid set (normal map only), 0 = far
 #endif
@@ -246,6 +247,19 @@ void fragment() {
 		vmat((id4.z + 0.5) / 32.0, id4.z == 0.0 ? 1.0 : 0.0, idm.z, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c2, r_, m_, s_, a_);
 		vmat((id4.w + 0.5) / 32.0, id4.w == 0.0 ? 1.0 : 0.0, idm.w, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c3, r_, m_, s_, a_);
 		alb = mix(mix(c0, c1, idf.x), mix(c2, c3, idf.x), idf.y);
+	}
+	{   // stage 5b grade (near / mid / far alike, faded out where the distance team tint takes over)
+		float gk = clamp((1.0 - team_w.x) * v3_grade, 0.0, 1.0);
+		float lum = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+		if (mi == 1.0) {   // wool: indigo-navy / madder red desaturated, whites to warm off-white, matte 0.86-0.94
+			float red = smoothstep(0.05, 0.25, alb.r - alb.b);
+			vec3 g = mix(vec3(lum), alb, mix(0.40, 0.80, red)) * mix(vec3(0.80, 0.84, 0.90), vec3(0.86, 0.80, 0.80), red);
+			vec3 w = alb * vec3(0.92, 0.90, 0.83);
+			alb = mix(alb, mix(g, w, smoothstep(0.35, 0.6, lum)), gk);
+			rough = mix(rough, 0.86 + 0.08 * clamp(dlum * 2.0 - 0.5, 0.0, 1.0), gk); spec = mix(spec, 0.18, gk);
+		} else if (mi == 7.0) { alb = mix(alb, alb * vec3(0.93, 0.91, 0.85), gk); rough = mix(rough, 0.82, gk); }   // pipeclayed buff
+		else if (mi == 2.0 || mi == 8.0) { alb = mix(alb, alb * 0.62, gk); rough = mix(rough, 0.33, gk); spec = mix(spec, 0.55, gk); }   // blackened leather, semi-gloss
+		else if (mi == 4.0) { metal = mix(metal, 1.0, gk); rough = mix(rough, 0.30, gk); }   // brass
 	}
 	if (id4.x >= 0.0) {   // painted detail: wool fibre / leather / skin variation, stubble + ruddy skin, eyes, edge wear
 		alb *= 0.55 + 0.9 * dlum;
