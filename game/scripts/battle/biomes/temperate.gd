@@ -77,7 +77,7 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 		"winter":
 			var dead := [Color(0.95, 0.95, 0.95), Color(0.16, 0.14, 0.12)]   # *_win models: thin brown marcescent crowns
 			maple = dead; oak = dead; ash = dead; under = dead
-			far = [Color(1.4, 1.15, 0.95), Color(0.3, 0.2, 0.15)]
+			far = [Color(0.88, 0.86, 0.9), Color(0.12, 0.1, 0.1)]
 			dry += 0.55; grass_a = Color(0.36, 0.36, 0.22); grass_b = Color(0.48, 0.44, 0.3)
 			sun = Vector3(-24.0, 205.0, 0.0); sun_c = Color(0.98, 0.9, 0.8); sun_e = 1.3
 	b["dry"] = clampf(dry, 0.0, 1.0)

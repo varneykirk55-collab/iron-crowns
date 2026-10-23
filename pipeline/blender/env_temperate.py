@@ -67,6 +67,33 @@ def hardwood(name, seed, height, crown_w, cols, hi, bark, limbs=4, fork=0.42, n=
     _clump(b, Vector((0, 0, height - 2.6)), crown_w * 0.3, (sq[0], sq[1], sq[2] * 1.1), cols, hi, rnd, seed, 99, rough=0.4)
     return finish(b, name, smooth=True)
 
+def bare_hardwood(name, seed, height, crown_w, bark, limbs=4, fork=0.4, leaves=None, n_leaf=0):
+    """Winter (dormant) hardwood: trunk + limbs that fork twice into thinner branches and twigs, so the bare crown reads
+    as a branching silhouette; oaks keep a few clumps of brown marcescent leaves (`leaves`)."""
+    rnd = random.Random(seed)
+    b = MeshBuilder(name, G)
+    zf = height * fork
+    b.cyl(0.42, 0.3, zf + 0.4, (0, 0, zf / 2), hexc(bark), 'body', segs=7)
+    tips = []
+    def grow(p0, d, L, r, depth):
+        p1 = p0 + d * L
+        _limb(b, p0, p1, r, r * 0.6, hexc(bark), segs=5 if depth == 0 else (4 if depth == 1 else 3))
+        if depth == 2:
+            tips.append(p1); return
+        for k in range(3 if depth == 0 else 2):
+            nd = (d + Vector((rnd.uniform(-0.7, 0.7), rnd.uniform(-0.7, 0.7), rnd.uniform(0.1, 0.6)))).normalized()
+            grow(p1, nd, L * rnd.uniform(0.5, 0.65), r * 0.55, depth + 1)
+    for k in range(limbs):
+        a = k / limbs * math.tau + rnd.uniform(-0.4, 0.4)
+        d = Vector((math.cos(a) * 0.62, math.sin(a) * 0.62, 0.78)).normalized()
+        grow(Vector((0, 0, zf - 0.2)), d, (height - zf) * rnd.uniform(0.5, 0.62), 0.22, 0)
+    _limb(b, Vector((0, 0, zf)), Vector((0, 0, height * 0.92)), 0.24, 0.06, hexc(bark), segs=5)
+    if leaves:
+        for k in range(n_leaf):
+            t = tips[rnd.randrange(len(tips))]
+            _clump(b, t, rnd.uniform(0.7, 1.1), (1.2, 1.2, 0.8), leaves[0], leaves[1], rnd, seed, k, rough=0.5)
+    return finish(b, name, smooth=True)
+
 def wpine(name='env_wpine', seed=311, height=22.0):
     """Eastern white pine: tall straight trunk, irregular whorls of long near-horizontal branches with soft
     blue-green needle tufts (the 'flag' silhouette above the hardwood canopy)."""
@@ -193,13 +220,15 @@ SEASONAL = {
     'win': {'oak': (_H(['6a5a48', '74624e']), '8a7a64'), 'maple': (_H(['625650', '6a5e56']), '807468'),
             'ash': (_H(['645a4e', '6c6054']), '82766a'), 'n': 0.22},
 }
-for _s, _p in SEASONAL.items():
-    _f = _p['n']
-    BUILDERS['env_oak_a_' + _s] = (lambda s=_s, p=_p, f=_f: hardwood('env_oak_a_' + s, 301, 15.0, 15.0, p['oak'][0], hexc(p['oak'][1], 1.0), '4e463c', limbs=5, fork=0.3, n=max(5, int(20 * f)), sq=(1.15, 1.15, 0.9)))
-    BUILDERS['env_maple_t_' + _s] = (lambda s=_s, p=_p, f=_f: hardwood('env_maple_t_' + s, 302, 16.0, 10.0, p['maple'][0], hexc(p['maple'][1], 1.0), '5a5046', limbs=4, fork=0.36, n=max(4, int(18 * f)), sq=(1.05, 1.05, 1.05)))
-    BUILDERS['env_ash_t_' + _s] = (lambda s=_s, p=_p, f=_f: hardwood('env_ash_t_' + s, 303, 21.0, 9.0, p['ash'][0], hexc(p['ash'][1], 1.0), '6a6458', limbs=3, fork=0.45, n=max(3, int(15 * f)), sq=(1.0, 1.0, 1.05)))
+_p = SEASONAL['aut']
+BUILDERS['env_oak_a_aut'] = lambda p=_p: hardwood('env_oak_a_aut', 301, 15.0, 15.0, p['oak'][0], hexc(p['oak'][1], 1.0), '4e463c', limbs=5, fork=0.3, n=20, sq=(1.15, 1.15, 0.9))
+BUILDERS['env_maple_t_aut'] = lambda p=_p: hardwood('env_maple_t_aut', 302, 16.0, 10.0, p['maple'][0], hexc(p['maple'][1], 1.0), '5a5046', limbs=4, fork=0.36, n=18, sq=(1.05, 1.05, 1.05))
+BUILDERS['env_ash_t_aut'] = lambda p=_p: hardwood('env_ash_t_aut', 303, 21.0, 9.0, p['ash'][0], hexc(p['ash'][1], 1.0), '6a6458', limbs=3, fork=0.45, n=15, sq=(1.0, 1.0, 1.05))
+BUILDERS['env_oak_a_win'] = lambda: bare_hardwood('env_oak_a_win', 301, 15.0, 15.0, '4e463c', limbs=5, fork=0.3, leaves=(_H(['6a4e30', '74583a']), hexc('8a6c48', 1.0)), n_leaf=6)
+BUILDERS['env_maple_t_win'] = lambda: bare_hardwood('env_maple_t_win', 302, 16.0, 10.0, '5a5046', limbs=4, fork=0.36)
+BUILDERS['env_ash_t_win'] = lambda: bare_hardwood('env_ash_t_win', 303, 21.0, 9.0, '6a6458', limbs=3, fork=0.45)
 BUILDERS['env_hw_far_aut'] = lambda: hw_far('env_hw_far_aut', '6a4420', '7a6224', '9a6a3a', '9a7a3a')
-BUILDERS['env_hw_far_win'] = lambda: hw_far('env_hw_far_win', '5a4e42', '5e5246', '72665a', '766a5e')
+BUILDERS['env_hw_far_win'] = lambda: hw_far('env_hw_far_win', '4e4846', '544c4a', '5e5654', '625a56')
 BUILDERS['env_hazel_aut'] = lambda: understorey('env_hazel_aut', 321, ('7a6624', '84561e', '6a5220'), ('a08a3a', '947432'))
 BUILDERS['env_hazel_win'] = lambda: understorey('env_hazel_win', 321, ('5e5040', '665646', '58483a'), ('7a6c5a', '726452'))
 
