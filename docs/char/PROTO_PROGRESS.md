@@ -19,7 +19,7 @@
 - [x] 5a v3 body/head/hands on MakeHuman CC0 base (prep a81a1b7, painted albedo ba3c724); kit, LODs, bake, VAT re-bake (rig/rows/weapon_tip frozen) — v3 kit 6e9941b, LOD0 11,670 / mid 1,998 / far 693
 - [x] 5b cloth: folds, wool twill micro-normal, desaturated navy, roughness separation, realistic collar — c8f2e9f
 - [x] 5c era-generic system docs/char/CHAR_SYSTEM.md (b5a951c)
-- [ ] 5d stills (front/side/back/3-4/bust/hand, gameplay distance), compare blocky/c19sr/v2/v3, slow-orbit idle video <20 MB
+- [x] 5d stills (front/side/back/3-4/bust/hand, gameplay distance), compare blocky/c19sr/v2/v3, slow-orbit idle video <20 MB — stills/compare 65b5e49, deliverables/proto_v3/video/proto_v3_idle_orbit.mp4 (24 s, 3.4 MB)
 
 ## 2a-2c notes (Oct 23, ~11:50 EDT)
 - Body: torso/neck/collar + arms (built spread +-6 cm) + legs/gaiters + shoes, unioned by 5 mm voxel remesh (hi ~92k verts);
