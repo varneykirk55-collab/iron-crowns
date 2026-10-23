@@ -1,0 +1,28 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Binary assets: never normalize line endings or diff
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.exr binary
+*.hdr binary
+*.glb binary
+*.gltf binary
+*.blend binary
+*.vat binary
+*.vatn binary
+*.bin binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+*.mp4 binary
+*.webm binary
+*.res binary
+*.scn binary
+*.zip binary
+*.ttf binary
+*.otf binary
+*.exe binary
+*.pck binary
