@@ -252,7 +252,7 @@ static func plan(ctx: Dictionary) -> Dictionary:
 		trees.append([model2, x, z, s2, rng.randf() * TAU, int(rng.randf() < 0.3), rng.randf()])
 		obst.append([Vector2(x, z), 1.2 * s2])
 	# --- far forest belts (distance LOD) out to ~2.6 km, below the treeline, off the lake
-	var fc := 25.0
+	var fc := 36.0   # sparse silhouette trees; the terrain shader paints the belt canopy (far_mask) between them
 	var fn := int(5400.0 / fc)
 	var tl: float = ctx["treeline"]
 	var nf: FastNoiseLite = ctx["n_forest"]
@@ -265,13 +265,13 @@ static func plan(ctx: Dictionary) -> Dictionary:
 				continue
 			var r := Vector2(x, z).length()
 			var cl := nf.get_noise_2d(x * 0.6, z * 0.6) * 0.5 + 0.5
-			var dens := smoothstep(0.38, 0.55, cl) * (1.0 - smoothstep(2000.0, 2700.0, r))
-			if u > dens * 0.9:
+			var dens := smoothstep(0.38, 0.55, cl) * (1.0 - smoothstep(1700.0, 2500.0, r))
+			if u > dens * 0.95:
 				continue
 			var h := height(ctx, x, z)
 			if h > tl * rng.randf_range(0.7, 1.0) or lake_d(ctx, x, z) < 1.2:
 				continue
-			far.append(["env_conifer_far", x, z, rng.randf_range(0.95, 1.45), rng.randf() * TAU, 0 if rng.randf() < 0.45 else (1 if rng.randf() < 0.6 else 2), rng.randf()])
+			far.append(["env_conifer_far", x, z, rng.randf_range(1.2, 1.8), rng.randf() * TAU, 0 if rng.randf() < 0.45 else (1 if rng.randf() < 0.6 else 2), rng.randf()])
 	# --- rocks: the granite knoll (outcrops + boulders), erratic boulder fields, lake-shore stones
 	var rk: float = ctx["rocks"]
 	var rc: Vector2 = ctx["rock_c"]; var rr: float = ctx["rock_r"]
@@ -518,7 +518,7 @@ static func build_scenery(bv: Node) -> void:
 	var pl := plan(ctx)
 	ctx["plan"] = pl
 	ctx["mmis"] = []
-	var mats := {"tree": _foliage_mat(1.45, 1.0, false), "rock": _foliage_mat(1.0, 0.0, false), "cover": _foliage_mat(1.0, 1.0, true), "far": _foliage_mat(1.35, 0.0, false)}
+	var mats := {"tree": _foliage_mat(2.4, 1.0, false), "rock": _foliage_mat(1.3, 0.0, false), "cover": _foliage_mat(1.0, 1.0, true), "far": _foliage_mat(2.2, 0.0, false)}
 	# near trees: 250 m tiles, detail mesh to ~330 m from the camera, then the far-LOD conifer
 	var dbg := _arg("env-dbg")
 	if "c" in dbg: pl["cover"] = []
@@ -531,7 +531,11 @@ static func build_scenery(bv: Node) -> void:
 		lod.append(e)
 	_tiled(bv, ctx, lod, TREE_TILE, mats["far"], false, TREE_DETAIL, 0.0, "L")
 	_tiled(bv, ctx, pl["far"], 900.0, mats["far"], false, 0.0, 0.0, "F")
-	_tiled(bv, ctx, pl["rocks"], 2000.0, mats["rock"], true, 0.0, 0.0, "R")
+	var stones: Array = []; var shrubs: Array = []
+	for r in pl["rocks"]:
+		(shrubs if str(r[0]) in ["env_juniper", "env_log"] else stones).append(r)
+	_tiled(bv, ctx, stones, 2000.0, mats["rock"], true, 0.0, 0.0, "R")
+	_tiled(bv, ctx, shrubs, 2000.0, mats["tree"], true, 0.0, 0.0, "S")
 	_tiled(bv, ctx, pl["cover"], COVER_TILE, mats["cover"], false, 0.0, 150.0, "C")
 	ctx["ms_scenery"] = Time.get_ticks_msec() - t0
 	apply_quality(bv)
@@ -569,7 +573,7 @@ static func _tiled(bv: Node, ctx: Dictionary, items: Array, tile: float, mat: Ma
 			var v: float = it[6]
 			var col := Color(1, 1, 1)
 			if model.begins_with("env_birch"):
-				col = Color(0.62 + v * 0.08, 0.64 + v * 0.1, 0.56 + v * 0.08)   # (x1.45 tree albedo) muted summer birch
+				col = Color(0.35 + v * 0.05, 0.36 + v * 0.06, 0.3 + v * 0.05)   # (x2.4 tree albedo) muted summer birch
 			elif model == "env_conifer_far" and tag == "L":
 				col = Color(0.9 + v * 0.15, 0.95 + v * 0.1, 0.9)
 			else:
@@ -621,7 +625,7 @@ static func apply_look(bv: Node) -> void:
 		sm.sun_curve = 0.12
 		sm.sky_energy_multiplier = 1.0
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.62
+	env.ambient_light_energy = 0.85
 	env.ambient_light_sky_contribution = 0.85
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.04

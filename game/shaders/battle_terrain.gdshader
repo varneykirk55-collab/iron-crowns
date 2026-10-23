@@ -87,8 +87,8 @@ void fragment() {
 	g = mix(g, snow_col * mix(0.88, 1.0, n2), sn);
 	// wet shore + lake bed
 	float lake = nm.b * in_near;
-	float wet = (1.0 - smoothstep(water_h + 0.2, water_h + 1.6, wpos.y)) * lake;
-	g = mix(g, mix(earth * 0.6, vec3(0.42, 0.39, 0.32), smoothstep(0.4, 0.6, n3)), wet * 0.7);
+	float wet = (1.0 - smoothstep(water_h + 0.2, water_h + 0.9, wpos.y)) * lake;
+	g = mix(g, mix(earth * 0.55, vec3(0.38, 0.35, 0.29), smoothstep(0.4, 0.6, n3)), wet * 0.55);
 	g = mix(g, vec3(0.16, 0.17, 0.13), (1.0 - smoothstep(water_h - 1.2, water_h - 0.1, wpos.y)) * lake);
 	// gentle macro value variation + aerial desaturation far away (the fog then tints it)
 	g *= mix(0.9, 1.05, macro);

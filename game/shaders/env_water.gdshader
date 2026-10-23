@@ -16,11 +16,11 @@ void fragment() {
 	float b = texture(noise_tex, p * 0.17 - vec2(TIME * 0.004, -TIME * 0.007)).r;
 	float c = texture(noise_tex, p * 0.06 + vec2(0.02 + TIME * 0.006, TIME * 0.002)).r;
 	float d = texture(noise_tex, p * 0.17 - vec2(TIME * 0.004, 0.02 - TIME * 0.007)).r;
-	vec3 wn = normalize(vec3((a - c) * 0.9 + (b - d) * 0.5, 1.0, (a - b) * 0.12 + (c - d) * 0.3));
+	vec3 wn = normalize(vec3((a - c) * 0.35 + (b - d) * 0.2, 1.0, (c - d) * 0.25));
 	NORMAL = normalize((VIEW_MATRIX * vec4(wn, 0.0)).xyz);
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
-	ALBEDO = mix(deep, sky * 0.62, 0.12 + fres * 0.7);
-	ROUGHNESS = 0.07;
-	SPECULAR = 0.55;
+	ALBEDO = mix(deep, sky * 0.5, 0.08 + fres * 0.55);
+	ROUGHNESS = 0.16;
+	SPECULAR = 0.4;
 	METALLIC = 0.0;
 }
