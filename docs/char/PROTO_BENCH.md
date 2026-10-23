@@ -57,3 +57,8 @@ The median-of-3 removes a single bad run per cell, but not two. At q2 both r2 an
 
 Raw logs: `out/proto/bench/r{1,2,3}/{ctl,proto}/q{0,1,2}.log` (not committed; the PERF blocks are summarised above).
 Parser: the median over runs of 1000/median_ms per view.
+
+
+## Follow-up (Oct 23, 14:40 EDT)
+
+q1 close was about -40% (3.53 -> 2.09 fps) in this 4d bench. Once v3 is done it is re-benched, and LOD distance / tri changes to recover q1 close are proposed (reported only; quality tiers are not changed).

@@ -16,6 +16,10 @@
 - [x] 4d bench q0/q1/q2 x3 vs same-build --vx-proto=0 (FRA 1800 battle): docs/char/PROTO_BENCH.md (llvmpipe, shared-box contention noted; same draws, +17k prims, q1 close ~-40%)
 - [x] 4e tests 163/163, outcome hash 553cc500... = main; sim hashes = main (SWE1800 417a5300..., USA1914 4679c5a2..., JPN1500 e104d558...)
 - [x] 4f push proto/c19-line-v2 (origin, branch only)
+- [ ] 5a v3 body/head/hands on MakeHuman CC0 base (prep a81a1b7, painted albedo ba3c724); kit, LODs, bake, VAT re-bake (rig/rows/weapon_tip frozen)
+- [ ] 5b cloth: folds, wool twill micro-normal, desaturated navy, roughness separation, realistic collar
+- [x] 5c era-generic system docs/char/CHAR_SYSTEM.md (b5a951c)
+- [ ] 5d stills (front/side/back/3-4/bust/hand, gameplay distance), compare blocky/c19sr/v2/v3, slow-orbit idle video <20 MB
 
 ## 2a-2c notes (Oct 23, ~11:50 EDT)
 - Body: torso/neck/collar + arms (built spread +-6 cm) + legs/gaiters + shoes, unioned by 5 mm voxel remesh (hi ~92k verts);
