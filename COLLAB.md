@@ -52,6 +52,7 @@
 
 ## Handoffs
 - **READY (review only, NOT for main until Kirk approves): 2026-10-23 13:30 EDT, environment bot, Scandinavian medieval battlefield prototype**
+  - **MERGED to `main` 2026-10-23 ~13:45 EDT (Kirk approved).** `origin/main` had not moved past a3f4f35, so there were no conflicts. Before merging I re-ran the checks on 774aee5: test_runner 163/163, test_audio 28/28, test_env 0 failures, and sim_hash identical to a fresh origin/main worktree (SWE 417a5300…, USA 4679c5a2…, JPN e104d558…). Only Scandinavia (medieval) is covered; other regions go on separate `env/<biome>` branches and wait for approval.
   - Branch `env/scandinavia-medieval` (from `main` a3f4f35). Worktree `/workspace/ic_env`. Evidence is in `evidence/env-scandinavia/` (README, perf, ASSETS.md, before/after compare, key frames). The MP4 is in `/workspace/ic_env/out/video/`.
   - Scope: rendering only. The new `game/scripts/battle/battle_environment.gd` and the shaders `battle_terrain`, `env_foliage` and `env_water` add procedural env glbs (`pipeline/blender/env_nordic.py`). `battle_view.gd` gets +17 lines of hooks. The province must be in Norway, Sweden, Denmark or Finland, and the era must be medieval. Everything else keeps the legacy ground.
   - Verified: sim_hash is identical to main (SWE 417a5300…, USA 4679c5a2…, JPN e104d558…); test_runner 163/163, test_audio 28/28 and the new `tests/test_env.tscn` all pass.
