@@ -3,7 +3,7 @@ Vehicles: UVMap.u = 1 marks the recoiling barrel part (animated in the Godot sha
 import sys, os, math, random
 sys.path.insert(0, os.path.dirname(__file__))
 import bpy
-import common
+import common, c19_kit
 from common import hexc, MeshBuilder
 
 TEAM = (1, 1, 1, 1.0)
@@ -27,7 +27,7 @@ def finish(b, name):
             if g.group == gi and g.weight > 0.5:
                 rec.add(v.index)
     for loop in me.loops:
-        uv.data[loop.index].uv = (1.0 if loop.vertex_index in rec else 0.0, 0.0)
+        uv.data[loop.index].uv = (1.0 if loop.vertex_index in rec else 0.0, uv.data[loop.index].uv[1])  # keep v = material class
     return obj
 
 def bombard():
@@ -39,6 +39,11 @@ def bombard():
         b.cyl(0.45, 0.45, 0.08, (0, y, 0.75), STEEL, 'recoil', rot=(-90, 0, 0), segs=10)
     b.box((1.0, 0.1, 0.5), (0, -1.0, 0.55), TEAM, 'body')
     return finish(b, 'art_bombard')
+
+def field_gun_c19():
+    # visual pass (c19): detailed field gun, same groups / footprint as art_cannon (pipeline/blender/c19_kit.py).
+    # Separate asset because art_cannon is shared with early_modern 'culverins'; battle_visuals.gd swaps it in for c19.
+    return finish(c19_kit.field_gun(G), 'art_field_gun_c19')
 
 def cannon():
     b = MeshBuilder('art_cannon', G)
@@ -230,16 +235,22 @@ def fence():
     return finish(b, 'fence')
 
 def main():
-    builders = [bombard, cannon, howitzer, tank_c20, mbt, ifv, truck, army_standard, lambda: city(0), lambda: city(1),
+    builders = [bombard, cannon, field_gun_c19, howitzer, tank_c20, mbt, ifv, truck, army_standard, lambda: city(0), lambda: city(1),
                 lambda: city(2), capital_star, battle_marker, ship_sail, ship_steel, conifer, broadleaf, palm, bush, rock, house, fence]
+    only = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []  # e.g. -- field_gun_c19 (skips props.blend)
     common.reset_scene()
     objs = []
     for i, fn in enumerate(builders):
+        if only and getattr(fn, '__name__', '') not in [{'art_cannon': 'cannon', 'art_field_gun_c19': 'field_gun_c19'}.get(n, n) for n in only]:
+            continue
         o = fn()
         common.export_glb([o], os.path.join(common.MODELS, o.name + '.glb'))
         objs.append(o)
     for i, o in enumerate(objs):
         o.location = ((i % 8) * 9.0, (i // 8) * 10.0, 0)
+    if only:
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(common.BLEND, 'props_' + '_'.join(only) + '.blend'))
+        print('props done', len(objs)); return
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(common.BLEND, 'props.blend'))
     print('props done', len(objs))
 
