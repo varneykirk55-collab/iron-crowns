@@ -15,6 +15,7 @@ signal player_offer(offer: Dictionary)
 signal speed_changed(idx: int)
 signal player_defeated(by: String)
 signal hostilities_started(a: String, b: String, declared: bool)
+signal invasion_warning(w: Dictionary)
 
 const SPEEDS := [0.0, 2.0, 8.0, 30.0, 120.0, 365.0]
 const SPEED_NAMES := ["Paused", "Slow", "Normal", "Fast", "Very fast", "Year/sec"]
@@ -57,6 +58,8 @@ var _port_reach := {}             # era -> {pid: [{to, cost, path}]}
 var _neighbors_cache := {}
 var _path_cache := {}
 var defeated := false             # the player's campaign is over (no land and no viable army)
+var spotted := {}                 # army id -> province it was reported heading for (player warnings; saved)
+var _seen_by_player := {}         # army id -> detected today (derived each day; not saved)
 var _cores := {}                  # code -> [pid] provinces the nation held at the start (recapture targets; derived, not saved)
 const VIABLE_ARMY_MEN := 150.0    # a landless nation fights on while it has an army at least this large
 
@@ -73,7 +76,7 @@ func new_game(player_code: String, year: int, seed: int = 1, doy: int = 0) -> vo
 	relations.clear(); treaties.clear(); wars.clear(); event_log.clear(); pending_offers.clear()
 	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 	next_army_id = 1; next_battle_id = 1; watching_battle = -1; accum = 0.0
-	defeated = false; _cores.clear(); _reach_cache.clear()
+	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear()
 	stats = {"wars_declared": 0, "ai_wars": 0, "peace": 0, "ai_peace": 0, "alliances": 0, "ai_alliances": 0, "trades": 0,
 		"ai_trades": 0, "naps": 0, "ai_naps": 0, "gifts": 0, "captures": 0, "battles": 0, "eliminated": 0, "era_changes": 0,
 		"ai_units_bought": 0, "ai_proposals": 0, "ai_rejections": 0, "invasions": 0, "undeclared": 0, "recaptures": 0}
@@ -232,6 +235,7 @@ func tick_day() -> void:
 	_step_sieges()
 	if ai_enabled:
 		_ai_military_daily()
+	_scan_detection()
 	if p[2] == 1:
 		_month()
 	day_passed.emit(day)
@@ -1985,6 +1989,157 @@ func _best_campaign(aid: int, a: Dictionary, my_s: float, enemies: Array, major:
 		return {}
 	return best
 
+
+# ======================= detection / invasion warnings (v0.5) =======================
+## Era-appropriate detection: watch posts, scouts and observers (medieval, pike & shot), cavalry screens
+## and coastal observation (1800s), reconnaissance (1914) and radar (modern). Range in km around every
+## province a nation holds and every army it fields; at sea the range is scaled (little before coastal
+## observation, more with radar).
+const DETECT_KM := {"medieval": 60.0, "early_modern": 110.0, "c19": 180.0, "c20": 350.0, "modern": 900.0}
+const DETECT_SEA := {"medieval": 0.5, "early_modern": 0.6, "c19": 1.0, "c20": 1.2, "modern": 1.5}
+const DETECT_NAMES := {"medieval": "Scouts and watch posts", "early_modern": "Scouts", "c19": "Pickets and coastal observers",
+	"c20": "Reconnaissance", "modern": "Radar"}
+var _prov_r := {}
+
+func detect_range(at_sea: bool = false) -> float:
+	var eid: String = GameData.eras[era]["id"]
+	return float(DETECT_KM.get(eid, 150.0)) * (float(DETECT_SEA.get(eid, 1.0)) if at_sea else 1.0)
+
+## Rough radius of a province (half the typical distance to its neighbours): watch posts cover its edges too.
+func _province_radius(pid: int) -> float:
+	if _prov_r.has(pid):
+		return _prov_r[pid]
+	var ds: Array = []
+	for nb in GameData.provinces[pid]["neighbors"].keys():
+		ds.append(GameData.node_km(pid, nb))
+	ds.sort()
+	var r := 0.0 if ds.is_empty() else clampf(float(ds[ds.size() / 2]) * 0.5, 0.0, 400.0)
+	_prov_r[pid] = r
+	return r
+
+## Can `code` see army `a` right now?
+func detects(code: String, a: Dictionary) -> bool:
+	if a["owner"] == code or is_friendly(code, a["owner"]):
+		return true
+	var pos := army_pos_lonlat(a)
+	var at_sea: bool = a["node"] >= GameData.SEA_NODE
+	var r := detect_range(at_sea)
+	if not at_sea and prov_owner.get(a["node"], "") == code:
+		return true      # on our soil
+	for pid in nation_provs.get(code, []):
+		if GameData.km_between(GameData.node_lonlat(pid), pos) < r + _province_radius(pid):
+			return true
+	for o in armies.values():
+		if o["owner"] == code and GameData.km_between(army_pos_lonlat(o), pos) < r:
+			return true
+	return false
+
+## Armies that concern the player: at war with us, or carrying an invasion order against us.
+func _threatens_player(a: Dictionary) -> bool:
+	var o: String = a["owner"]
+	if o == player or is_friendly(player, o):
+		return false
+	if at_war(o, player) or a.get("invade", "") == player:
+		return true
+	var g: int = a.get("goal", -1)
+	return g >= 0 and prov_owner.get(g, "") == player
+
+## Map / panel rule: an army threatening the player is only shown while detected.
+func hidden_from_player(a: Dictionary) -> bool:
+	if not _threatens_player(a):
+		return false
+	var v = _seen_by_player.get(a["id"])
+	if v == null:
+		v = detects(player, a)
+		_seen_by_player[a["id"]] = v
+	return not v
+
+## Daily: refresh what the player can see; warn once per army and objective as an approaching force is spotted.
+func _scan_detection() -> void:
+	_seen_by_player.clear()
+	if not nations.has(player) or not nations[player]["alive"]:
+		return
+	for aid in spotted.keys().duplicate():
+		if not armies.has(aid):
+			spotted.erase(aid)
+	for a in armies.values():
+		if not _threatens_player(a):
+			continue
+		var seen := detects(player, a)
+		_seen_by_player[a["id"]] = seen
+		if not seen or a["state"] == "battle":
+			continue
+		# where is it heading? its objective if that is our land, otherwise our province it is in or about to enter
+		var goal: int = a.get("goal", -1)
+		var tgt := -1
+		if goal >= 0 and prov_owner.get(goal, "") == player:
+			tgt = goal
+		elif a["node"] < GameData.SEA_NODE and prov_owner.get(a["node"], "") == player:
+			tgt = a["node"]
+		elif not a["path"].is_empty() and prov_owner.get(int(a["path"][0]), "") == player:
+			tgt = int(a["path"][0])
+		if tgt < 0:
+			continue
+		if spotted.get(a["id"], -1) == tgt:
+			continue
+		spotted[a["id"]] = tgt
+		_warn(a, tgt)
+
+func _approx_men(men: float) -> String:
+	var eid: String = GameData.eras[era]["id"]
+	var step: float = {"medieval": 1000.0, "early_modern": 1000.0, "c19": 500.0, "c20": 500.0, "modern": 100.0}.get(eid, 500.0)
+	var v := maxf(step, round(men / step) * step)
+	return ("about %s" if eid in ["medieval", "early_modern"] else "roughly %s") % _thousands(v)
+
+static func _thousands(v: float) -> String:
+	var n := int(v)
+	var t := str(n)
+	if n >= 1000:
+		t = "%d,%03d" % [n / 1000, n % 1000]
+	return t
+
+func _warn(a: Dictionary, tgt: int) -> void:
+	var path: Array = a["path"]
+	var eta := -1
+	if not path.is_empty() and path.has(tgt):
+		# remaining travel: the legs up to the objective, less what is already covered on the current leg
+		var km := 0.0; var sea_km := 0.0
+		var last: int = a["node"]
+		for nd in path.slice(0, path.find(tgt) + 1):
+			var k := GameData.node_km(last, nd)
+			if last >= GameData.SEA_NODE:
+				sea_km += k
+			else:
+				km += k
+			last = nd
+		var done_km: float = a["progress"]
+		if a["node"] >= GameData.SEA_NODE:
+			sea_km = maxf(sea_km - done_km, 0.0)
+		else:
+			km = maxf(km - done_km, 0.0)
+		eta = maxi(1, int(ceil((km + sea_km / 2.2) / army_speed(a))))
+	elif a["node"] == tgt:
+		eta = 0
+	var ours := 0.0
+	for o in armies.values():
+		if o["owner"] == player and o["node"] < GameData.SEA_NODE and GameData.node_km(o["node"], tgt) < 250.0:
+			ours += army_men(o)
+	var men := army_men(a)
+	var eid: String = GameData.eras[era]["id"]
+	var who: String = nations[a["owner"]]["name"]
+	var how := "at sea" if a["node"] >= GameData.SEA_NODE else ("inside our borders" if prov_owner.get(a["node"], "") == player else "on the march")
+	var undeclared: bool = not at_war(a["owner"], player)
+	var text := "%s report: %s army of %s men %s, heading for %s%s." % [DETECT_NAMES.get(eid, "Scouts"), who, _approx_men(men), how,
+		GameData.provinces[tgt]["name"], (" — arrival in about %d days" % eta) if eta > 0 else (" — it is there now" if eta == 0 else "")]
+	if undeclared:
+		text += " No war has been declared."
+	if ours < men * 0.8:
+		text += " Our forces nearby are outnumbered (%s men)." % _thousands(ours)
+	var w := {"army": a["id"], "owner": a["owner"], "province": tgt, "men": men, "approx": _approx_men(men), "eta": eta,
+		"day": day, "undeclared": undeclared, "ours": ours, "text": text}
+	log_event(text, "warning", [player, a["owner"]])
+	invasion_warning.emit(w)
+
 # ======================= log =======================
 func log_event(text: String, kind: String = "info", codes: Array = [], by_ai: bool = false) -> void:
 	var ev := {"day": day, "date": date_string(), "text": text, "kind": kind, "nations": codes, "ai": by_ai}
@@ -2008,7 +2163,7 @@ const SAVE_VERSION := 1
 const SAVE_DIR := "user://saves"
 const SAVE_FIELDS := ["speed_idx", "day", "start_year", "start_doy", "era", "player", "nations", "prov_owner", "nation_provs",
 	"sieges", "armies", "next_army_id", "battles", "next_battle_id", "relations", "treaties", "wars", "event_log", "accum",
-	"stats", "pending_offers", "ai_enabled", "slow_during_watch", "defeated"]
+	"stats", "pending_offers", "ai_enabled", "slow_during_watch", "defeated", "spotted"]
 signal game_loaded
 
 ## Full campaign state as plain Variants (no objects). Battle sims are converted with BattleSim.to_dict().
@@ -2035,7 +2190,7 @@ func serialize_state() -> Dictionary:
 
 func apply_state(d: Dictionary) -> void:
 	GameData.load_all()
-	defeated = false; _cores.clear(); _reach_cache.clear()
+	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear()
 	for f in SAVE_FIELDS:
 		if f == "battles" or not d.has(f):
 			continue
@@ -2069,6 +2224,9 @@ func apply_state(d: Dictionary) -> void:
 	for k in ["invasions", "undeclared", "recaptures"]:
 		if not stats.has(k):
 			stats[k] = 0
+	if not d.has("spotted"):
+		spotted = {}
+	_seen_by_player.clear()
 	running = not defeated
 	game_loaded.emit()
 

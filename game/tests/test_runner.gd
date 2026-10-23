@@ -54,6 +54,8 @@ func _run() -> void:
 		test_medieval_morale()
 	if only == "" or only == "aistrategy":
 		test_ai_strategy()
+	if only == "" or only == "detection":
+		await test_detection()
 	if only == "" or only == "offensive":
 		await test_offensive()
 	if only == "bench":
@@ -1803,3 +1805,118 @@ func test_ai_strategy() -> void:
 	Sim.declare_war("FIN", "SWE", true)
 	var hit := _until(func(): return Sim.armies.values().any(func(a): return a["owner"] == "FIN" and a["goal"] >= 0 and Sim.prov_owner.get(a["goal"], "") == "SWE"), 60)
 	check("AI: no special protection — a strong Finland at war with a weakened player Sweden marches on Swedish land (after %d days)" % hit, hit >= 0, "")
+
+# ---------------------------------------------------------------- v0.5: detection and invasion warnings
+## An enemy army sent from `from_pid` against the player's `tgt` province; returns warning timing.
+func _approach(year: int, attacker: String, undeclared: bool, seed: int, farthest := false) -> Dictionary:
+	Sim.new_game("SWE", year, seed, 60)
+	Sim.auto_respond_player = "decline"
+	Sim.auto_deploy = true
+	Sim.ai_enabled = false
+	# the target: a Swedish province; the attacker starts from its own capital
+	var from: int = Sim.nations[attacker]["capital"]
+	var eid: String = GameData.eras[Sim.era]["id"]
+	var aid := Sim._spawn_army(attacker, from, [])
+	for k in 6:
+		Sim.armies[aid]["units"].append(Sim._make_unit(GameData.unit_for_role(eid, ["inf", "ranged"][k % 2])))
+	var tgt := -1; var td := 1e18
+	for pid in Sim.nation_provs["SWE"]:
+		var r := Sim.order_invade(aid, pid, true)
+		if not r["ok"]: continue
+		var key := -GameData.node_km(from, pid) if farthest else GameData.node_km(from, pid)
+		if (farthest or r["days"] >= 8) and key < td:
+			td = key; tgt = pid
+	if not undeclared:
+		Sim.declare_war(attacker, "SWE", true)
+	var o := Sim.order_invade(aid, tgt)
+	var a: Dictionary = Sim.armies[aid]
+	var res := {"tgt": tgt, "warn_day": -1, "arrive_day": -1, "warns": 0, "text": "", "hidden_before": false, "dist": -1.0, "eta": -1, "order": o["ok"]}
+	var hb := {"v": false}
+	var cb := func(w: Dictionary) -> void:
+		if w["army"] == aid:
+			res["warns"] += 1
+			if res["warn_day"] < 0:
+				res["warn_day"] = Sim.day; res["text"] = w["text"]; res["eta"] = w["eta"]
+				res["dist"] = GameData.km_between(Sim.army_pos_lonlat(a), GameData.node_lonlat(tgt))
+	Sim.invasion_warning.connect(cb)
+	for d in 200:
+		Sim.tick_day()
+		if res["warn_day"] < 0 and Sim.hidden_from_player(a): hb["v"] = true
+		if res["arrive_day"] < 0 and a["node"] == tgt: res["arrive_day"] = Sim.day
+		if res["arrive_day"] >= 0 and Sim.day > res["arrive_day"] + 5: break
+	Sim.invasion_warning.disconnect(cb)
+	res["hidden_before"] = hb["v"]
+	Sim.ai_enabled = true
+	return res
+
+func test_detection() -> void:
+	print("== Detection and invasion warnings (v0.5) ==")
+	var med := _approach(1300, "NOR", false, 51)
+	check("detection 1300: a Norwegian army is hidden until scouts spot it, then a warning names %s, its size and ETA (%d km out, %d days' warning, ETA %d)" % [GameData.provinces[med["tgt"]]["name"], int(med["dist"]), med["arrive_day"] - med["warn_day"], med["eta"]],
+		med["order"] and med["hidden_before"] and med["warn_day"] >= 0 and med["arrive_day"] > med["warn_day"] and GameData.provinces[med["tgt"]]["name"] in med["text"] and "men" in med["text"] and med["eta"] > 0 and med["warns"] == 1 \
+			and absi(med["eta"] - (med["arrive_day"] - med["warn_day"])) <= 2,
+		med["text"])
+	var mod := _approach(1980, "NOR", false, 51, true)
+	check("detection 1980: radar spots the same kind of force much further out (%d km vs %d km in 1300; %d days' warning)" % [int(mod["dist"]), int(med["dist"]), mod["arrive_day"] - mod["warn_day"]],
+		mod["warn_day"] >= 0 and mod["dist"] > med["dist"] * 2.0 and mod["arrive_day"] > mod["warn_day"], mod["text"])
+	var und := _approach(1800, "FIN", true, 52)
+	check("detection 1800: an undeclared invasion force is reported before it crosses the border ('%s')" % und["text"].substr(0, 90),
+		und["warn_day"] >= 0 and und["arrive_day"] > und["warn_day"] and "No war has been declared" in und["text"], "")
+	check("detection: one warning per approaching army and objective (1300: %d, 1980: %d, 1800: %d)" % [med["warns"], mod["warns"], und["warns"]],
+		med["warns"] == 1 and mod["warns"] == 1 and und["warns"] == 1, "")
+	# eras in between are ordered by reach
+	var ok := true; var prev := 0.0; var rs := []
+	for i in GameData.eras.size():
+		Sim.era = i
+		var r := Sim.detect_range()
+		rs.append(int(r))
+		if r <= prev: ok = false
+		prev = r
+	check("detection range grows with each era %s km (land)" % str(rs), ok, "")
+	# map and panels: undetected enemies are invisible and unpickable; ordinary foreign armies still show
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("SWE", 1800, 53, 60)
+	await _frames(2)
+	Sim.set_speed(0)
+	Sim.ai_enabled = false
+	var far: int = Sim.nations["RUS"]["capital"]
+	var hid := Sim._spawn_army("FIN", far, [Sim._make_unit(GameData.unit_for_role("c19", "inf"))])
+	Sim.start_hostilities("FIN", "SWE")
+	var neutral := Sim._spawn_army("RUS", far, [Sim._make_unit(GameData.unit_for_role("c19", "inf"))])
+	Sim.tick_day()
+	m.cam.fly_t = -1.0
+	m.cam.look_at_world(GameData.node_world(far), 30.0, true)
+	await _frames(3)
+	m.map.update_markers()
+	m.select_province(far)
+	await _frames(2)
+	var ptxt := " ".join(_texts(m.hud.sel_box))
+	var hid_vis: bool = m.map.army_nodes[hid].visible
+	var neu_vis: bool = m.map.army_nodes[neutral].visible
+	check("detection: an enemy army far outside our detection is not shown on the map or in the province panel; a neutral army there still is",
+		not hid_vis and neu_vis and not ("Finland" in ptxt and "Army" in ptxt) and "Russia" in ptxt, "hidden visible %s, neutral visible %s" % [hid_vis, neu_vis])
+	# the warning reaches the HUD and slows a fast clock so the player can respond
+	Sim.set_speed(5)
+	Sim.armies[hid]["node"] = Sim.nations["FIN"]["capital"]
+	var tg := -1
+	for pid in Sim.nation_provs["SWE"]:
+		if Sim.order_invade(hid, pid, true)["ok"]: tg = pid; break
+	Sim.order_invade(hid, tg)
+	var warned := _until(func(): return Sim.spotted.has(hid), 120)
+	await _frames(2)
+	check("detection: the warning appears in the HUD and the clock drops to Normal speed (speed %s, toast '%s')" % [Sim.SPEED_NAMES[Sim.speed_idx], m.hud.toast.text.substr(0, 60)],
+		warned >= 0 and Sim.speed_idx == 2 and m.hud.toast.text.begins_with("⚠"), "")
+	# save / load: no repeated warning for the same approach
+	var sv := Sim.save_game("detect_test")
+	var n0 := {"n": 0}
+	var cb2 := func(w): if w["army"] == hid: n0["n"] += 1
+	Sim.load_game("detect_test")
+	Sim.invasion_warning.connect(cb2)
+	Sim.advance_days(10)
+	Sim.invasion_warning.disconnect(cb2)
+	check("detection: save/load keeps what was already reported (no duplicate warning)", sv["ok"] and Sim.spotted.has(hid) and n0["n"] == 0, "")
+	Sim.ai_enabled = true
+	m.queue_free()
+	await _frames(2)

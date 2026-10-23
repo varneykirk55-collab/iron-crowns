@@ -82,6 +82,7 @@ func _ready() -> void:
 	Sim.player_offer.connect(_on_offer)
 	Sim.speed_changed.connect(func(_i): _refresh_speed())
 	Sim.battle_resolved.connect(_on_battle_resolved)
+	Sim.invasion_warning.connect(_on_invasion_warning)
 	Controls.settings_changed.connect(_on_settings_changed)
 	Controls.device_changed.connect(func(_k): _update_hint())
 	_build_pad_cursor()
@@ -420,7 +421,8 @@ func selection_signature() -> String:
 			var sg: Dictionary = Sim.sieges[sel_pid]
 			parts.append_array([sg["by"], snappedf(float(sg.get("progress", 0.0)) / maxf(Sim.siege_days_needed(sel_pid), 1.0), 0.003)])
 		for a2 in Sim.armies_in(sel_pid):
-			parts.append_array([a2["id"], a2["owner"], int(Sim.army_men(a2))])
+			if not Sim.hidden_from_player(a2):
+				parts.append_array([a2["id"], a2["owner"], int(Sim.army_men(a2))])
 		if o == Sim.player:
 			for uid in GameData.units_by_era[GameData.eras[Sim.era]["id"]]:
 				var c := Sim.can_afford(Sim.player, uid)
@@ -455,7 +457,7 @@ func _province_panel(pid: int) -> void:
 		var s: Dictionary = Sim.sieges[pid]
 		sel_box.add_child(L("Under siege by %s" % Sim.nations[s["by"]]["name"], 14, BAD))
 		sel_box.add_child(bar(float(s.get("progress", 0.0)) / maxf(Sim.siege_days_needed(pid), 1.0), BAD, 300))
-	var here := Sim.armies_in(pid)
+	var here := Sim.armies_in(pid).filter(func(x): return not Sim.hidden_from_player(x))
 	if not here.is_empty():
 		sel_box.add_child(HSeparator.new())
 		for a in here:
@@ -644,7 +646,7 @@ func _build_log() -> void:
 func _on_event(ev: Dictionary) -> void:
 	if not Sim.player_relevant(ev):
 		return
-	var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090"}.get(ev["kind"], "#e8e0c8")
+	var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090", "warning": "#ff9040"}.get(ev["kind"], "#e8e0c8")
 	log_text.append_text("[color=#9a9080]%s[/color]  [color=%s]%s[/color]\n" % [ev["date"], col, ev["text"]])
 	if ev["kind"] in ["war", "peace", "capture"] and ev["nations"].has(Sim.player):
 		show_toast(ev["text"])
@@ -695,7 +697,7 @@ func on_game_loaded() -> void:
 	log_text.clear()
 	var evs: Array = Sim.event_log.filter(func(e): return Sim.player_relevant(e))
 	for ev in evs.slice(maxi(0, evs.size() - 40)):
-		var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090"}.get(ev["kind"], "#e8e0c8")
+		var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090", "warning": "#ff9040"}.get(ev["kind"], "#e8e0c8")
 		log_text.append_text("[color=#9a9080]%s[/color]  [color=%s]%s[/color]\n" % [ev["date"], col, ev["text"]])
 	sel_pid = -1; sel_army = -1
 	refresh_top()
@@ -1079,6 +1081,12 @@ func _on_battle_resolved(bid: int, res: Dictionary) -> void:
 		return
 	var won: bool = res["winner"] == b["player_side"]
 	show_toast("%s at %s! Losses: ours %d, theirs %d" % ["Victory" if won else "Defeat", GameData.provinces[b["prov"]]["name"], int(res["losses"][b["player_side"]]), int(res["losses"][1 - b["player_side"]])], 5.0)
+
+## v0.5: an approaching force has been spotted. Show it, and slow a fast clock to Normal so there is time to act.
+func _on_invasion_warning(w: Dictionary) -> void:
+	show_toast("⚠ " + w["text"], 7.0)
+	if Sim.speed_idx > 2:
+		Sim.set_speed(2)
 
 func _process(delta: float) -> void:
 	toast.position = Vector2((get_viewport().get_visible_rect().size.x - 800.0) * 0.5, 70.0)
