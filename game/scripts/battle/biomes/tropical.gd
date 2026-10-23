@@ -11,7 +11,7 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	b["forest"] = maxf(float(b["forest"]), 0.92)                 # jungle walls on every terrain
 	b["dry"] = float(b["dry"]) * 0.35                             # wet season green, little straw
 	b["rocks"] = clampf(float(b["rocks"]) * 0.7, 0.2, 1.2)
-	b["tree_cell"] = 6.4; b["tree_p"] = 0.88; b["tree_scale"] = Vector2(0.75, 1.15)
+	b["tree_cell"] = 7.0; b["tree_p"] = 0.88; b["tree_scale"] = Vector2(0.75, 1.15)
 	var palm := 0.22 if coastal else 0.1
 	b["trees"] = [["env_rain_tree_a", 0.36, -0.2], ["env_rain_tree_b", 0.3, 0.4], ["env_rain_emergent", 0.12 + elev * 0.1, -0.9],
 		["env_palm_a", palm, 1.6], ["env_palm_b", palm * 0.8, 1.6]]
@@ -21,7 +21,7 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	b["cover_main"] = "env_grass_lush"; b["cover_p"] = 0.95; b["cover_in"] = 0.3
 	b["accents"] = [{"m": "env_taro", "knoll": 0.12, "open": 0.07, "s": Vector2(0.8, 1.4)}]
 	b["shrubs"] = [{"m": "env_fern", "n": 1600, "fmin": 0.02, "fmax": 1.01, "r": 0.6, "s": Vector2(1.0, 2.0), "tier": 0.5},
-		{"m": "env_jungle_bush", "n": 3200, "fmin": 0.06, "fmax": 1.01, "r": 1.3, "s": Vector2(1.0, 2.0), "tier": 0.45},
+		{"m": "env_jungle_bush", "n": 2400, "fmin": 0.06, "fmax": 1.01, "r": 1.3, "s": Vector2(1.1, 2.2), "tier": 0.45},
 		{"m": "env_banana", "n": 500, "fmin": 0.05, "fmax": 0.85, "r": 1.4, "s": Vector2(0.8, 1.2), "tier": 0.6}]
 	b["shore"] = "env_reeds"; b["shore_n"] = 360
 	b["palette"] = {"grass_a": Color(0.2, 0.33, 0.1), "grass_b": Color(0.34, 0.42, 0.16), "dry": Color(0.5, 0.48, 0.24),
