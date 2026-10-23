@@ -52,4 +52,17 @@
 - test `--only=controls` 19/19 PASS with synthesized InputEventJoypadButton/Motion, ScreenTouch, ScreenDrag.
 - Task 4 groundwork: ui/perf_overlay.gd (F3), Sim.perf_tick_us, BattleView.perf timings, quality setting (MSAA + battle LOD/sun shadow).
 
-NEXT: Task 4 profiling report + hotspot fixes; Task 5 eras; Task 6 BJORN handoff; Task 7; merge/export.
+## v0.2 — Task 4 performance (DONE, measured)
+- Profiling: `--perfout=<json>` per-frame samples (frame ms, FrameProbe script ms, sim tick, battle sim/units/fx, render cpu/gpu, draw calls,
+  primitives, instances) + `tools/perf_summary.py`. FrameProbe replaces Performance.TIME_PROCESS (it over-reported). F3 overlay shows the same.
+- Fixes (all CPU): HUD selection panel rebuilt only when a signature changes (was ~110 ms every 0.25 s); month tick: per-month economy
+  tables, strength/alliance tables in AI war scan, cheap relation filter first, unit_power memo, drift w/o string split; map markers stack index
+  O(A) instead of O(A²). Sim result bit-identical: tests/sim_hash.tscn hashes serialize_state after 3×800 AI days — same md5 before/after.
+- Headless (pure CPU) SWE 1800 battle demo: map frame 20.2→9.3 ms (p95 115→12.7), battle 20.1→7.7 ms (p95 113→9.7).
+  Bench: month parts econ 48→5 ms, diplomacy 180→65 ms, worst day 245→~105 ms, hud._process 116→9 ms, update_markers 6→2 ms.
+- xvfb/llvmpipe 1280x720 is render-bound (~2 fps, render_cpu 185–300 ms): software rasteriser, no GPU; not fixable in game code.
+## v0.2 — Task 5 era verification (tests DONE; recordings in progress)
+- `--only=eras` 26 checks: roster/models per era, full battle per era (30–34 s, era-only units), projectile classes per era, melee share
+  falls with era, medieval armour (knights) and modern armour (MBT) effects, USA/SWE/JPN start armies in all 5 start years.
+- Battle view prints `BATTLERESULT {json}` (units, models, projectiles, melee share, outcome) on the result panel.
+NEXT: Task 5 recordings (5 eras), Task 6 BJORN handoff check, Task 7 full pass + scripted gameplay, merge/export/deliverables.

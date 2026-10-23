@@ -267,7 +267,7 @@ func army_upkeep(a: Dictionary) -> float:
 		s += float(GameData.units[u["type"]]["upkeep"]) * (0.4 + 0.6 * u["men"] / u["max"])
 	return s
 
-func _economy_month(code: String, preview: bool = false) -> void:
+func _economy_month(code: String, preview: bool = false, ctx: Dictionary = {}) -> void:
 	var n: Dictionary = nations[code]
 	var provs: Array = nation_provs[code]
 	var prod := productivity()
@@ -288,9 +288,12 @@ func _economy_month(code: String, preview: bool = false) -> void:
 				tax -= (3.0 + 2.6 * pow(maxf(prov_pop(pid) / 1.0e6, 0.01), 0.6)) * prod * 0.8
 	tax *= tax_mult * stab_mult
 	var trade_partners := 0
-	for other in nations.keys():
-		if other != code and has_treaty(code, other, "trade"):
-			trade_partners += 1
+	if ctx.has("trade"):
+		trade_partners = ctx["trade"].get(code, 0)
+	else:
+		for other in nations.keys():
+			if other != code and has_treaty(code, other, "trade"):
+				trade_partners += 1
 	var trade_bonus := tax * 0.06 * trade_partners
 	# resource production; surplus above the strategic reserve is sold automatically
 	var sales := 0.0
@@ -307,11 +310,15 @@ func _economy_month(code: String, preview: bool = false) -> void:
 			sales += produced[r] * GameData.resource_price * prod * 0.3
 	var upkeep := 0.0
 	var army_men := 0.0
-	for a in armies.values():
-		if a["owner"] == code:
-			upkeep += army_upkeep(a)
-			for u in a["units"]:
-				army_men += u["men"]
+	if ctx.has("upkeep"):
+		upkeep = ctx["upkeep"].get(code, 0.0)
+		army_men = ctx["men"].get(code, 0.0)
+	else:
+		for a in armies.values():
+			if a["owner"] == code:
+				upkeep += army_upkeep(a)
+				for u in a["units"]:
+					army_men += u["men"]
 	var admin := 0.45 * pow(float(provs.size()), 1.12) * prod
 	var welfare: float = n["welfare"] * 0.25 * tax
 	var interest: float = maxf(-n["funds"], 0.0) * 0.02
@@ -328,7 +335,7 @@ func _economy_month(code: String, preview: bool = false) -> void:
 	var need_food := clampf(0.35 + float(food) / np * 1.1 + n["welfare"] * 0.35, 0.0, 1.0)
 	var need_goods := clampf(0.3 + 0.12 * trade_partners + n["welfare"] * 0.3 + (0.15 if n["funds"] > 0 else -0.1), 0.0, 1.0)
 	var garrison_need := np * 600.0 * (0.5 + pop_factor())
-	var need_sec := clampf(0.3 + 0.5 * army_men / garrison_need - n["exhaustion"] * 0.4 - 0.1 * _enemy_armies_inside(code), 0.0, 1.0)
+	var need_sec := clampf(0.3 + 0.5 * army_men / garrison_need - n["exhaustion"] * 0.4 - 0.1 * (ctx["inside"].get(code, 0) if ctx.has("inside") else _enemy_armies_inside(code)), 0.0, 1.0)
 	n["needs"] = {"food": need_food, "goods": need_goods, "security": need_sec}
 	var target = 0.25 * (need_food + need_goods + need_sec) + 0.25 - [0.0, 0.05, 0.15][n["tax"]] - n["exhaustion"] * 0.3 - (0.2 if n["funds"] < 0 else 0.0)
 	n["stability"] = clampf(n["stability"] + (target - n["stability"]) * 0.15, 0.05, 1.0)
@@ -346,6 +353,30 @@ func _economy_month(code: String, preview: bool = false) -> void:
 		if code == player:
 			log_event("Treasury in deep debt: unpaid soldiers are deserting.", "economy", [code])
 
+# perf: per-month tables so _economy_month doesn't rescan every army/nation for each of ~190 nations.
+# Built in the same iteration order as the per-nation loops (identical float sums). Valid for the whole
+# economy pass: it only changes a nation's own armies (desertion) after that nation's figures are read.
+func _economy_ctx() -> Dictionary:
+	var upkeep := {}; var men := {}; var inside := {}; var trade := {}
+	for a in armies.values():
+		var o: String = a["owner"]
+		upkeep[o] = upkeep.get(o, 0.0) + army_upkeep(a)
+		var m: float = men.get(o, 0.0)
+		for u in a["units"]:
+			m += u["men"]
+		men[o] = m
+		if a["node"] < GameData.SEA_NODE:
+			var po: String = prov_owner.get(a["node"], "")
+			if po != "" and at_war(o, po):
+				inside[po] = inside.get(po, 0) + 1
+	for k in treaties.keys():
+		if treaties[k].get("trade", false):
+			var p: PackedStringArray = k.split("|")
+			if p[0] != p[1] and nations.has(p[0]) and nations.has(p[1]):
+				trade[p[0]] = trade.get(p[0], 0) + 1
+				trade[p[1]] = trade.get(p[1], 0) + 1
+	return {"upkeep": upkeep, "men": men, "inside": inside, "trade": trade}
+
 func _enemy_armies_inside(code: String) -> int:
 	var k := 0
 	for a in armies.values():
@@ -360,15 +391,37 @@ func strength(code: String) -> float:
 			s += army_strength(a)
 	return s
 
+func _strength_table() -> Dictionary:
+	var out := {}
+	for a in armies.values():
+		out[a["owner"]] = out.get(a["owner"], 0.0) + army_strength(a)
+	return out
+
+func _alliance_table() -> Dictionary:
+	var out := {}
+	for k in treaties.keys():
+		if treaties[k].get("alliance", false):
+			var p: PackedStringArray = k.split("|")
+			if not out.has(p[0]): out[p[0]] = []
+			if not out.has(p[1]): out[p[1]] = []
+			out[p[0]].append(p[1]); out[p[1]].append(p[0])
+	return out
+
 func army_strength(a: Dictionary) -> float:
 	var s := 0.0
 	for u in a["units"]:
 		s += u["men"] * unit_power(u["type"])
 	return s
 
+var _upow := {}   # perf: unit_power memo (unit stats are static data)
 func unit_power(uid: String) -> float:
+	var c = _upow.get(uid)
+	if c != null:
+		return c
 	var d: Dictionary = GameData.units[uid]
-	return (float(d["melee"]) + float(d["defense"])) * 0.5 + float(d["lethality"]) * float(d["accuracy"]) * 40.0 + float(d["armor"]) * 25.0
+	c = (float(d["melee"]) + float(d["defense"])) * 0.5 + float(d["lethality"]) * float(d["accuracy"]) * 40.0 + float(d["armor"]) * 25.0
+	_upow[uid] = c
+	return c
 
 func army_men(a: Dictionary) -> float:
 	var s := 0.0
@@ -1293,9 +1346,10 @@ func _eliminate(code: String, by: String) -> void:
 
 # ======================= monthly =======================
 func _month() -> void:
+	var ctx := _economy_ctx()
 	for code in nations.keys():
 		if nations[code]["alive"]:
-			_economy_month(code)
+			_economy_month(code, false, ctx)
 	_relations_drift()
 	if ai_enabled:
 		var codes: Array = nations.keys()
@@ -1311,7 +1365,6 @@ func _month() -> void:
 
 func _relations_drift() -> void:
 	for k in relations.keys():
-		var p: PackedStringArray = k.split("|")
 		var v: float = relations[k]
 		var tr: Dictionary = treaties.get(k, {})
 		var d := -v * 0.01
@@ -1393,14 +1446,21 @@ func _ai_diplomacy(code: String) -> void:
 	# 3) war
 	if not enemies_of(code).is_empty() or n["exhaustion"] > 0.15 or day < 60 or day - int(n.get("last_peace", -9999)) < 365 * 2:
 		return
-	var my_s := strength(code)
+	# perf: one pass over armies/treaties instead of strength()/allies_of() per neighbour. Nothing changes
+	# armies or treaties inside this scan and the per-owner sums keep army order, so values are bit-identical.
+	var st_tab := _strength_table()
+	var al_tab := _alliance_table()
+	var my_s: float = st_tab.get(code, 0.0)
 	var best := ""; var best_v := 0.0
 	for t in neighbors_of(code):
 		if not nations[t]["alive"] or not can_declare_war(code, t)["ok"] or has_treaty(code, t, "nap"):
 			continue
-		var their := strength(t)
-		for al in allies_of(t):
-			their += strength(al) * 0.7
+		# cheap filter first: a target is only ever chosen when rel < 10, so skip the strength sums otherwise
+		if relation(code, t) >= 10.0:
+			continue
+		var their: float = st_tab.get(t, 0.0)
+		for al in al_tab.get(t, []):
+			their += st_tab.get(al, 0.0) * 0.7
 		var ratio := my_s / maxf(their, 1.0)
 		var rel := relation(code, t)
 		var v := ratio * 10.0 - rel * 0.3 + (8.0 if not nations[t]["major"] else 0.0)

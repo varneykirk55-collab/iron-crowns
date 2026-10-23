@@ -391,7 +391,40 @@ func select_army(aid: int) -> void:
 		sel_pid = Sim.armies[aid]["node"] if Sim.armies[aid]["node"] < GameData.SEA_NODE else -1
 	refresh_selection()
 
+# Cheap fingerprint of everything the selection panel shows; the periodic refresh only rebuilds the panel
+# (≈100 ms for a large army under llvmpipe-era profiling) when this changes.
+var _sel_sig := ""
+
+func selection_signature() -> String:
+	var parts: Array = [sel_army, sel_pid, Sim.era, Sim.player]
+	if sel_army >= 0 and Sim.armies.has(sel_army):
+		var a: Dictionary = Sim.armies[sel_army]
+		parts.append_array([a["owner"], a["node"], a["state"], a["path"].size(), a["path"][-1] if a["path"].size() > 0 else -1, a.get("battle", -1)])
+		for u in a["units"]:
+			parts.append_array([u["type"], u["era"], int(u["men"])])
+		if a["owner"] == Sim.player:
+			var rc := Sim.refit_cost(a)
+			parts.append_array([int(rc), Sim.nations[Sim.player]["funds"] >= rc])
+			for o in Sim.armies_in(a["node"]):
+				parts.append_array([o["id"], o["owner"], o["state"]])
+	elif sel_pid > 0 and GameData.provinces.has(sel_pid):
+		var o: String = Sim.prov_owner.get(sel_pid, "")
+		parts.append_array([o, money(Sim.prov_pop(sel_pid)), int(Sim.garrison(sel_pid))])
+		if o != "" and o != Sim.player:
+			parts.append_array([int(Sim.relation(Sim.player, o)), Sim.at_war(Sim.player, o)])
+		if Sim.sieges.has(sel_pid):
+			var sg: Dictionary = Sim.sieges[sel_pid]
+			parts.append_array([sg["by"], snappedf(float(sg.get("progress", 0.0)) / maxf(Sim.siege_days_needed(sel_pid), 1.0), 0.003)])
+		for a2 in Sim.armies_in(sel_pid):
+			parts.append_array([a2["id"], a2["owner"], int(Sim.army_men(a2))])
+		if o == Sim.player:
+			for uid in GameData.units_by_era[GameData.eras[Sim.era]["id"]]:
+				var c := Sim.can_afford(Sim.player, uid)
+				parts.append_array([c["ok"], int(c["cost"] + c["res_buy"])])
+	return str(parts)
+
 func refresh_selection() -> void:
+	_sel_sig = selection_signature()
 	clear(sel_box)
 	sel_panel.visible = false
 	if sel_army >= 0 and Sim.armies.has(sel_army):
@@ -968,7 +1001,8 @@ func _process(delta: float) -> void:
 		_refresh_t = 0.25
 		refresh_top()
 		var fo := get_viewport().gui_get_focus_owner()
-		if sel_panel.visible and not get_viewport().gui_get_hovered_control() in _descendants(sel_panel) and not (fo != null and sel_panel.is_ancestor_of(fo)):
+		if sel_panel.visible and not get_viewport().gui_get_hovered_control() in _descendants(sel_panel) and not (fo != null and sel_panel.is_ancestor_of(fo)) \
+				and selection_signature() != _sel_sig:
 			refresh_selection()
 	_pad_focus()
 

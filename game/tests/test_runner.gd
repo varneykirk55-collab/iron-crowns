@@ -41,6 +41,10 @@ func _run() -> void:
 		test_camera_determinism()
 	if only == "" or only == "controls":
 		await test_controls()
+	if only == "" or only == "eras":
+		test_era_battles()
+	if only == "bench":
+		await bench_cpu()
 	var summary := {"passed": results.size() - fails, "failed": fails, "total": results.size(), "seconds": (Time.get_ticks_msec() - t0) / 1000.0,
 		"godot": Engine.get_version_info()["string"], "results": results}
 	var f := FileAccess.open(out_path, FileAccess.WRITE)
@@ -733,3 +737,182 @@ func _count_class(n: Node, cls: String) -> int:
 	for ch in n.get_children():
 		c += _count_class(ch, cls)
 	return c
+
+
+# ------------------------------------------------------------------ CPU micro-benchmark (not part of the suite)
+func _us(c: Callable, reps: int = 1) -> float:
+	var t := Time.get_ticks_usec()
+	for i in reps:
+		c.call()
+	return float(Time.get_ticks_usec() - t) / reps
+
+# ---------------------------------------------------------------- era verification (Task 5)
+func _model_files(model: String, kind: String) -> Array:
+	if kind in ["vat", "cav"]:
+		var prefix := "cavalry_" if model in ["med_knight", "em_cuirassier", "c19_hussar"] else "soldier_"
+		return ["res://assets/models/%s%s_lod0.glb" % [prefix, model], "res://assets/models/%s%s_lod1.glb" % [prefix, model]]
+	return ["res://assets/models/%s.glb" % model]
+
+func _run_mk(era_id: String, a_roles: Array, d_roles: Array, seed: int, terr := "plains", obj := "assault") -> BattleSim:
+	var s := BattleSim.new()
+	s.setup([_units_for(era_id, a_roles), _units_for(era_id, d_roles)], terr, [{"objective": obj, "formation": "line"}, {"objective": "hold", "formation": "line"}], seed)
+	s.record_events = false
+	s.run_to_end()
+	return s
+
+func test_era_battles() -> void:
+	print("== Era battle verification ==")
+	var expect_proj := {"medieval": ["arrow", "stone_shot"], "early_modern": ["musket_ball", "round_shot"], "c19": ["musket_ball", "round_shot"],
+		"c20": ["rifle_tracer", "shell", "tank_round"], "modern": ["rifle_tracer", "shell", "tank_round"]}
+	var melee_share := {}
+	for era_d in GameData.eras:
+		var e: String = era_d["id"]
+		# 1) roster: every unit of the era has era-consistent data and its model files on disk
+		var bad := []
+		for uid in GameData.units_by_era[e]:
+			var d: Dictionary = GameData.units[uid]
+			if d["era"] != e: bad.append(uid + ":era")
+			for f in _model_files(d["model"], d["kind"]):
+				if not ResourceLoader.exists(f): bad.append(uid + ":" + f.get_file())
+			if d["role"] in ["ranged", "art", "armor"] and float(d["range"]) <= 0.0: bad.append(uid + ":range")
+		check("%s: units/models present and era-tagged (%s)" % [e, ", ".join(GameData.units_by_era[e])], bad.is_empty(), str(bad))
+		# 2) a full mixed battle: only that era's units take part, it ends with a winner in the time window
+		var s := _run_mk(e, ["ranged", "inf", "ranged", "cav", "art"], ["ranged", "inf", "ranged", "cav", "art"], 11, "plains")
+		var eras_seen := {}; var classes := {}
+		var kills := 0.0; var mk := 0.0
+		for r in s.regs:
+			eras_seen[r["def"]["era"]] = true
+			if int(r["fired"]) > 0: classes[BattleView.projectile_class(r)] = true
+			kills += r["kills"]; mk += r.get("mkills", 0.0)
+		melee_share[e] = mk / maxf(kills, 1.0)
+		check("%s: full battle resolves (winner %d, %.1fs)" % [e, s.winner, s.t], s.done and s.winner in [0, 1] and s.t >= 15.0 and s.t < BattleSim.MAX_TIME,
+			"men %s -> %d/%d" % [str(s.start_men), int(s.side_men(0)), int(s.side_men(1))])
+		check("%s: only %s units fight" % [e, e], eras_seen.keys() == [e], str(eras_seen.keys()))
+		var exp_p: Array = expect_proj[e]
+		var ok_p := true
+		for c in classes.keys():
+			if not c in exp_p: ok_p = false
+		check("%s: projectile types fit the era %s" % [e, str(classes.keys())], ok_p and classes.size() >= 2, "expected subset of %s" % str(exp_p))
+	# 3) melee matters more before gunpowder dominance than in the industrial eras
+	check("melee share of kills falls with era (medieval %.2f > c19 %.2f > modern %.2f)" % [melee_share["medieval"], melee_share["c19"], melee_share["modern"]],
+		melee_share["medieval"] > melee_share["c19"] and melee_share["c19"] > melee_share["modern"], str(melee_share))
+	# 4) armour: the same archers kill fewer armoured knights than levy spearmen per volley
+	var per_volley := func(tgt_role: String) -> float:
+		var s := BattleSim.new()
+		s.setup([_units_for("medieval", ["ranged"]), _units_for("medieval", [tgt_role])], "plains", [{"objective": "hold", "formation": "line"}, {"objective": "hold", "formation": "line"}], 5)
+		s.record_events = false
+		var r: Dictionary = s.regs[0]
+		while int(r["fired"]) < 1 and s.t < 30.0: s.step()   # first volley only: identical shooters and range
+		return r["kills"] / maxf(float(r["fired"]), 1.0)
+	var vk: float = per_volley.call("cav"); var vl: float = per_volley.call("inf")
+	check("medieval armour: archers kill fewer armoured knights than levy per volley (%.1f < %.1f men)" % [vk, vl], vk > 0.0 and vl > 0.0 and vk < vl, "")
+	# 5) modern armour: rifles barely scratch MBTs, rockets/tanks do not
+	var s_r := BattleSim.new()
+	s_r.setup([_units_for("modern", ["ranged"]), _units_for("modern", ["armor"])], "plains", [{"objective": "hold", "formation": "line"}, {"objective": "hold", "formation": "line"}], 5)
+	s_r.record_events = false
+	for k in 300: s_r.step()
+	var mech_eff: float = s_r.regs[0]["kills"] / maxf(float(s_r.regs[0]["fired"]), 1.0) / s_r.regs[1]["men0"]
+	var s_t := BattleSim.new()
+	s_t.setup([_units_for("modern", ["armor"]), _units_for("modern", ["armor"])], "plains", [{"objective": "hold", "formation": "line"}, {"objective": "hold", "formation": "line"}], 5)
+	s_t.record_events = false
+	for k in 300: s_t.step()
+	var mbt_eff: float = s_t.regs[0]["kills"] / maxf(float(s_t.regs[0]["fired"]), 1.0) / s_t.regs[1]["men0"]
+	check("modern armour: MBT rounds hurt MBTs more than infantry rifles do (%.4f > %.4f)" % [mbt_eff, mech_eff], mbt_eff > mech_eff, "")
+	# 6) era-specific nations: the battle demo nations exist and field their era's kit
+	for code in ["USA", "SWE", "JPN"]:
+		var ok_n := true; var info := []
+		for y in GameData.start_years:
+			Sim.new_game(code, y, 2)
+			var a: Dictionary = _strongest_army(code)
+			var e2: String = GameData.eras[Sim.era]["id"]
+			for u in a.get("units", []):
+				if u["era"] != e2: ok_n = false
+			info.append("%d:%s" % [y, a["units"][0]["type"] if not a.is_empty() and a["units"].size() > 0 else "-"])
+		check("%s: starting armies use the start era's units in every era" % code, ok_n, ", ".join(info))
+
+func bench_cpu() -> void:
+	print("== CPU bench ==")
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("SWE", 1800, 7)
+	await _frames(4)
+	Sim.set_speed(0)
+	m._demo_war("SWE")
+	var acc := {"move": 0.0, "battles": 0.0, "sieges": 0.0, "ai": 0.0, "month": 0.0, "day_total": 0.0}
+	var worst := {"day": 0.0}
+	var days := 240
+	for d in days:
+		var t0 := Time.get_ticks_usec()
+		Sim.day += 1
+		var p := Sim.date_parts()
+		Sim._era_check()
+		acc["move"] += _us(Sim._move_armies)
+		acc["battles"] += _us(Sim._step_battles)
+		acc["sieges"] += _us(Sim._step_sieges)
+		acc["ai"] += _us(Sim._ai_military_daily)
+		if p[2] == 1:
+			acc["month"] += _us(Sim._month)
+		Sim.day_passed.emit(Sim.day)
+		var dt := float(Time.get_ticks_usec() - t0)
+		acc["day_total"] += dt
+		worst["day"] = maxf(worst["day"], dt)
+	for k in acc.keys():
+		acc[k] = acc[k] / days / 1000.0
+	print("BENCH sim per-day ms: ", acc, " worst day ms ", worst["day"] / 1000.0, " armies ", Sim.armies.size(), " battles ", Sim.battles.size())
+	var mp := {"econ": 0.0, "drift": 0.0, "recruit": 0.0, "diplo": 0.0, "minor": 0.0}
+	for rep in 3:
+		var t_ctx := Time.get_ticks_usec()
+		var ctx: Dictionary = Sim._economy_ctx()
+		mp["econ"] += Time.get_ticks_usec() - t_ctx
+		for code in Sim.nations.keys():
+			if Sim.nations[code]["alive"]:
+				mp["econ"] += _us(func(): Sim._economy_month(code, false, ctx))
+		mp["drift"] += _us(Sim._relations_drift)
+		for code in Sim.nations.keys():
+			var n: Dictionary = Sim.nations[code]
+			if n["alive"] and n["ai"]:
+				mp["recruit"] += _us(func(): Sim._ai_recruit(code))
+				if n["major"]:
+					mp["diplo"] += _us(func(): Sim._ai_diplomacy(code))
+				else:
+					mp["minor"] += _us(func(): Sim._ai_minor(code))
+	for k in mp.keys():
+		mp[k] = mp[k] / 3000.0
+	print("BENCH _month parts ms: ", mp, " nations ", Sim.nations.size(), " relations ", Sim.relations.size())
+	var majors: Array = []
+	for code in Sim.nations.keys():
+		if Sim.nations[code]["major"] and Sim.nations[code]["alive"]:
+			majors.append(code)
+	var c0: String = majors[0]
+	var nb0: Array = Sim.neighbors_of(c0)
+	print("BENCH majors ", majors.size(), " ", c0, " neighbours ", nb0.size(), " wars ", Sim.wars.size(), " treaties ", Sim.treaties.size())
+	print("BENCH neighbors_of ms ", _us(func(): Sim.neighbors_of(c0), 20) / 1000.0)
+	print("BENCH strength ms ", _us(func(): Sim.strength(c0), 20) / 1000.0)
+	print("BENCH allies_of ms ", _us(func(): Sim.allies_of(c0), 20) / 1000.0)
+	print("BENCH enemies_of ms ", _us(func(): Sim.enemies_of(c0), 20) / 1000.0)
+	print("BENCH can_declare_war ms ", _us(func(): Sim.can_declare_war(c0, nb0[0]), 20) / 1000.0)
+	for kind in ["trade", "alliance", "nap"]:
+		print("BENCH evaluate %s ms " % kind, _us(func(): Sim.evaluate(c0, nb0[0], kind), 5) / 1000.0)
+	print("BENCH _shares_border ms ", _us(func(): Sim._shares_border(c0, nb0[0]), 20) / 1000.0)
+	print("BENCH _resources_of ms ", _us(func(): Sim._resources_of(c0), 20) / 1000.0)
+	print("BENCH gift ms ", _us(func(): Sim.gift(c0, nb0[0], 1.0), 3) / 1000.0)
+	print("BENCH log_event ms ", _us(func(): Sim.log_event("bench", "diplo", []), 3) / 1000.0)
+	print("BENCH propose trade ms ", _us(func(): Sim.propose(c0, nb0[1 % nb0.size()], "trade", true), 1) / 1000.0)
+	for code in majors:
+		print("BENCH _ai_diplomacy %s ms " % code, _us(func(): Sim._ai_diplomacy(code), 1) / 1000.0)
+	var hud = m.hud
+	var a: Dictionary = m._demo_main_army("SWE")
+	if not a.is_empty():
+		m.select_army(a["id"])
+	print("BENCH hud.refresh_top ms ", _us(hud.refresh_top, 10) / 1000.0)
+	print("BENCH hud.refresh_selection ms ", _us(hud.refresh_selection, 10) / 1000.0)
+	print("BENCH map.update_markers ms ", _us(m.map.update_markers, 10) / 1000.0)
+	print("BENCH map.update_path ms ", _us(m.map.update_path, 10) / 1000.0)
+	print("BENCH map._process ms ", _us(func(): m.map._process(0.016), 10) / 1000.0)
+	print("BENCH hud._process ms ", _us(func(): hud._refresh_t = 0.0; hud._process(0.016), 10) / 1000.0)
+	m.select_province(Sim.nations["SWE"]["capital"]) if m.has_method("select_province") else null
+	print("BENCH hud.refresh_selection(province) ms ", _us(hud.refresh_selection, 10) / 1000.0)
+	print("BENCH hud._process(province) ms ", _us(func(): hud._refresh_t = 0.0; hud._process(0.016), 10) / 1000.0)
+	m.queue_free()
+	await _frames(2)

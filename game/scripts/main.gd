@@ -46,6 +46,8 @@ func _ready() -> void:
 	cam.tapped.connect(_on_touch_tap)
 	cam.long_pressed.connect(_on_touch_long)
 	_build_fade()
+	get_tree().root.add_child.call_deferred(FrameProbe.new(false))
+	get_tree().root.add_child.call_deferred(FrameProbe.new(true))
 	perf = PerfOverlay.new()
 	var pl := CanvasLayer.new(); pl.layer = 60; add_child(pl); pl.add_child(perf)
 	Controls.settings_changed.connect(apply_quality)
@@ -361,8 +363,35 @@ func _update_pad_cursor(delta: float) -> void:
 	elif p.y > vs.y - m.y: e.y = 1.0
 	cam.edge_pan = e * v.abs().max(Vector2(0.4, 0.4))
 
+# --perfout=/abs/file.json : per-frame profile samples (CPU vs render), summarised per phase at exit
+var perf_samples: Array = []
+
+func _perf_sample(delta: float) -> void:
+	if perf_samples.is_empty():
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	var d := PerfOverlay.snapshot(get_viewport())
+	d["frame_ms"] = delta * 1000.0
+	d["phase"] = "transition" if transitioning else ("battle" if in_battle else ("menu" if menu_layer != null else "map"))
+	d["speed"] = Sim.speed_idx
+	if in_battle and battle_view != null:
+		d["battle_sim_ms"] = battle_view.perf["sim_us"] / 1000.0
+		d["battle_units_ms"] = battle_view.perf["units_us"] / 1000.0
+		d["battle_fx_ms"] = battle_view.perf["fx_us"] / 1000.0
+		d["instances"] = battle_view.perf["instances"]
+	perf_samples.append(d)
+
+func _exit_tree() -> void:
+	if args.has("perfout") and not perf_samples.is_empty():
+		var f := FileAccess.open(args["perfout"], FileAccess.WRITE)
+		if f:
+			f.store_string(JSON.stringify(perf_samples))
+			f.close()
+			print("PERFOUT ", perf_samples.size(), " samples -> ", args["perfout"])
+
 func _process(delta: float) -> void:
 	map.cam_dist = cam.dist
+	if args.has("perfout"):
+		_perf_sample(delta)
 	if demo != "":
 		_demo_tick(delta)
 		dbg_t += delta

@@ -364,9 +364,12 @@ func update_markers() -> void:
 	var s := clampf(cam_dist * 0.02, 0.3, 2.6)
 	var far_view := cam_dist > 100.0
 	var seen := {}
+	var stack_n := {}   # perf: running count per node replaces an armies_in() scan per army (same order)
 	for aid in Sim.armies.keys():
 		var a: Dictionary = Sim.armies[aid]
 		seen[aid] = true
+		var k: int = stack_n.get(a["node"], 0)
+		stack_n[a["node"]] = k + 1
 		var n: Node3D = army_nodes.get(aid)
 		if n == null:
 			n = _make_army_node(a)
@@ -376,11 +379,6 @@ func update_markers() -> void:
 		var at_sea = a["node"] >= GameData.SEA_NODE or (a["path"].size() > 0 and int(a["path"][0]) >= GameData.SEA_NODE and a["progress"] > 0.5)
 		var y := 0.0 if at_sea else GameData.surface_y(w.x, w.y)
 		# fan out stacked armies in one province
-		var k := 0
-		for o in Sim.armies_in(a["node"]):
-			if o["id"] == aid:
-				break
-			k += 1
 		var off := Vector2(cos(k * 2.1), sin(k * 2.1)) * 0.5 * k * s
 		n.position = Vector3(w.x + off.x, y, w.y + off.y)
 		n.scale = Vector3.ONE * s

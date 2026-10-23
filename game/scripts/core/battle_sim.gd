@@ -355,6 +355,7 @@ func _melee(i: int, r: Dictionary, e: Dictionary) -> void:
 	e["morale"] -= kills / e["men0"] * MORALE_PER_LOSS + (0.8 * DT if flank_f > 1.0 else 0.0)
 	e["last_hit"] = t
 	r["kills"] += kills
+	r["mkills"] = r.get("mkills", 0.0) + kills   # melee share (era verification)
 
 func _step_rout(i: int, r: Dictionary) -> void:
 	var away := Vector2(0, 1 if r["side"] == 0 else -1)

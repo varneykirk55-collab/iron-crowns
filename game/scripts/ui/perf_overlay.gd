@@ -31,7 +31,8 @@ static func snapshot(vp: Viewport) -> Dictionary:
 	var rid := vp.get_viewport_rid()
 	var d := {
 		"fps": Engine.get_frames_per_second(),
-		"process_ms": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		"process_ms": FrameProbe.script_us / 1000.0,
+		"engine_process_ms": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		"physics_ms": Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 		"render_cpu_ms": RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu(),
 		"render_gpu_ms": RenderingServer.viewport_get_measured_render_time_gpu(rid),
@@ -63,7 +64,7 @@ func _process(delta: float) -> void:
 		worst = maxf(worst, x); avg += x
 	avg /= maxf(1.0, _hist.size())
 	var txt := "FPS %d   frame %.1f ms avg / %.1f worst (2 s)\n" % [d["fps"], avg, worst]
-	txt += "CPU  process %.2f ms  (campaign tick %.2f ms, %d days)\n" % [d["process_ms"], d["sim_tick_ms"], d["sim_days"]]
+	txt += "CPU  scripts %.2f ms  (campaign tick %.2f ms, %d days)\n" % [d["process_ms"], d["sim_tick_ms"], d["sim_days"]]
 	var bv = get_tree().get_first_node_in_group("battle_view")
 	if bv and bv.visible and "perf" in bv:
 		txt += "CPU  battle sim %.2f ms · units/MultiMesh %.2f ms · fx %.2f ms · %d instances\n" % [bv.perf["sim_us"] / 1000.0, bv.perf["units_us"] / 1000.0, bv.perf["fx_us"] / 1000.0, bv.perf.get("instances", 0)]

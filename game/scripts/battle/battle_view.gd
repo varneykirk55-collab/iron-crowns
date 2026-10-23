@@ -37,6 +37,7 @@ var banners: Array = []
 var particles := {"mix": [], "add": []}
 var pmm := {}
 var projectiles: Array = []
+var proj_stats := {}   # projectile class -> visual shots fired (era verification / tests)
 var tracer_mm: MultiMesh
 var ev_idx := 0
 var time_scale := 1.0
@@ -880,6 +881,7 @@ func skip() -> void:
 func _show_result() -> void:
 	result_shown = true
 	var res: Dictionary = b.get("result", sim.result())
+	print("BATTLERESULT ", JSON.stringify(verification_summary()))
 	result_panel = PanelContainer.new()
 	result_panel.set_anchors_preset(Control.PRESET_CENTER)
 	result_panel.custom_minimum_size = Vector2(560, 0)
@@ -923,11 +925,10 @@ func _process(delta: float) -> void:
 	var t2 := Time.get_ticks_usec()
 	_update_fx(delta * (time_scale if not finished else 1.0))
 	perf["sim_us"] = t1 - t0; perf["units_us"] = t2 - t1; perf["fx_us"] = Time.get_ticks_usec() - t2
-	if Controls.show_perf:
-		var ni := 0
-		for m in mms.values():
-			ni += int(m["n"])
-		perf["instances"] = ni
+	var ni := 0
+	for m in mms.values():
+		ni += int(m["n"])
+	perf["instances"] = ni
 	_update_cam(delta)
 	_update_hud()
 	for m in mms.values():
@@ -980,6 +981,8 @@ func _fx_volley(si: int, di: int) -> void:
 		return
 	var powder: float = POWDER.get(era, 0.5)
 	v["fire_t"] = vis_t
+	var pcls := projectile_class(r)
+	proj_stats[pcls] = proj_stats.get(pcls, 0) + 1
 	var alive := _alive_idx(v)
 	if r["kind"] == "vat":
 		var nshoot := mini(alive.size(), 14)
@@ -1014,6 +1017,32 @@ func _fx_volley(si: int, di: int) -> void:
 			var tp2 := _soldier_pos3(tv, targets[rng.randi() % targets.size()], 0.5) + Vector3(rng.randf_range(-4, 4), 0, rng.randf_range(-4, 4))
 			var spd := 140.0 if heavy else 400.0
 			shoot(mp2, tp2, spd, 0.12 if heavy else 0.0, Color(1.0, 0.8, 0.45) if not heavy or era in ["c20", "modern"] else Color(0.12, 0.12, 0.12), 0.18 if heavy else 0.1, 1.2 if heavy else 4.0, "shell" if heavy else "big")
+
+func verification_summary() -> Dictionary:
+	var units := []
+	var kills := 0.0; var mk := 0.0
+	for i in sim.regs.size():
+		var r: Dictionary = sim.regs[i]
+		units.append({"side": r["side"], "id": r["def"]["id"], "era": r["def"]["era"], "model": r["def"]["model"], "role": r["role"],
+			"armor": r["def"]["armor"], "men0": int(r["men0"]), "men": int(r["men"]), "kills": int(r["kills"]), "mkills": int(r.get("mkills", 0.0))})
+		kills += r["kills"]; mk += r.get("mkills", 0.0)
+	var models := {}
+	for k in mms.keys():
+		models[str(k).split("|")[0]] = true
+	return {"era": GameData.eras[Sim.era]["id"], "codes": b["codes"], "winner": sim.winner, "battle_s": snappedf(sim.t, 0.1),
+		"start_men": sim.start_men, "end_men": [int(sim.side_men(0)), int(sim.side_men(1))], "melee_share": snappedf(mk / maxf(kills, 1.0), 0.001),
+		"projectiles": proj_stats, "render_models": models.keys(), "units": units}
+
+static func projectile_class(r: Dictionary) -> String:
+	var era: String = r["def"]["era"]
+	match r["kind"]:
+		"vat":
+			if era == "medieval": return "arrow"
+			return "rifle_tracer" if era in ["c20", "modern"] else "musket_ball"
+		"gun":
+			if era == "medieval": return "stone_shot"
+			return "shell" if era in ["c20", "modern"] else "round_shot"
+	return "tank_round" if era in ["c20", "modern"] else "pistol"
 
 func _update_units(dt: float) -> void:
 	for m in mms.values():
