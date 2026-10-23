@@ -50,6 +50,10 @@ static func apply(bv: Node) -> void:
 	if era in ERAS:
 		var terr := _terrain(bv)
 		_apply_environment(bv.get("environment"), bv.get("sun"), ERA_ENV.get(era, {}), terr if polish else "")
+		# a regional battlefield biome owns sun / sky / fog: re-apply it so apply() stays idempotent on a biome battle
+		var bio = bv.get("biome")
+		if bio is Dictionary and not (bio as Dictionary).is_empty() and bv.get("env") is Dictionary and (bv.get("env") as Dictionary).has("look"):
+			load("res://scripts/battle/battle_environment.gd").apply_look(bv)
 		if polish:
 			_swap_models(bv, era)
 		if char_sr:
