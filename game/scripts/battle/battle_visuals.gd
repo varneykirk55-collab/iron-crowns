@@ -28,11 +28,11 @@ const ERA_ENV := {
 ## Applies to every era (MSAA / shadows / LOD / effects are cost knobs, not part of the c19 look).
 const QUALITY := [
 	{"name": "low", "msaa": Viewport.MSAA_DISABLED, "shadows": false, "shadow_dist": 260.0, "atlas": 2048,
-		"soft": RenderingServer.SHADOW_QUALITY_HARD, "lod": 45.0, "char_lod": 20.0, "glow": false, "aniso": Viewport.ANISOTROPY_2X},
+		"soft": RenderingServer.SHADOW_QUALITY_HARD, "lod": 45.0, "char_lod": 20.0, "char_mid": 20.0, "glow": false, "aniso": Viewport.ANISOTROPY_2X},
 	{"name": "medium", "msaa": Viewport.MSAA_2X, "shadows": true, "shadow_dist": 260.0, "atlas": 4096,
-		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 75.0, "char_lod": 30.0, "glow": true, "aniso": Viewport.ANISOTROPY_4X},
+		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 75.0, "char_lod": 30.0, "char_mid": 30.0, "glow": true, "aniso": Viewport.ANISOTROPY_4X},
 	{"name": "high", "msaa": Viewport.MSAA_4X, "shadows": true, "shadow_dist": 300.0, "atlas": 4096,
-		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 120.0, "char_lod": 45.0, "glow": true, "aniso": Viewport.ANISOTROPY_8X},
+		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 120.0, "char_lod": 20.0, "char_mid": 45.0, "glow": true, "aniso": Viewport.ANISOTROPY_8X},
 ]
 static var _quality := 1          # medium until apply_quality() is called
 static var _bv_ref: WeakRef = null # last BattleView passed to apply(); weak so a freed battle is simply skipped
@@ -104,12 +104,29 @@ static func lod_dist(_bv: Node = null) -> float:
 ## char_lod (stage 7): the refined c19 soldiers switch to their LOD1 geometry closer than BattleView's LOD_DIST
 ## (which stays 45 / 75 / 120: main's tests pin it). The LOD0 asset carries the LOD1 set too and char_vat.gdshader
 ## draws one of the two per instance by camera distance (the other collapses to a degenerate point), so this needs no
-## BattleView change. Tiers keep their order (low < medium < high). Debug: --vx-charlod=<m>.
+## BattleView change. Stage 9: char_lod = end of the LOD0 band (20 / 30 / 20 m; high adds a mid band, see char_mid).
+## Debug: --vx-charlod=<m>.
 static var char_lod_override := -1.0
 static func char_lod_dist() -> float:
 	if char_lod_override >= 0.0:
 		return char_lod_override
 	return float(QUALITY[_quality]["char_lod"])
+
+## char_mid (stage 9): past char_lod the c19sr soldiers draw a ~1.3k-tri mid set (stored in the LOD0 asset between the
+## LOD0 and LOD1 sets) out to char_mid, then the LOD1 set. char_mid <= char_lod = no mid band (stage 7 behaviour).
+## high: LOD0 to 20 m, mid to 45 m, LOD1 beyond (BattleView LOD_DIST stays 120). Debug: --vx-charmid=<m>.
+static var char_mid_override := -1.0
+## Stage 9: mid / far sets (and the LOD1 material) lift dark coat wool towards the old c19 mid-distance read
+## (char_vat coat_lift, 0..1; the close LOD0 set keeps its colours). Debug: --vx-coatlift=<0..1>.
+static var coat_lift_override := -1.0
+## Stage 9: distance team tint (char_vat team_tint / team_near / team_far): beyond ~25 m coats (and, weaker, trousers,
+## belts, shako) blend towards the BattleView side colour, full at ~90 m, so the sides separate at mid / top zoom.
+## Close-up uniforms keep their nation colours. Debug: --vx-teamtint=<0..1> (0 = off).
+static var team_tint_override := -1.0
+static func char_mid_dist() -> float:
+	if char_mid_override >= 0.0:
+		return char_mid_override
+	return float(QUALITY[_quality]["char_mid"])
 
 static func _char_lod_uniforms(bv: Node) -> void:
 	var mms = bv.get("mms")
@@ -120,6 +137,7 @@ static func _char_lod_uniforms(bv: Node) -> void:
 		if mmi is MultiMeshInstance3D and mmi.material_override is ShaderMaterial and str(key).ends_with("|0") \
 				and (mmi.material_override as ShaderMaterial).get_shader_parameter("near_verts") != null:
 			(mmi.material_override as ShaderMaterial).set_shader_parameter("char_lod_dist", char_lod_dist())
+			(mmi.material_override as ShaderMaterial).set_shader_parameter("char_mid_dist", char_mid_dist())
 
 ## Scene part of the current quality level: sun shadows + distance, LOD switch distance, glow.
 static func _apply_scene_quality(bv: Node) -> void:
@@ -266,7 +284,7 @@ const NATION_UNIFORM := {
 	"USA": {"coat": "1f2a4f", "lapel": "1f2a4f", "facing": "a8242a", "turnback": "e9e6dc", "plume": "e8e6df", "metal": "c9c9c4", "button": "d0d0cc"},
 	"GBR": {"coat": "b3262a", "lapel": "b3262a", "facing": "d8b440", "turnback": "eeede6", "breeches": "8f8f8c", "plume": "eeede6", "epaulette": "eeede6"},
 	"CAN": {"coat": "a92a2a", "lapel": "a92a2a", "facing": "1f3a6b", "turnback": "eeede6", "breeches": "8f8f8c", "plume": "2f6a3a", "epaulette": "eeede6"},
-	"SWE": {"coat": "2a3d6e", "lapel": "e0b934", "facing": "e0b934", "plume": "e0b934", "metal": "c9c9c4"},
+	"SWE": {"coat": "3a5a9a", "lapel": "e0b934", "facing": "e0b934", "plume": "e0b934", "metal": "c9c9c4"},
 	"JPN": {"coat": "1b1f2b", "lapel": "1b1f2b", "facing": "a32020", "turnback": "a32020", "breeches": "e4e0d4", "plume": "e8e6df", "piping": "d2ab45"},
 	"RUS": {"coat": "24452e", "lapel": "24452e", "facing": "b1302a", "plume": "141313", "breeches": "e4e0d4"},
 	"AUT": {"coat": "e6e2d6", "lapel": "e6e2d6", "facing": "9b2232", "breeches": "e4e0d4", "plume": "d2ab45", "belt": "c9c3b2"},
@@ -342,21 +360,27 @@ static func _palette_tex(p: Dictionary) -> ImageTexture:
 		img.set_pixel(i, 0, p.get(CHAR_SLOTS[i], Color.MAGENTA))
 	return ImageTexture.create_from_image(img)
 
-## per-side palettes; when the two coats would read alike (mirror match, blue vs blue) side 1 wears its
-## BattleView side colour (already contrast-adjusted against side 0) as the coat.
+## per-side palettes; when the two coats would read alike (mirror match, blue vs blue) one side wears its
+## BattleView side colour (already contrast-adjusted against side 0) as the coat: the side whose nation coat is
+## farther from its own side colour (so the coat agrees with the HUD / banner, e.g. 1800 NOR red vs SWE blue).
+## Stage 9: the distance team tint in char_vat (team_tint) separates the sides at mid / top zoom on top of this.
 static func _side_palettes(bv: Node) -> Array:
 	var b = bv.get("b"); var sc = bv.get("side_col")
 	var codes := ["FRA", "GBR"]
 	if b is Dictionary and b.has("codes"): codes = [str(b["codes"][0]), str(b["codes"][1])]
 	var cols := [Color(0.3, 0.4, 0.8), Color(0.8, 0.3, 0.3)]
 	if sc is Array and sc.size() >= 2: cols = [sc[0], sc[1]]
-	var p0 := _nation_palette(codes[0], cols[0]); var p1 := _nation_palette(codes[1], cols[1])
-	var a: Color = p0["coat"]; var c: Color = p1["coat"]
-	if Vector3(a.r - c.r, a.g - c.g, a.b - c.b).length() < 0.22:
-		var t: Color = cols[1]
-		p1["coat"] = Color.from_hsv(t.h, minf(t.s, 0.8), clampf(t.v * 0.7, 0.15, 0.75)) if t.s > 0.15 else (Color(0.86, 0.85, 0.8) if t.v > 0.5 else Color(0.2, 0.2, 0.22))
-		if NATION_UNIFORM.get(codes[1], {}).get("lapel", "") == NATION_UNIFORM.get(codes[1], {}).get("coat", "-"): p1["lapel"] = p1["coat"]
-	return [p0, p1]
+	var ps := [_nation_palette(codes[0], cols[0]), _nation_palette(codes[1], cols[1])]
+	var a: Color = ps[0]["coat"]; var c: Color = ps[1]["coat"]
+	if _cdist(a, c) < 0.22:
+		var i := 1 if _cdist(c, cols[1]) >= _cdist(a, cols[0]) else 0
+		var t: Color = cols[i]
+		ps[i]["coat"] = Color.from_hsv(t.h, minf(t.s, 0.8), clampf(t.v * 0.7, 0.15, 0.75)) if t.s > 0.15 else (Color(0.86, 0.85, 0.8) if t.v > 0.5 else Color(0.2, 0.2, 0.22))
+		if NATION_UNIFORM.get(codes[i], {}).get("lapel", "") == NATION_UNIFORM.get(codes[i], {}).get("coat", "-"): ps[i]["lapel"] = ps[i]["coat"]
+	return ps
+
+static func _cdist(a: Color, c: Color) -> float:
+	return Vector3(a.r - c.r, a.g - c.g, a.b - c.b).length()
 
 ## In-place swap: the regiments keep their model ids (c19_line / c19_grenadier / c19_artillery, as units.json and
 ## BattleView.CREW_MODEL name them) and their multimeshes; only the VAT data behind the id (bv.vat[id]: mesh, position
@@ -369,17 +393,8 @@ static func _swap_char(bv: Node) -> void:
 	for orig in CHAR_MODEL:
 		if not vat.has(orig) or vat[orig].has("sr"):
 			continue
-		var sr: String = CHAR_MODEL[orig]
-		if not _has_vat(sr):
-			continue
-		var d := {"mesh": [], "tex": [], "json": [], "sr": sr}
-		for lod in 2:
-			d["mesh"].append(_sr_mesh("res://assets/models/soldier_%s_lod%d.glb" % [sr, lod]))
-			var j: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/vat/%s_lod%d.json" % [sr, lod]))
-			var bytes := FileAccess.get_file_as_bytes("res://assets/vat/%s_lod%d.vat" % [sr, lod])
-			d["tex"].append(ImageTexture.create_from_image(Image.create_from_data(int(j["vertices"]), int(j["frames"]), false, Image.FORMAT_RGBF, bytes)))
-			d["json"].append(j)
-		if d["mesh"][0] == null or d["mesh"][1] == null:
+		var d := sr_vat(CHAR_MODEL[orig])
+		if d.is_empty():
 			continue
 		var ok := true
 		for c in vat[orig]["json"][0]["clips"]:   # BattleView only asks for clips the old model had
@@ -391,6 +406,30 @@ static func _swap_char(bv: Node) -> void:
 			var parts := str(key).split("|")
 			if parts.size() == 3 and parts[0] == orig:
 				(mms[key]["mm"] as MultiMesh).mesh = d["mesh"][int(parts[2])]
+
+## vat entry (BattleView vat[id] layout: mesh / tex / json per LOD, plus "sr") for a c19sr_* bake; {} if missing.
+static func sr_vat(sr: String) -> Dictionary:
+	if not _has_vat(sr):
+		return {}
+	var d := {"mesh": [], "tex": [], "json": [], "sr": sr}
+	for lod in 2:
+		d["mesh"].append(_sr_mesh("res://assets/models/soldier_%s_lod%d.glb" % [sr, lod]))
+		var j: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/vat/%s_lod%d.json" % [sr, lod]))
+		var bytes := FileAccess.get_file_as_bytes("res://assets/vat/%s_lod%d.vat" % [sr, lod])
+		d["tex"].append(ImageTexture.create_from_image(Image.create_from_data(int(j["vertices"]), int(j["frames"]), false, Image.FORMAT_RGBF, bytes)))
+		d["json"].append(j)
+	if d["mesh"][0] == null or d["mesh"][1] == null:
+		return {}
+	return d
+
+## Officer (for Rob's R3, render-only): OFFICER_MODEL is the model id BattleView would use for one officer per c19
+## infantry regiment. BattleView side: `vat[BattleVisuals.OFFICER_MODEL] = BattleVisuals.officer_vat()` (skip if {}),
+## then create the multimeshes "c19_officer|<side>|<lod>" with mesh vat[id]["mesh"][lod] (same layout / clip names
+## as c19_line; die / die_b included) before BattleVisuals.apply(); _char_materials dresses them like any sr id
+## (nation palette, team tint, LOD sets). No sim / units.json change.
+const OFFICER_MODEL := "c19_officer"
+static func officer_vat() -> Dictionary:
+	return sr_vat("c19sr_officer")
 
 static var _sr_meshes := {}
 static func _sr_mesh(path: String) -> Mesh:
@@ -463,6 +502,10 @@ static func _char_materials(bv: Node) -> void:
 		if lod == 0 and j.has("near_verts"):   # stage 7: near / far geometry sets in one LOD0 mesh
 			m.set_shader_parameter("near_verts", int(j["near_verts"]))
 			m.set_shader_parameter("char_lod_dist", char_lod_dist())
+			m.set_shader_parameter("mid_verts", int(j.get("mid_verts", -1)))
+			m.set_shader_parameter("char_mid_dist", char_mid_dist())
+		if coat_lift_override >= 0.0: m.set_shader_parameter("coat_lift", coat_lift_override)
+		if team_tint_override >= 0.0: m.set_shader_parameter("team_tint", team_tint_override)
 		if cl.has("die") and cl.has("die_b"):
 			m.set_shader_parameter("die_row", float(cl["die"]["start"]))
 			m.set_shader_parameter("die_b_row", float(cl["die_b"]["start"]))
@@ -508,6 +551,16 @@ static func xfade(v: Dictionary, k: int, cur: int, c: Vector2, ct: float, spd: f
 	else:
 		e = minf(e, (absf(prev[j + 1]) - 1.0) / fps)
 	return Color(prev[j], prev[j + 1], e, w)
+
+## Gun-crew variant (Rob's R1 note): crews are several soldiers per gun, so xfade's per-soldier index k would collide.
+## xfade_crew keys the state by (k, q) (gun k, crew member q < per) in its own sub-dictionary v["xf_crew"].
+## BattleView: `_put(..., BattleVisuals.xfade_crew(v, k, q, cur, c, ct, spd, vt))` in the crew_model loop.
+static func xfade_crew(v: Dictionary, k: int, q: int, cur: int, c: Vector2, ct: float, spd: float, vt: float, per: int = 3, fps: float = 24.0) -> Color:
+	if not v.has("xf_crew"):
+		v["xf_crew"] = {"n": int(v.get("n", 0)) * per}
+	if q < 0 or q >= per:
+		return Color(1, 1, 1, 1)
+	return xfade(v["xf_crew"], k * per + q, cur, c, ct, spd, vt, fps)
 
 static var _vatn := {}
 static func _vatn_tex(name: String, lod: int, verts: int, frames: int) -> ImageTexture:
@@ -671,6 +724,9 @@ func _ready() -> void:
 	xfade_on = args.get("vx-xfade", "1") != "0"
 	lod_override = float(args.get("vx-lod", "-1"))
 	char_lod_override = float(args.get("vx-charlod", "-1"))
+	char_mid_override = float(args.get("vx-charmid", "-1"))
+	coat_lift_override = float(args.get("vx-coatlift", "-1"))
+	team_tint_override = float(args.get("vx-teamtint", "-1"))
 	terrain_preview = args.get("vx-terrain", "")
 	# preview of the overworld markers (the real wiring is the one-line Request in out/INTEGRATION.md)
 	if args.get("vispass", "0") == "1" and get_parent() != null and "map" in get_parent() and get_parent().map != null \

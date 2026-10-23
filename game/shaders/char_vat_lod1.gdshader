@@ -4,4 +4,5 @@ render_mode cull_disabled;
 #define CHAR_NRM1
 #define CHAR_NOXF
 #define CHAR_VPAL
+#define CHAR_FAR
 #include "res://shaders/char_vat.gdshaderinc"

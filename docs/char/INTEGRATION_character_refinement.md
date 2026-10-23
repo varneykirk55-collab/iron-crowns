@@ -1,75 +1,67 @@
 # INTEGRATION
 
-## Character refinement (branch character-refinement, base gs main@v0.3.1 5bffeb0)
-Rebased 23 Oct 2026 ~05:20 EDT from 0dcaa7b onto tag v0.3.1 (5bffeb05fc5e59efdce34a6d820c2a9868dbadd0; tag object ce4351c): 31 commits kept, no conflicts
-(v0.3.1 touches map terrain / world_map / map.gdshader / map tests / docs only; no file overlaps this branch).
-Semi-realistic Napoleonic c19 soldiers (simplified Holdfast look) replace the blocky c19 line / grenadier / artillery-crew
-models. This is a render-only change: the same model ids, MultiMeshes and units.json are used (in-place swap in
-BattleVisuals._swap_char), and no gameplay code or data is touched.
+## Character refinement 2 (branch character-refinement-2, base gs main@v0.3.2 21bbfe1)
+Delta on top of v0.3.2 (which already contains character-refinement d93f576 + Rob's R1 sr-xfade in `_put` and R2 debug node).
+The old PREVIEW-ONLY hook patches are obsolete and dropped. Render-only: battle_visuals.gd, char_vat shaders, c19sr assets and
+the Blender pipeline. No core/, ui/, main.gd, battle_view.gd, tests/ or data/ change; ids, MultiMeshes and units.json unchanged.
 
-### Deliverables (all in /workspace/ic_rebase/out, mirrored in /workspace/iron-crowns-visual/out)
-- `character-refinement.patch`: all non-binary changes, with the PREVIEW-ONLY hook commits (main.gd, battle_view.gd) excluded.
-  Apply with `git apply character-refinement.patch && tar xzf character-refinement-binaries.tar.gz` at the repo root.
-- `character-refinement-binaries.tar.gz` (32 MB): blend/soldier_c19sr_*.blend, game/assets/models/soldier_c19sr_*_lod{0,1}.glb,
-  game/assets/vat/c19sr_*_lod{0,1}.{vat,vatn}
-- `character-refinement-PREVIEW-ONLY-hooks.patch`: the two hooks below, for reference only. Not for merge as-is.
-- Look: out/char/turn/line_turntable_sheet.png, line_pose_sheet.png; nations: out/char/nations/nations_{line,grenadier}.png;
-  battle: out/char/compare/cmp_*.png; MP4s: out/char/char_closecam.mp4, out/char/char_wide.mp4; perf: docs/char/BENCH_AFTER.md
+Commits (on 21bbfe1): 5ebe944 9a mid LOD, b6c0989 9b coat lift, dccd3aa 10a team tint / SWE coat / clash pick / R3 + crew helpers,
+2a6f12a 10b per-instance tint (perf), docs commits after.
+
+### Deliverables (/workspace/ic_rebase/out, mirrored in /workspace/iron-crowns-visual/out)
+- `character-refinement-2.patch`: all text changes vs v0.3.2. Apply at the repo root:
+  `git apply character-refinement-2.patch && tar xzf character-refinement-2-binaries.tar.gz`
+- `character-refinement-2-binaries.tar.gz`: re-baked blend/soldier_c19sr_*.blend, game/assets/models/soldier_c19sr_*_lod0.glb,
+  game/assets/vat/c19sr_*_lod0.{vat,vatn} (LOD0 asset now carries the mid set).
+- Scripts: out/pkg_v032.sh (build), out/verify_v032.sh (clean v0.3.2 check).
 
 ### What's in it
-- pipeline/blender/char_{geo,body,rig,anim,build,footslide,nations}.py: shared body + skeleton, swappable kits (line: shako;
-  grenadier: bearskin; artillery; officer: bicorne), musket + bayonet, clips (idle, walk, run, fire with recoil, reload, melee,
-  die, die_b), and the VAT bake. Rebuild with `blender -b --python pipeline/blender/char_build.py -- bake`.
-- game/shaders/char_vat.gdshaderinc (shared body) + char_vat.gdshader (LOD0) + char_vat_lod1.gdshader (LOD1 variant: one
-  normal fetch, no crossfade fetch, per-vertex palette): VAT positions + .vatn normals, nation palette, team mask (UV2.y),
-  die_b variant, and an optional clip crossfade read from instance COLOR (it does nothing while COLOR is white, as main's _put writes it).
-- Stage 7 character LOD: BattleView's LOD_DIST stays 45/75/120 (test_visuals_hook pins it). The c19sr LOD0 asset stores the
-  LOD0 set plus the LOD1 set after it (json `near_verts`); char_vat.gdshader draws one set per instance by camera distance and
-  collapses the other to a degenerate point. Switch distance = QUALITY `char_lod` in battle_visuals: 20 / 30 / 45 m for
-  q0 / q1 / q2 (debug override --vx-charlod=<m>). No battle_view change.
-- game/scripts/battle/battle_visuals.gd: _swap_char / _char_materials, NATION_UNIFORM (all 47 majors + derived fallback for
-  minors), the xfade() helper, plus debug-only --vx-char=0, --vx-closeshots, --vx-closecam and --vx-widecam.
-- Tris LOD0/LOD1 (drawn per instance): line 3034/581, grenadier 3238/629, artillery 2742/573, officer 2464/512. LOD0 is within
-  the 1.5-3k target (+/-8%), LOD1 within 500-800. The LOD0 file stores both sets (line 3615 tris / 2513 verts) but only draws one.
+1. **Team readability at mid / top zoom (Rob's v0.3.2 request: 1800 NOR light blue vs SWE navy, white kit on snow).**
+   - char_vat distance team tint, per instance in vertex(): from 25 m to 90 m the coat (palette coat slots + UV2.y team mask)
+     blends to the BattleView side colour (`team_color`, = HUD / banner) up to 0.85; trousers, crossbelts, shako, plume,
+     knapsack, roll, cartbox and fur up to 0.75. From 90 m to 200 m (overhead) everything except skin goes towards 0.95
+     (rest x0.7). The team colour is luma-normalised to 0.32 so it reads on snow and on grass. Below 25 m (LOD0 close-ups) the
+     historical uniforms are unchanged. Uniforms team_tint / team_tint_acc / team_near / team_far / team_top / team_tint_top;
+     debug `--vx-teamtint=<0..1>`.
+   - `_side_palettes` clash pick: if the two coats are closer than 0.22 it now recolours the side whose coat is furthest from its own
+     side colour (1800: Norway -> red, a plausible Dano-Norwegian red; before, Sweden was shifted and both stayed blue).
+   - Swedish coat lightened: NATION_UNIFORM SWE coat 2a3d6e -> 3a5a9a (fixes "SWE navy goes quite dark in close_def").
+2. **q2 mid LOD (option B from the v0.3.1 notes, done in stage 9).** The LOD0 asset stores LOD0 | mid | LOD1 sets; the shader picks one per
+   instance by distance. Tris LOD0 / mid / LOD1: line 3034 / 1368 / 581, grenadier 3238 / 1470 / 629, artillery 2742 / 1352 / 573,
+   officer 2464 / 1198 / 512. QUALITY: q2 char_lod 20 m / char_mid 45 m (LOD0 to 20 m, mid to 45 m, LOD1 beyond); q0 20/20 and q1
+   30/30 (no mid band). BattleView LOD_DIST 45/75/120 untouched. Debug `--vx-charlod=<m>`, `--vx-charmid=<m>`.
+3. **Coat lift on mid / far sets (CHAR_FAR):** dark coat slots are lifted towards palette luminance 0.28 (gain cap 2.0) on the mid set
+   and LOD1 so navy / dark green don't go black at distance. Debug `--vx-coatlift=<0..1>`.
+4. **Helpers for Rob (no battle_view change made by us):** `BattleVisuals.OFFICER_MODEL`, `officer_vat()`, `sr_vat(sr)`,
+   `xfade_crew(...)`; see Requests.
 
 ### Verification
-- character-refinement HEAD (rebased on v0.3.1, after `godot --import`): tests 140/140, no shader errors, outcome hash 0e814dda14fe56255efbd18ab3b3ad6d1ad3c87061652b3aca200109bfdfc8b8 (out/hash.sh)
-- clean v0.3.1 (5bffeb0) + patch + binaries tarball (no hooks): `git apply --check` OK, 140/140, same hash, no shader errors
-  (verified 23 Oct 2026 05:18 EDT: patch 36 files + tarball 28 binaries, `godot --import`, 140/140, hash 0e814dda, 0 SHADER ERROR lines; hooks patch also applies cleanly on v0.3.1)
-- earlier, clean 0dcaa7b + patch + binaries tarball: `git apply --check` OK, 140/140, same hash
-  (re-verified at stage 7d, 23 Oct 2026 05:05 EDT: patch 36 files + tarball 28 binaries, 140/140, hash 0e814dda, no shader errors)
-- before/after battle stills are frame-identical in sim state (same casualties and positions).
-- Perf after stage 7 (llvmpipe, 1600x900, 3 runs, median-frame fps vs same-build control --vx-char=0, docs/char/BENCH_AFTER.md):
-  q0 +2..+20%, q1 -8..+5%, q2 wide -2% / mid -11% / close -22% / close_def -14%. Draw calls unchanged.
-  (Stage 6 was q0 -16..+5% (wide -27%), q1 -26..-31%, q2 -15..-44%.)
+- character-refinement-2 HEAD after `godot --import`: tests 140/140, gameplay outcome hash 0e814dda14fe56255efbd18ab3b3ad6d1ad3c87061652b3aca200109bfdfc8b8 (out/hash.sh),
+  SIMHASH (game/tests/sim_hash.tscn, as in Rob's COLLAB notes) SWE1800 f7255ebb0f2a4f8d7a2c55ffc65f4d79, USA1914 45cf5510a28c2f2f02a3e79c8cbb6ffc,
+  JPN1500 9bb2394dbff429a57cf2d87297a212b7, all identical to v0.3.2; 0 SHADER ERROR lines.
+- Clean v0.3.2 (21bbfe1) + patch + tarball: checked with out/verify_v032.sh (apply --check, tree == branch HEAD, --import, 140/140, both hashes, shader errors); result in out/verify_v032.log.
+- Compares (Rob's battle_shots harness, q1, 1600x900, v0.3.2 vs HEAD): /workspace/iron-crowns-visual/out/char/stage10/teams/compare/
+  sheet_1800SWE_q1.png (close / close_def / mid / top, as Rob's sheet), sheet_USA_q1.png, crop_1800SWE_q1_{close,close_def,mid,top}.png.
+- q2 perf (battle_shots, 3 runs, median fps vs same-build ctl --vx-char=0; docs/char/BENCH_AFTER.md "Stage 10"):
+  1800SWE close -16 / close_def -13 / mid -1 / top -5 %; USA close -16 / close_def -18 / mid -10 / top -1 %. The team tint itself costs ~0.
 
-### q2 option (Kirk's call)
-q2 close/mid is still 11-22% under the same-build control because q2 keeps character LOD0 out to 45 m (plus 4x MSAA). Two options,
-neither taken yet; both are battle_visuals/asset-only (no battle_view change, tests unaffected):
-- **A: q2 char_lod 30 m** (same as q1): one-line QUALITY change; expected to bring q2 close/mid roughly to q1's -8..+5%;
-  cost: LOD1 pop at 30 m instead of 45 m at the top tier.
-- **B: mid LOD** (~1.2-1.5k tris) inserted in the same in-shader near/far split (e.g. LOD0 <20 m, mid 20-45 m, LOD1 beyond):
-  keeps q2's look closer to now at mid range; cost: one more bake set, larger LOD0 asset, extra shader branch.
-Current state keeps q2 at 45 m (look first). **Kirk to decide A or B (or leave as is).**
-
-### Requests for Rob
-1. **battle_view.gd: clip crossfade colour hook** (owner: battle_view; PREVIEW-ONLY commit 41eb3e1 after rebase; was 5c14c8c). Give `_put()` an optional
-   `col: Color = Color(1,1,1,1)` that is written into buf[i+12..15] instead of the constant 1.0s. In the VAT branch of
-   `_update_units` (`_put(mms["%s|%d|%d" % [model, side, lod]], ...)`), pass
-   `BattleVisuals.xfade(v, k, 5 if dk >= 0.0 else clip[k], c, ct, spd, vt)` when `vat[model].has("sr")`.
-   Without this hook clip changes still work, but they hard-cut instead of crossfading over 0.25 s. The patch is
-   character-refinement-PREVIEW-ONLY-hooks.patch.
-2. **main.gd: BattleVisuals debug node** (PREVIEW-ONLY commit cabb42b after rebase; was 6e0efe7). v0.3 dropped
-   `if args.has("perflog") or args.has("bench") or args.has("vispass"): add_child(load("res://scripts/battle/battle_visuals.gd").new())`.
-   Without it, --bench, --perflog, --vx-closeshots, --vx-closecam and --vx-widecam do nothing. Please restore it (debug flags only).
-3. **Officer instance (optional):** the officer kit (bicorne, sword) is built and baked (c19sr_officer) but has no regiment
-   slot. One officer per infantry regiment would need a battle_view change (an extra instance per regiment), so it is not included.
-4. **Naming (optional):** units.json / CREW_MODEL could name the c19sr models directly instead of relying on the in-place swap.
-   Main's polish tests currently assert c19_grenadier / c19_artillery, which is why the swap keeps the ids.
+### Requests for Rob (battle_view.gd is his; nothing here is required for the delta to work)
+- **R3 officer (optional, render-only, no sim change):** one officer per c19 infantry regiment.
+  1. vat setup (where c19_line is registered): `var ov := BattleVisuals.officer_vat(); if not ov.is_empty(): vat[BattleVisuals.OFFICER_MODEL] = ov`
+     (id "c19_officer"; entry has mesh / tex / json per LOD + "sr" = "c19sr_officer", same layout as the swapped c19_line entry).
+  2. MultiMeshes `"c19_officer|<side>|<lod>"` (lod 0/1, mesh `vat["c19_officer"]["mesh"][lod]`, same format as the other VAT
+     mms: colours + custom data on) created before `BattleVisuals.apply()`; `_char_materials` then dresses them (nation palette,
+     team tint, LOD sets, die / die_b) like any sr id. Clip names = c19_line (idle, walk, run, fire, melee, die, die_b).
+  3. In `_update_units`, per c19 infantry regiment one `_put(mms["c19_officer|%d|%d" % [side, lod]], ...)` at e.g. the front-centre
+     of the block (just ahead of the banner), clip from the regiment state; for the crossfade use `BattleVisuals.xfade` with a
+     separate state dict per regiment set (e.g. `v["xf_off"] = {"n": 1}`, index 0) so it doesn't collide with the soldiers' k.
+  Instance count +1 per regiment; officer LOD0 2464 / mid 1198 / LOD1 512 tris.
+- **Gun-crew crossfade (optional):** in the `crew_model` loop (`for q in 3:`), pass as the last `_put` argument
+  `BattleVisuals.xfade_crew(v, k, q, cur, cc, cct, 1.0, vt) if vat[cm].has("sr") else Color(1, 1, 1, 1)` with
+  cur = 5 (dead), 2 (run), 4 (melee) or 0 (idle) matching the clip picked there. State lives in `v["xf_crew"]` keyed by k*3+q, so it
+  does not collide with R1's per-soldier state. Without it, crew clip changes hard-cut as now.
+- **COLLAB entry:** please add the v0.3.2 delta entry (we do not write to grand_strategy).
 
 ### Known follow-ups (our side)
-- q2 close/mid is still 11-22% under control: q2 keeps character LOD0 out to 45 m (4x MSAA too). Options: q2 char_lod 30 m, or a
-  ~1.2-1.5k-tri mid set in the same near/far split (no battle_view change needed). Not done, to keep q2's look; Kirk to decide (see "q2 option" above).
-- No battle_view LOD2 request is needed: wide views are at control at every tier.
-- Visual cost of stage 7: lean LOD1 (fewer rings, no thumbs/nose/linings), character LOD switch at 20/30/45 m (pop at that
-  distance, same as BattleView's own LOD pop), LOD1 uses nearest-frame normals and no clip crossfade.
+- q2 close / close_def still ~13-18 % under ctl (LOD0 within 20 m + 4x MSAA); q2 char_lod 15 m would trade a little close-up detail for it.
+- R4 (direct c19sr ids) stays out: it would change the serialized regiment `model` string and the SWE1800 sim hash.

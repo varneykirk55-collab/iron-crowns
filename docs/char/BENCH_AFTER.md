@@ -51,3 +51,21 @@ Wide views are at ctl at all tiers, so a battle_view LOD2 request is not needed.
 | q2 | mid | 3.57/3.36/3.34 | 3.42 | 3.11/3.07/2.95 | 3.04 | -11% | 3.45 / 3.08 | -11% |
 | q2 | wide | 0.97/3.18/2.95 | 2.37 | 2.98/3.07/3.02 | 3.02 | +28% | 3.12 / 3.04 | -2% |
 | q2 | close_def | 3.10/3.27/3.31 | 3.23 | 2.89/2.76/2.73 | 2.79 | -13% | 3.35 / 2.88 | -14% |
+
+## Stage 10 (character-refinement-2 on v0.3.2, HEAD 6424bfd tree): q2, same-build control
+Rob's battle_shots harness (game/tests/battle_shots.gd), llvmpipe 1600x900, --quality=2 --frames=60 --perflog=1, frozen sim (1800 SWE t=14, USA t=6 --reinforce=1);
+fps = 1000 / median frame ms, 3 interleaved runs, median of runs. ctl = same build with --vx-char=0 (pre-refinement c19 models). Raw: /workspace/iron-crowns-visual/out/char/stage10/bench_q2.
+
+| battle | view | ctl --vx-char=0 fps (r1/r2/r3) | ctl median | after fps (r1/r2/r3) | after median | after vs ctl |
+|---|---|---|---|---|---|---|
+| 1800SWE q2 | close | 3.51/3.38/3.57 | 3.51 | 2.75/2.96/3.09 | 2.96 | -16% |
+| 1800SWE q2 | close_def | 3.77/3.39/3.88 | 3.77 | 3.11/3.30/3.48 | 3.30 | -13% |
+| 1800SWE q2 | mid | 3.16/3.12/3.37 | 3.16 | 2.92/3.12/3.36 | 3.12 | -1% |
+| 1800SWE q2 | top | 3.57/3.55/3.57 | 3.57 | 2.92/3.40/3.70 | 3.40 | -5% |
+| USA q2 | close | 3.50/3.75/3.75 | 3.75 | 3.16/3.00/3.23 | 3.16 | -16% |
+| USA q2 | close_def | 3.30/3.44/3.43 | 3.43 | 2.76/2.80/2.87 | 2.80 | -18% |
+| USA q2 | mid | 3.08/3.23/3.17 | 3.17 | 2.85/2.84/2.89 | 2.85 | -10% |
+| USA q2 | top | 2.98/3.18/3.23 | 3.18 | 3.11/3.17/3.14 | 3.14 | -1% |
+
+Team-tint cost A/B (1800SWE q2, 3 runs, med-fps; out/char/stage10/bench_b): mid after 3.23 / --vx-teamtint=0 3.21 / clean v0.3.2 3.46; top 3.69 / 3.67 / 3.75 -> tint ~free after 10b.
+vs stage 7 q2 (other harness): close -22 -> -16 %, close_def -14 -> -13..-18 %, mid -11 -> -1..-10 %, wide/top -2 -> -1..-5 %. Remaining cost: LOD0 within 20 m + 4x MSAA at q2.

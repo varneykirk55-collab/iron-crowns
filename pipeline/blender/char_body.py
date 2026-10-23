@@ -26,7 +26,10 @@ PALETTE = {
     'scabbard': '#1f1b18', 'piping': '#b5261f'}
 
 LODS = {0: dict(torso=12, limb=8, leg=8, head=(14, 10), hand=7, feat=True, detail=True),
-        1: dict(torso=6, limb=4, leg=5, head=(6, 5), hand=4, feat=False, detail=False, lean=True)}
+        1: dict(torso=6, limb=4, leg=5, head=(6, 5), hand=4, feat=False, detail=False, lean=True),
+        2: dict(torso=8, limb=6, leg=6, head=(8, 6), hand=5, feat=False, detail=False)}
+# 2 = mid set (stage 9, ~1.2-1.5k tris: line 1368, grenadier 1470, artillery 1352, officer 1198): full silhouette and
+# tails without the LOD0 face / hand / lining detail; stored inside the LOD0 asset between the near and far sets.
 # lean (stage 7, LOD1 500-800 tris): fewer torso / arm / leg rings, no thumb or hat lining, lighter tails, stock and hat
 # trims; the silhouette parts (shako / bearskin / bicorne, knapsack + roll, musket + bayonet, crossbelts) all stay.
 LEAN_TORSO_Z = [0.835, 0.99, 1.10, 1.24, 1.375, 1.43, 1.495]
