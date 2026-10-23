@@ -18,6 +18,7 @@ def hexc(h, a=0.0):
 
 # material classes decoded by game/shaders/vat.gdshader + team_prop.gdshader (keep in sync)
 MAT_DEFAULT, MAT_WOOL, MAT_LEATHER, MAT_STEEL, MAT_BRASS, MAT_SKIN, MAT_WOOD, MAT_PIPECLAY, MAT_HIDE, MAT_FUR, MAT_IRON, MAT_HAIR = range(12)
+MAT_MAIL, MAT_CANVAS, MAT_CAMO, MAT_POLY = 12, 13, 14, 15  # other-era visual pass (mail / webbing+linen / camo cloth / polymer+kevlar)
 
 def reset_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)

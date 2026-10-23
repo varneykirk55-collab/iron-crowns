@@ -3,7 +3,7 @@ Character faces +Y in Blender (=> -Z forward in Godot). Run: blender -b --python
 import sys, os, math
 sys.path.insert(0, os.path.dirname(__file__))
 import bpy
-import common, rigkit, c19_kit
+import common, rigkit, c19_kit, med_kit, em_kit, c20_kit, mod_kit
 from common import hexc, MeshBuilder
 
 BONES = [
@@ -31,18 +31,30 @@ BOOT = hexc('2a2420'); DRAB = (0.42, 0.42, 0.33, 0.35); DRAB_DARK = (0.3, 0.3, 0
 
 VARIANTS = {
     # id: dict(kit) ; style decides clip arm poses
-    'med_spear':  dict(coat=TEAM, legs=hexc('5b4a3a'), hat='kettle', weapon='spear', shield=True, style='spear'),
-    'med_archer': dict(coat=TEAM, legs=hexc('5b4a3a'), hat='hood', weapon='bow', quiver=True, style='bow'),
-    'em_pike':    dict(coat=TEAM, legs=hexc('3c342c'), hat='morion', weapon='pike', style='spear'),
-    'em_musket':  dict(coat=TEAM, legs=hexc('3c342c'), hat='widehat', weapon='musket', style='gun'),
+    'med_spear':  dict(coat=TEAM, legs=hexc('5b4a3a'), hat='kettle', weapon='spear', shield=True, style='spear', builder='med_spear'),
+    'med_archer': dict(coat=TEAM, legs=hexc('5b4a3a'), hat='hood', weapon='bow', quiver=True, style='bow', builder='med_archer'),
+    'em_pike':    dict(coat=TEAM, legs=hexc('3c342c'), hat='morion', weapon='pike', style='spear', builder='em_pike'),
+    'em_musket':  dict(coat=TEAM, legs=hexc('3c342c'), hat='widehat', weapon='musket', style='gun', builder='em_musket'),
     'c19_line':   dict(coat=TEAM, legs=WHITE, hat='shako', weapon='musket_bayonet', belts=True, style='gun', builder='c19_line'),
-    'c20_rifle':  dict(coat=DRAB, legs=DRAB_DARK, hat='brodie', weapon='rifle', pack=True, style='gun', armband=True),
-    'mod_rifle':  dict(coat=CAMO, legs=CAMO, hat='modern', weapon='carbine', vest=True, style='gun', armband=True),
+    'c20_rifle':  dict(coat=DRAB, legs=DRAB_DARK, hat='brodie', weapon='rifle', pack=True, style='gun', armband=True, builder='c20_rifle'),
+    'mod_rifle':  dict(coat=CAMO, legs=CAMO, hat='modern', weapon='carbine', vest=True, style='gun', armband=True, builder='mod_rifle'),
 }
 
 def build_body(name, kit, detail):
     if kit.get('builder') == 'c19_line':  # visual pass: detailed Napoleonic kit (pipeline/blender/c19_kit.py)
         return c19_kit.line_infantry(name, GROUPS, detail)
+    if kit.get('builder') == 'med_spear':  # visual pass: medieval kits (pipeline/blender/med_kit.py)
+        return med_kit.spearman(name, GROUPS, detail)
+    if kit.get('builder') == 'mod_rifle':  # visual pass: modern kit (pipeline/blender/mod_kit.py)
+        return mod_kit.rifleman(name, GROUPS, detail)
+    if kit.get('builder') == 'c20_rifle':  # visual pass: c20 kit (pipeline/blender/c20_kit.py)
+        return c20_kit.rifleman(name, GROUPS, detail)
+    if kit.get('builder') == 'em_pike':  # visual pass: early-modern kits (pipeline/blender/em_kit.py)
+        return em_kit.pikeman(name, GROUPS, detail)
+    if kit.get('builder') == 'em_musket':
+        return em_kit.musketeer(name, GROUPS, detail)
+    if kit.get('builder') == 'med_archer':
+        return med_kit.archer(name, GROUPS, detail)
     s = 8 if detail else 5
     b = MeshBuilder(name, GROUPS)
     coat, legs = kit['coat'], kit['legs']
