@@ -7,8 +7,15 @@
 - [x] 2d high-poly bake: normal + AO + slot-id atlas (92c3f98)
 - [x] 2e LODs + skinning + VAT bake (weapon_tip in json) (92c3f98; prop-deform fix 654ff93)
 - [x] 3 Godot: char_vat_v2 shader, --vx-proto flag (212b534); stills renderer tests/proto_shots.tscn (5766d15), sheet tool tools/proto_sheet.py (b5ec79e)
-- [ ] 3b Kirk feedback on early stills: shorter shako (ref proportions), clean LOD0 face/collar/belt edges (cleaner low cage), face readable close up; re-bake
-- [ ] 4 shots / compares / MP4 / bench / tests+hashes
+- [x] 3b Kirk feedback + steering 12:31-12:33 + concept target: shako 1.716-1.866 with red pompom + raised plate; separate collar shell, finer belts;
+      face planes (brow, bridge, cheek/jaw, mouth, ears) + painted eyes/stubble/ruddy/sideburns; knuckled grip hands; hi folds/seams/buttons/
+      stitching/pack flap; knee gaiters; LOD0 10.7k / mid 1,999 / far 691; re-baked (5ae020a, iterate 997a4c6)
+- [x] 4a in-engine stills (2fffbed)
+- [x] 4b compare + distance sheets, before/after close-ups (e4509cf, refreshed 997a4c6)
+- [x] 4c gameplay MP4 deliverables/proto_v2/proto_v2_gameplay.mp4 (00a4be3)
+- [ ] 4d bench q0/q1/q2 x3 vs same-build --vx-proto=0 (FRA 1800 battle)
+- [x] 4e tests 163/163, outcome hash 553cc500... = main; sim hashes = main (SWE1800 417a5300..., USA1914 4679c5a2..., JPN1500 e104d558...)
+- [ ] 4f push proto/c19-line-v2
 
 ## 2a-2c notes (Oct 23, ~11:50 EDT)
 - Body: torso/neck/collar + arms (built spread +-6 cm) + legs/gaiters + shoes, unioned by 5 mm voxel remesh (hi ~92k verts);
