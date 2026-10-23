@@ -23,7 +23,7 @@ TEX = int(os.environ.get('V2_TEX', '2048'))
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUTP = os.path.join(ROOT, 'out', 'proto', 'bake')
 LO_VOXEL = float(os.environ.get('V2_LO_VOXEL', '0.013'))
-BODY_TRIS = int(os.environ.get('V2_BODY_TRIS', '3600'))
+BODY_TRIS = int(os.environ.get('V2_BODY_TRIS', '6500'))   # LOD0 budget raised to ~8-12k (Kirk, 12:33 EDT)
 MID_TRIS = int(os.environ.get('V2_MID_TRIS', '2000'))
 FAR_TRIS = int(os.environ.get('V2_FAR_TRIS', '700'))
 TIP_LOCAL = (0.02, 1.52, -0.006)    # bayonet tip in prop-local coordinates (char_body.build_musket / char_v2.musket)
@@ -115,7 +115,7 @@ def tail_weights(o):
 RULES = [  # object-name prefix -> weight rule
     (('head', 'shako', 'peak', 'plume', 'cockade'), 'head'), (('handR',), 'hand.R'), (('handL',), 'hand.L'),
     (('pack', 'roll', 'strap'), 'chest'), (('stock', 'barrel', 'band', 'lock', 'socket', 'bayonet', 'sling'), 'prop'),
-    (('cart', 'scab', 'hilt'), 'hips'), (('tail',), 'tail'), (('belt',), 'transfer')]
+    (('cart', 'scab', 'hilt'), 'hips'), (('tail',), 'tail'), (('belt', 'collar'), 'transfer')]
 
 def rule_for(name):
     for pre, r in RULES:
@@ -153,13 +153,16 @@ def relax(o, target, iters=6):
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.beautify_fill()
     bpy.ops.object.mode_set(mode='OBJECT')
 
+BODY_KEYS = ('collar', 'button')   # lo collar shell / hi-only buttons bake against the body group (pid 0)
+
 def build_meshes():
     t0 = time.time()
     parts = C.build_body_parts(); near = C.nearest_part(parts)
     hi = C.fuse(parts, 0.005); C.drop_small_islands(hi); C.slot_body(hi, near)
+    C.add_folds(hi, C.SPREAD)   # cloth folds + seams (bake source)
     # low cage from a coarser remesh of the same parts: thin ledges (lapels, cuffs, collar) melt into the volume and come
     # back through the normal map, instead of decimating the 5 mm sculpt into slivers / folds
-    lo = C.fuse(parts, LO_VOXEL, 'body'); C.drop_small_islands(lo); C.slot_body(lo, near)
+    lo = C.fuse({k: v for k, v in parts.items() if k != 'collar'}, LO_VOXEL, 'body'); C.drop_small_islands(lo); C.slot_body(lo, near)
     sm = lo.modifiers.new('sm', 'CORRECTIVE_SMOOTH'); sm.iterations = 4; sm.smooth_type = 'SIMPLE'; sm.use_only_smooth = True
     C.apply_mods(lo)
     joint_keep(lo, C.SPREAD)
@@ -184,9 +187,14 @@ def build_meshes():
     keys = sorted(set(gkey(o) for o in kit_hi + kit_lo))
     log('part groups', keys)
     for o in [hi, lo] + kit_hi + kit_lo:   # group id: the normal / id bakes are 'exploded' per group (no cross-part ray hits)
-        i = 0 if o in (hi, lo) else 1 + keys.index(gkey(o))
+        i = 0 if o in (hi, lo) or gkey(o) in BODY_KEYS else 1 + keys.index(gkey(o))   # lo collar shell bakes from the fused hi body
         at = o.data.attributes.new('pid', 'FLOAT', 'POINT'); at.data.foreach_set('value', [float(i)] * len(o.data.vertices))
+    for o in [hi] + kit_hi:   # painted detail default (neutral) where nothing was painted
+        if 'det2' not in o.data.attributes: C.set_det(o, lambda p: C.NEUTRAL)
     H = C.join([hi] + kit_hi, 'HI')
+    sl = np.zeros(len(H.data.polygons), np.int32); H.data.attributes['slot'].data.foreach_get('value', sl)
+    mk = H.data.attributes.new('matk', 'FLOAT', 'FACE')
+    mk.data.foreach_set('value', [float(C.M[C.SLOT_MAT.get(B.SLOT_NAMES[x], 'wool')]) for x in sl])
     L = C.join([lo] + kit_lo, KID + '_lod0')
     for o in (H, L): o.data.validate()
     for p in L.data.polygons: p.use_smooth = True
@@ -195,7 +203,8 @@ def build_meshes():
     return H, L
 
 # ------------------------------------------------------------------ atlas + bake
-FEATURE_SCALE = 2.4   # head / hands get this much more texel density (face paint, fingers)
+FEATURE_SCALE = 2.4
+FACE_SCALE = 3.4     # head gets more again (painted eyes / stubble / lips)   # head / hands get this much more texel density (face paint, fingers)
 
 def unwrap(L):
     me = L.data
@@ -206,8 +215,10 @@ def unwrap(L):
           or (v.co.z < 0.91 and 0.18 < abs(v.co.x) < 0.25 and v.co.z > 0.70)]
     orig = {i: me.vertices[i].co.copy() for i in hv}
     for i in hv:
-        c = Vector((0, 0.01, 1.666)) if me.vertices[i].co.z > 1.5 else Vector((math.copysign(0.215, me.vertices[i].co.x), 0.01, 0.83))
-        me.vertices[i].co = c + (me.vertices[i].co - c) * FEATURE_SCALE
+        hd = me.vertices[i].co.z > 1.5
+        c = Vector((0, 0.01, 1.666)) if hd else Vector((math.copysign(0.215, me.vertices[i].co.x), 0.01, 0.83))
+        k = FACE_SCALE if hd and me.vertices[i].co.z < 1.725 else FEATURE_SCALE
+        me.vertices[i].co = c + (me.vertices[i].co - c) * k
     bpy.ops.object.select_all(action='DESELECT'); L.select_set(True); bpy.context.view_layer.objects.active = L
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.002, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
@@ -224,7 +235,7 @@ def bake_maps(H, L):
     if sc.world is None: sc.world = bpy.data.worlds.new('w')
     sc.world.light_settings.distance = 0.12
     imgs = {}
-    for nm, cs in (('nrm', 'Non-Color'), ('ao', 'Non-Color'), ('id', 'Non-Color')):
+    for nm, cs in (('nrm', 'Non-Color'), ('ao', 'Non-Color'), ('id', 'Non-Color'), ('det', 'Non-Color')):
         im = bpy.data.images.new(f'{KID}_{nm}', TEX, TEX, alpha=False, float_buffer=False)
         im.colorspace_settings.name = cs; imgs[nm] = im
     # low: one material with an image node per bake target (active node = target)
@@ -240,6 +251,7 @@ def bake_maps(H, L):
     add = nt.nodes.new('ShaderNodeAddShader'); out = nt.nodes.new('ShaderNodeOutputMaterial')
     nt.links.new(at.outputs['Fac'], mul.inputs[0]); nt.links.new(mul.outputs[0], em.inputs['Color'])
     nt.links.new(em.outputs[0], add.inputs[0]); nt.links.new(df.outputs[0], add.inputs[1]); nt.links.new(add.outputs[0], out.inputs[0])
+    det_rgb = detail_nodes(nt, df)
     H.data.materials.clear(); H.data.materials.append(hm)
     for a in ('visible_camera', 'visible_diffuse', 'visible_glossy', 'visible_transmission', 'visible_volume_scatter', 'visible_shadow'):
         setattr(L, a, False)   # the low cage must not occlude the high-poly AO rays
@@ -250,14 +262,14 @@ def bake_maps(H, L):
             co = np.zeros(len(o.data.vertices) * 3, np.float32); o.data.vertices.foreach_get('co', co)
             co = co.reshape(-1, 3); co[:, 0] += sign * pid * 4.0
             o.data.vertices.foreach_set('co', co.ravel()); o.data.update()
-    for nm, typ, smp in (('ao', 'AO', 64), ('nrm', 'NORMAL', 1), ('id', 'EMIT', 1)):
-        if nm == 'nrm': explode(1.0)   # AO in place (belts / pack occlude the coat); normal + id per part pair
+    for nm, typ, smp in (('ao', 'AO', 64), ('nrm', 'NORMAL', 1), ('id', 'EMIT', 1), ('det', 'EMIT', 4)):
+        if nm == 'nrm': explode(1.0)   # AO in place (belts / pack occlude the coat); normal + id + detail per part pair
+        nt.links.new((det_rgb if nm == 'det' else mul.outputs[0]), em.inputs['Color'])
         tn.image = imgs[nm]; lm.node_tree.nodes.active = tn
         sc.cycles.samples = smp
         sc.cycles.filter_width = 0.01 if nm == 'id' else 1.5   # no AA blending between slot ids
         sc.render.bake.margin_type = 'EXTEND'
-        if nm == 'id': sc.cycles.filter_width = 0.01
-        else: sc.cycles.filter_width = 1.5
+        sc.cycles.filter_width = 0.01 if nm == 'id' else 1.5
         t0 = time.time()
         kw = dict(type=typ)
         if typ == 'NORMAL': kw.update(normal_space='TANGENT')
@@ -267,6 +279,66 @@ def bake_maps(H, L):
     px = {k: np.array(v.pixels[:], np.float32).reshape(TEX, TEX, 4) for k, v in imgs.items()}
     return px
 
+def detail_nodes(nt, df):
+    """High-poly bake material detail: bump (-> baked into the normal map) and the painted detail emission
+    (r = luminance variation, g = per-material detail: skin stubble/ruddy + eyes from 'det2', wear on brass / leather)."""
+    N = nt.nodes.new; L = nt.links.new
+    def attr(name, typ='GEOMETRY'):
+        a = N('ShaderNodeAttribute'); a.attribute_name = name; a.attribute_type = typ; return a.outputs['Fac']
+    def math(op, a, b=None, c=None, v=None):
+        m = N('ShaderNodeMath'); m.operation = op
+        for k, x in enumerate((a, b, c)):
+            if x is None: continue
+            if isinstance(x, (int, float)): m.inputs[k].default_value = x
+            else: L(x, m.inputs[k])
+        return m.outputs[0]
+    def add(*xs):
+        acc = xs[0]
+        for x in xs[1:]: acc = math('ADD', acc, x)
+        return acc
+    mk = attr('matk'); det2 = attr('det2')
+    def mask(*ks): return add(*[math('COMPARE', mk, float(k), 0.1) for k in ks])
+    tc = N('ShaderNodeTexCoord')
+    def noise(scale, detail=3.0):
+        n = N('ShaderNodeTexNoise'); n.inputs['Scale'].default_value = scale; n.inputs['Detail'].default_value = detail
+        L(tc.outputs['Object'], n.inputs['Vector']); return math('SUBTRACT', n.outputs['Fac'], 0.5)
+    nF = noise(900.0, 4.0); nM = noise(220.0, 3.0); nL = noise(40.0, 2.0)
+    wv = N('ShaderNodeTexWave'); wv.wave_type = 'BANDS'; wv.bands_direction = 'DIAGONAL'
+    wv.inputs['Scale'].default_value = 250.0; wv.inputs['Distortion'].default_value = 1.5
+    L(tc.outputs['Object'], wv.inputs['Vector']); tw = math('SUBTRACT', wv.outputs['Fac'], 0.5)
+    vo = N('ShaderNodeTexVoronoi'); vo.inputs['Scale'].default_value = 650.0; L(tc.outputs['Object'], vo.inputs['Vector'])
+    gr = math('SUBTRACT', vo.outputs['Distance'], 0.5)
+    uv = N('ShaderNodeUVMap'); uv.uv_map = 'st'; sp = N('ShaderNodeSeparateXYZ'); L(uv.outputs['UV'], sp.inputs[0])
+    band = add(math('COMPARE', sp.outputs['Y'], 0.12, 0.035), math('COMPARE', sp.outputs['Y'], 0.88, 0.035))
+    dash = math('LESS_THAN', math('FRACT', math('MULTIPLY', sp.outputs['X'], 180.0)), 0.6)
+    stitch = math('MULTIPLY', band, dash)
+    wool = mask(B.MAT_WOOL); canvas = mask(B.MAT_CANVAS); lea = mask(B.MAT_LEATHER, B.MAT_HIDE); clay = mask(B.MAT_PIPECLAY)
+    skin = mask(B.MAT_SKIN); fur = mask(B.MAT_FUR); wood = mask(B.MAT_WOOD); metal = mask(B.MAT_BRASS, B.MAT_STEEL, B.MAT_IRON)
+    # bump height
+    h = add(math('MULTIPLY', wool, add(math('MULTIPLY', tw, 0.7), math('MULTIPLY', nF, 0.6))),
+            math('MULTIPLY', canvas, math('MULTIPLY', nF, 0.5)), math('MULTIPLY', lea, math('MULTIPLY', gr, 0.5)),
+            math('MULTIPLY', clay, math('MULTIPLY', nF, 0.25)), math('MULTIPLY', fur, nF), math('MULTIPLY', skin, math('MULTIPLY', nF, 0.12)),
+            math('MULTIPLY', stitch, -1.0))
+    bp = N('ShaderNodeBump'); bp.inputs['Strength'].default_value = 0.55; bp.inputs['Distance'].default_value = 0.0007
+    L(h, bp.inputs['Height']); L(bp.outputs['Normal'], df.inputs['Normal'])
+    # luminance detail
+    lum = add(0.5, math('MULTIPLY', wool, add(math('MULTIPLY', nF, 0.30), math('MULTIPLY', tw, 0.10), math('MULTIPLY', nM, 0.16), math('MULTIPLY', nL, 0.10))),
+              math('MULTIPLY', canvas, add(math('MULTIPLY', nF, 0.18), math('MULTIPLY', nL, 0.08))),
+              math('MULTIPLY', lea, add(math('MULTIPLY', nM, 0.35), math('MULTIPLY', nL, 0.15))),
+              math('MULTIPLY', clay, add(math('MULTIPLY', nM, 0.12), math('MULTIPLY', nL, 0.06))),
+              math('MULTIPLY', skin, add(math('MULTIPLY', nM, 0.10), math('MULTIPLY', nL, 0.08))),
+              math('MULTIPLY', fur, math('MULTIPLY', nF, 0.45)), math('MULTIPLY', wood, add(math('MULTIPLY', nM, 0.30), math('MULTIPLY', nL, 0.2))),
+              math('MULTIPLY', metal, math('MULTIPLY', nM, 0.12)), math('MULTIPLY', stitch, -0.22))
+    # per-material detail: skin / eyes painted, brass + leather edge wear (convexity + noise), rest neutral
+    geo = N('ShaderNodeNewGeometry')
+    wear = math('ADD', math('MULTIPLY', math('SUBTRACT', geo.outputs['Pointiness'], 0.5), 6.0), math('MULTIPLY', nM, 0.9))
+    wear = math('MAXIMUM', math('MINIMUM', wear, 1.0), 0.0)
+    wm = add(lea, metal)
+    d2 = add(math('MULTIPLY', skin, det2), math('MULTIPLY', wm, wear),
+             math('MULTIPLY', math('SUBTRACT', 1.0, add(skin, wm)), C.NEUTRAL))
+    cmb = N('ShaderNodeCombineXYZ'); L(lum, cmb.inputs[0]); L(d2, cmb.inputs[1])
+    return cmb.outputs[0]
+
 def finish_maps(px):
     """-> nrm RGBA8 (xyz tangent normal, a = AO) and id RGBA8 (r = slot * 8, g = material * 16, b = team mask), top row first."""
     n = px['nrm'][..., :3]; ao = px['ao'][..., 0]
@@ -274,7 +346,10 @@ def finish_maps(px):
     mats = np.array([C.M[C.SLOT_MAT.get(s, 'wool')] for s in B.SLOT_NAMES], np.int32)
     ao = np.clip(0.35 + 0.65 * ao, 0, 1)
     nrm8 = np.concatenate([np.round(n * 255), np.round(ao[..., None] * 255)], -1).astype(np.uint8)
-    id8 = np.stack([ids * 8, mats[ids] * 16, np.where(ids == B.S['coat'], 255, 0), np.full_like(ids, 255)], -1).astype(np.uint8)
+    det = px['det']; lum = np.clip(np.round(det[..., 0] * 255), 0, 255).astype(np.int32)
+    d2 = np.clip(np.round(det[..., 1] * 15), 0, 15).astype(np.int32)
+    # g = material * 16 + painted detail (4 bit), b = luminance detail (128 = neutral); coat / team = slot 0
+    id8 = np.stack([ids * 8, mats[ids] * 16 + d2, lum, np.full_like(ids, 255)], -1).astype(np.uint8)
     nrm8 = nrm8[::-1].copy(); id8 = id8[::-1].copy()   # Blender pixels are bottom row first
     return nrm8, id8, ids[::-1].copy()
 

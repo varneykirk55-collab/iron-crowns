@@ -96,7 +96,8 @@ func _make(m: String, pal: Texture2D, xf: Array) -> MultiMeshInstance3D:
 		mm.set_instance_transform(i, xf[i])
 		mm.set_instance_color(i, Color(1, 1, 1, 1))
 		var t0 := -float(_arg("t", "0.4")) - 0.37 * i
-		mm.set_instance_custom_data(i, Color(float(c["start"]), float(c["count"]) * (1.0 if c["loop"] else -1.0), t0, 1.0))
+		var spd := 0.0 if _arg("close", "0") == "1" else 1.0   # close-ups: frozen on the clip's first frame (hand positions from tools/hand_pos.py)
+		mm.set_instance_custom_data(i, Color(float(c["start"]), float(c["count"]) * (1.0 if c["loop"] else -1.0), t0, spd))
 	var mmi := MultiMeshInstance3D.new(); mmi.multimesh = mm; mmi.material_override = mat
 	add_child(mmi)
 	return mmi
@@ -126,6 +127,17 @@ func _snap(name: String) -> void:
 func _run() -> void:
 	var views := [["front", 0.0], ["34", 35.0], ["side", 90.0], ["back", 180.0]]
 	var xs := {"c19_line": -1.25, "c19sr_line": 0.0, "c19v2_line": 1.25}
+	if _arg("close", "0") == "1":   # before/after close-ups only (v2): bust both sides + both hands
+		var tg := _arg("tag", "")
+		_show(["c19v2_line"], "solo")
+		_look(Vector3(1.25, 1.62, 0), 25.0, 0.95, 0.04); await _snap("close_bust%s" % tg)
+		_look(Vector3(1.25, 1.62, 0), -25.0, 0.95, 0.04); await _snap("close_bust_l%s" % tg)
+		for hs in [["r", 1.0, "0.21,0.95,-0.02"], ["l", -1.0, "-0.21,0.95,-0.02"]]:
+			var q: PackedStringArray = _arg("h" + hs[0], hs[2]).split(",")
+			var hp := Vector3(1.25 + float(q[0]), float(q[1]), float(q[2]))
+			_look(hp, 55.0 * float(hs[1]), 0.42, 0.06); await _snap("close_hand_%s%s" % [hs[0], tg])
+		get_tree().quit()
+		return
 	# solo v2 views + bust
 	for m in ["c19v2_line", "c19sr_line", "c19_line"]:
 		_show([m], "solo")

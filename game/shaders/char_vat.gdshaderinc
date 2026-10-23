@@ -205,6 +205,7 @@ void fragment() {
 	float su = slot_u; float mi = mat_id; float tm = team_amt;
 	float nao = 1.0;
 	vec4 id4 = vec4(-1.0); vec2 idf = vec2(0.0); vec4 idm = vec4(0.0);
+	float dlum = 0.5; float dk = 8.0 / 15.0;   // painted detail (v2 id map: g low nibble, b), neutral by default
 	if (nmap_k > 0.0) {
 		if (nmap_k > 0.9) {   // near set: per-texel slot / material from the baked id map (2x2 taps, colours blended at edges)
 			ivec2 isz = textureSize(v2_idmap, 0);
@@ -215,9 +216,12 @@ void fragment() {
 			vec4 c = texelFetch(v2_idmap, clamp(i0 + ivec2(0, 1), ivec2(0), isz - 1), 0);
 			vec4 d = texelFetch(v2_idmap, clamp(i0 + ivec2(1, 1), ivec2(0), isz - 1), 0);
 			id4 = floor(vec4(a.r, b.r, c.r, d.r) * 255.0 / 8.0 + 0.5);
-			idm = floor(vec4(a.g, b.g, c.g, d.g) * 255.0 / 16.0 + 0.5);
+			idm = floor(floor(vec4(a.g, b.g, c.g, d.g) * 255.0 + 0.5) / 16.0);   // g = material * 16 + detail nibble
 			vec4 nb = (idf.x < 0.5) ? (idf.y < 0.5 ? a : c) : (idf.y < 0.5 ? b : d);   // nearest texel: material params
-			su = (floor(nb.r * 255.0 / 8.0 + 0.5) + 0.5) / 32.0; mi = floor(nb.g * 255.0 / 16.0 + 0.5); tm = nb.b;
+			float sid = floor(nb.r * 255.0 / 8.0 + 0.5); float gi = floor(nb.g * 255.0 + 0.5);
+			su = (sid + 0.5) / 32.0; mi = floor(gi / 16.0); tm = sid == 0.0 ? 1.0 : 0.0;   // coat (slot 0) takes the team colour
+			dk = mod(gi, 16.0) / 15.0;
+			dlum = mix(mix(a.b, b.b, idf.x), mix(c.b, d.b, idf.x), idf.y);   // luminance detail, bilinear
 		}
 		vec4 nt = texture(v2_nmap, atl_uv);
 		vec3 ts = nt.xyz * 2.0 - 1.0;
@@ -241,6 +245,19 @@ void fragment() {
 		vmat((id4.z + 0.5) / 32.0, id4.z == 0.0 ? 1.0 : 0.0, idm.z, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c2, r_, m_, s_, a_);
 		vmat((id4.w + 0.5) / 32.0, id4.w == 0.0 ? 1.0 : 0.0, idm.w, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c3, r_, m_, s_, a_);
 		alb = mix(mix(c0, c1, idf.x), mix(c2, c3, idf.x), idf.y);
+	}
+	if (id4.x >= 0.0) {   // painted detail: wool fibre / leather / skin variation, stubble + ruddy skin, eyes, edge wear
+		alb *= 0.55 + 0.9 * dlum;
+		float sid = floor(su * 32.0);
+		if (mi == 5.0) {
+			if (sid == 18.0) { alb = mix(vec3(0.075, 0.048, 0.030), vec3(0.62, 0.60, 0.56), smoothstep(0.3, 0.7, dk)); rough = 0.25; }   // iris / sclera
+			else {
+				float stub = clamp((8.0 / 15.0 - dk) * 1.875, 0.0, 1.0); float rud = clamp((dk - 8.0 / 15.0) * 2.14, 0.0, 1.0);
+				alb = mix(alb, alb * vec3(0.50, 0.47, 0.47), stub * 0.8);
+				alb = mix(alb, alb * vec3(1.06, 0.74, 0.70), rud * 0.75);
+			}
+		} else if (mi == 4.0 || mi == 3.0) { alb *= 1.0 + 0.6 * dk; rough = max(0.12, rough - 0.18 * dk); }   // polished worn edges
+		else if (mi == 2.0 || mi == 8.0) { alb = mix(alb, alb * 1.7 + 0.03, dk * 0.45); rough = min(1.0, rough + 0.25 * dk); }   // scuffed leather
 	}
 	ALBEDO = alb * mix(1.0, nao, 0.5); ROUGHNESS = rough; METALLIC = metal; SPECULAR = spec * nao; AO = ao * nao;
 #elif defined(CHAR_VPAL)

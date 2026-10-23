@@ -4,6 +4,7 @@ retopo for the fused body, the same parametric functions at game resolution for 
 tangent normal map and AO into one atlas -> skinned to char_rig.BONES -> VAT bake (char_v2_bake.py).
 Blender coords: Z up, character faces +Y, +X = its right."""
 import bpy, bmesh, math, os, sys
+import numpy as np
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
 sys.path.insert(0, os.path.dirname(__file__))
@@ -240,7 +241,7 @@ def body_slot(p, part):
     if part == 'arm':
         return 'cuff' if z < 0.968 else 'coat'
     if part == 'leg':
-        if z < 0.468: return 'gaiter'
+        if z < 0.545 + 0.02 * ss(-0.01, 0.05, y): return 'gaiter'   # knee-high black gaiters (concept)
         return 'breeches'
     # torso
     if z > 1.586: return 'skin'
@@ -327,27 +328,54 @@ def head_point(u, v):
     if wf > 0:
         X, Z = p.x, p.z + HEAD_DZ; ax = abs(X)
         d = 0.0
-        d += 0.024 * gauss(X, 0.0105 + 0.006 * ss(1.67, 1.645, Z)) * ss(1.708, 1.655, Z) * ss(1.632, 1.652, Z)  # nose
-        d += 0.0065 * gauss(Z - 1.707, 0.010) * gauss(X, 0.055)                         # brow ridge
-        d -= 0.0085 * gauss(ax - 0.031, 0.014) * gauss(Z - 1.689, 0.011)                # eye sockets
-        d += 0.0045 * gauss(ax - 0.045, 0.02) * gauss(Z - 1.660, 0.02)                  # cheekbones
-        d += 0.0030 * gauss(Z - 1.624, 0.004) * gauss(X, 0.018)                         # upper lip
-        d -= 0.0025 * gauss(Z - 1.617, 0.003) * gauss(X, 0.02)                          # mouth line
-        d += 0.0030 * gauss(Z - 1.609, 0.005) * gauss(X, 0.016)                         # lower lip
-        d += 0.0080 * gauss(Z - 1.584, 0.014) * gauss(X, 0.026)                         # chin
+        d += 0.026 * gauss(X, 0.0095 + 0.007 * ss(1.67, 1.645, Z)) * ss(1.708, 1.655, Z) * ss(1.632, 1.652, Z)  # nose
+        d += 0.0035 * gauss(X, 0.008) * gauss(Z - 1.690, 0.012)                         # nose bridge (between the eyes)
+        d -= 0.0030 * gauss(ax - 0.012, 0.004) * gauss(Z - 1.643, 0.006)                # nostril wings / alar groove
+        d += 0.0090 * gauss(Z - 1.708, 0.008) * gauss(X, 0.050) * (1.0 - 0.4 * gauss(X, 0.008))   # brow ridge
+        d -= 0.0100 * gauss(ax - 0.031, 0.013) * gauss(Z - 1.690, 0.010)                # eye sockets
+        d += 0.0020 * gauss(ax - 0.031, 0.009) * gauss(Z - 1.689, 0.004)                # eyeballs / lids
+        d += 0.0070 * gauss(ax - 0.047, 0.016) * gauss(Z - 1.664, 0.014)                # cheekbones
+        d -= 0.0045 * gauss(ax - 0.050, 0.014) * gauss(Z - 1.630, 0.014)                # cheek hollow (cheek / jaw planes)
+        d -= 0.0030 * gauss(ax - 0.022, 0.006) * gauss(Z - 1.636, 0.016)                # naso-labial fold
+        d += 0.0040 * gauss(Z - 1.625, 0.004) * gauss(X, 0.017)                         # upper lip
+        d -= 0.0045 * gauss(Z - 1.6175, 0.0025) * gauss(X, 0.019)                       # mouth line
+        d += 0.0040 * gauss(Z - 1.610, 0.0045) * gauss(X, 0.015)                        # lower lip
+        d -= 0.0030 * gauss(Z - 1.600, 0.004) * gauss(X, 0.016)                         # mento-labial groove
+        d += 0.0095 * gauss(Z - 1.585, 0.013) * gauss(X, 0.024)                         # chin
+        d += 0.0040 * gauss(ax - 0.050, 0.010) * gauss(Z - 1.588, 0.012)                # jaw angle (defined jaw line)
         p.y += d * wf
     return p
+
+NEUTRAL = 8.0 / 15.0
+
+def head_det(p):
+    """painted skin detail for the bake: < NEUTRAL stubble / shadow, > NEUTRAL ruddy (lips, cheeks, nose, ears); eye slot: iris 0 .. sclera 1"""
+    X, Y, Z = p; Z += HEAD_DZ; ax = abs(X)
+    front = Y > HEAD_C.y + 0.04
+    if front and 0.018 < ax < 0.045 and abs(Z - 1.689) < 0.0062:
+        r = math.hypot((ax - 0.0315) / 0.0068, (Z - 1.689) / 0.0062)
+        return 0.0 if r < 0.75 else 1.0   # iris (dark) / sclera
+    d = NEUTRAL
+    stub = ss(1.640, 1.625, Z) * ss(0.012, 0.035, Y - HEAD_C.y + 0.03) * (1.0 - gauss(Z - 1.617, 0.006) * gauss(X, 0.02))
+    stub = max(stub, gauss(Z - 1.628, 0.004) * gauss(X, 0.022) * 0.8)   # moustache shadow above the lip
+    d -= 0.42 * stub
+    d += 0.40 * gauss(Z - 1.6175, 0.007) * gauss(X, 0.018)            # lips
+    d += 0.25 * gauss(ax - 0.045, 0.016) * gauss(Z - 1.650, 0.014)    # cheeks
+    d += 0.22 * gauss(X, 0.010) * gauss(Z - 1.645, 0.010)             # nose tip
+    d += 0.25 * ss(0.062, 0.072, ax)                                    # ears
+    d -= 0.12 * gauss(ax - 0.031, 0.016) * gauss(Z - 1.680, 0.008)    # under-eye shadow
+    return max(0.0, min(1.0, d))
 
 def head_slot(p):
     X, Y, Z = p; Z += HEAD_DZ; ax = abs(X); rel = p - HEAD_C
     front = Y > HEAD_C.y + 0.055
     if front and 0.018 < ax < 0.045 and abs(Z - 1.689) < 0.0058 - 0.003 * abs(ax - 0.031) / 0.014 and Y > 0.07:
-        return 'eye' if abs(ax - 0.0315) < 0.0065 else 'lapel'   # iris dark, sclera off-white
-    if front and 0.014 < ax < 0.050 and 1.700 < Z < 1.708 + 0.004 * (ax - 0.014) / 0.036 * 0: return 'hair'  # eyebrows
+        return 'eye'   # iris / sclera painted in the detail map (head_det)
+    if front and 0.012 < ax < 0.050 and 1.699 + 0.002 * ss(0.03, 0.05, ax) < Z < 1.7075 + 0.002 * ss(0.03, 0.05, ax): return 'hair'  # eyebrows
     if front and abs(Z - 1.6175) < 0.0035 and ax < 0.017: return 'mouth'
     if Z > 1.735 and Y < HEAD_C.y + 0.06: return 'hair'
     if Y < HEAD_C.y - 0.02 and Z > 1.625 and ax < 0.071: return 'hair'
-    if 0.06 < ax < 0.0705 and HEAD_C.y - 0.005 < Y < HEAD_C.y + 0.03 and 1.645 < Z < 1.72: return 'hair'   # sideburns
+    if 0.058 < ax < 0.0725 and HEAD_C.y - 0.008 < Y < HEAD_C.y + 0.035 and 1.630 < Z < 1.72: return 'hair'   # sideburns (concept: long, to the jaw)
     return 'skin'
 
 def build_head(nu, nv, name='head'):
@@ -365,32 +393,58 @@ def build_head(nu, nv, name='head'):
         ears.append(e)
     o = join([o] + ears, name)
     set_slot(o, head_slot)
+    set_det(o, head_det)
     return o
 
+def set_det(o, fn):
+    """point float attribute 'det2' (painted detail for the bake, see head_det)"""
+    me = o.data
+    a = me.attributes.get('det2') or me.attributes.new('det2', 'FLOAT', 'POINT')
+    a.data.foreach_set('value', [fn(v.co) for v in me.vertices])
+
 # ------------------------------------------------------------------ hands (thumb + grouped fingers; hi = separate fingers)
+GRIP_C = (0.203, 0.790)   # hand rest space (x, z) of the grip axis (musket stock runs ~ along y through the fist; see PROTO_V2.md)
+GRIP_R = 0.0175
+
 def build_hand(s, hi=False):
+    """Back of hand + four knuckled fingers curled round the grip + opposed thumb. hi: separate fingers with knuckle /
+    joint bulges and nails for the bake; game: the same fingers at low resolution (they read in silhouette)."""
     sx = lambda p: V(s * p[0], p[1], p[2])
     parts = []
-    nt, nu = (12, 16) if hi else (3, 8)
-    palm = limb('palm', [(0, sx((0.222, 0.002, 0.905))), (0.5, sx((0.225, 0.004, 0.85))), (1, sx((0.226, 0.005, 0.80)))],
-                [(0, 0.017, 0.026, 0.026), (0.35, 0.018, 0.039, 0.037), (1, 0.015, 0.040, 0.038)], nt, nu, fwd=V(0, 1, 0), e=2.6)
+    nt, nu = (14, 16) if hi else (3, 8)
+    palm = limb('palm', [(0, sx((0.222, 0.002, 0.902))), (0.45, sx((0.224, 0.004, 0.852))), (1, sx((0.226, 0.005, 0.808)))],
+                [(0, 0.0145, 0.021, 0.021), (0.35, 0.0165, 0.036, 0.034), (1, 0.0150, 0.039, 0.036)], nt, nu, fwd=V(0, 1, 0), e=2.6)
     parts.append(palm)
-    def fpath(y, L):   # knuckle -> curled towards the palm (-x on the right hand)
-        return [(0, sx((0.226, y, 0.805))), (0.45, sx((0.223, y, 0.805 - 0.045 * L))), (0.8, sx((0.207, y, 0.805 - 0.068 * L))),
-                (1, sx((0.193, y, 0.805 - 0.066 * L)))]
-    if hi:
-        for y, L, r in ((0.027, 0.92, 0.0090), (0.009, 1.0, 0.0098), (-0.009, 0.97, 0.0095), (-0.026, 0.80, 0.0085)):
-            parts.append(limb('fing', fpath(y, L), [(0, r * 1.1, r * 1.05, r * 1.05), (0.45, r, r, r * 1.05), (1, r * 0.8, r * 0.75, r * 0.75)],
-                              16, 10, fwd=V(s, 0, 0)))
-    else:
-        parts.append(limb('fing', fpath(0.0, 0.95), [(0, 0.037, 0.010, 0.010), (0.5, 0.036, 0.0095, 0.0095), (1, 0.032, 0.0075, 0.0075)],
-                          3, 8, fwd=V(s, 0, 0), e=2.8))
-    thumb = limb('thumb', [(0, sx((0.214, 0.026, 0.885))), (0.5, sx((0.207, 0.046, 0.852))), (1, sx((0.203, 0.052, 0.823)))],
-                 [(0, 0.012, 0.012, 0.012), (0.5, 0.0095, 0.0095, 0.0095), (1, 0.0075, 0.0075, 0.0075)], 8 if hi else 2, 10 if hi else 6,
-                 fwd=V(s, 0, 0))
+    cx, cz = GRIP_C
+    def fpath(y, L):   # knuckle (back of the hand) -> around the grip -> tip pressed against the palm side
+        r = GRIP_R + 0.0095
+        pts = [(0.0, sx((0.229, y, 0.806)))]
+        for k, a in enumerate((-10, -55, -105, -150, -185)):
+            aa = math.radians(a) * (0.80 + 0.2 * L)
+            pts.append(((k + 1) / 5.0, sx((cx + r * math.cos(aa), y, cz + r * math.sin(aa) + 0.004))))
+        return pts
+    fingers = ((0.025, 0.92, 0.0086), (0.008, 1.0, 0.0093), (-0.009, 0.97, 0.0090), (-0.025, 0.82, 0.0079))
+    for y, L, r in fingers:
+        prof = [(0, r * 1.22, r * 1.12, r * 1.12), (0.12, r * 1.0, r, r),            # knuckle (MCP) bulge
+                (0.36, r * 1.08, r * 1.04, r * 1.04), (0.46, r * 0.95, r * 0.95, r * 0.95),   # PIP joint
+                (0.70, r * 0.98, r * 0.96, r * 0.96), (0.80, r * 0.88, r * 0.86, r * 0.86),   # DIP joint
+                (1, r * 0.72, r * 0.68, r * 0.68)]
+        parts.append(limb('fing', fpath(y, L), prof, 22 if hi else 4, 10 if hi else 5, fwd=V(0, 1, 0)))
+    # thumb: from the base of the palm, across the front of the grip, tip over the index finger
+    thumb = limb('thumb', [(0, sx((0.210, 0.028, 0.880))), (0.35, sx((0.196, 0.040, 0.850))), (0.7, sx((0.184, 0.036, 0.818))),
+                           (1, sx((0.186, 0.026, 0.796)))],
+                 [(0, 0.0135, 0.0135, 0.0135), (0.35, 0.0105, 0.0105, 0.0105), (0.55, 0.0098, 0.0098, 0.0098), (0.62, 0.0104, 0.0104, 0.0104),
+                  (1, 0.0072, 0.0072, 0.0072)], 14 if hi else 3, 10 if hi else 6, fwd=V(s, 0, 0))
     parts.append(thumb)
     o = join(parts, 'hand' + ('R' if s > 0 else 'L'))
     set_slot(o, 'skin')
+    if hi:   # knuckle tendons on the back of the hand
+        for v in o.data.vertices:
+            p = v.co
+            if s * p.x > 0.230 and 0.81 < p.z < 0.89:
+                for y, L, r in fingers:
+                    p.x += s * 0.0012 * gauss(p.y - y, 0.0035) * ss(0.89, 0.85, p.z)
+    set_det(o, lambda p: NEUTRAL + 0.12 * ss(0.0, 0.01, -(s * p.x - 0.215)) * ss(0.83, 0.79, p.z))   # ruddier knuckles / fingertips
     return o
 
 # ------------------------------------------------------------------ uniform kit
@@ -445,7 +499,7 @@ def surface_tools(objs):
 def crossbelt(tree, s, hi=False, width=0.052, off=0.006):
     """belt over shoulder -s down to hip +s: intersection of the torso with a tilted plane z = z0 + k*x."""
     k = (0.97 - 1.455) / (s * 0.115 - (-s * 0.125)); z0 = 1.455 - k * (-s * 0.125)
-    n = 40 if hi else 14
+    n = 64 if hi else 40
     pts, nrm = [], []
     for j in range(n):
         a = 2 * math.pi * j / n
@@ -467,7 +521,20 @@ def crossbelt(tree, s, hi=False, width=0.052, off=0.006):
         secs.append([p + side * width / 2, p - side * width / 2, p - side * width / 2 - nrm[j] * th, p + side * width / 2 - nrm[j] * th])
     secs.append(secs[0])
     o = grid_sweep('belt', secs, cap0=False, cap1=False, slot='belt')
+    if hi: st_uv(o, [0.0, 1.0, 1.0, 0.0])
     return o
+
+def st_uv(o, across):
+    """uv 'st' for straps: u = metres along the strap, v = 0..1 across (stitch rows in the bake material)."""
+    me = o.data; uvl = me.uv_layers.new(name='st'); k = len(across)
+    nv = len(me.vertices); m = nv // k
+    lens = [0.0]
+    for j in range(1, m):
+        lens.append(lens[-1] + (me.vertices[j * k].co - me.vertices[(j - 1) * k].co).length)
+    for p in me.polygons:
+        for li in p.loop_indices:
+            vi = me.loops[li].vertex_index
+            uvl.data[li].uv = (lens[min(vi // k, m - 1)], across[vi % k])
 
 def knapsack(hi=False):
     n = (24, 14) if hi else (10, 6)
@@ -480,6 +547,12 @@ def knapsack(hi=False):
     for x in (-0.09, 0.09):
         parts.append(limb('strap', [(0, V(x, -0.140, 1.40)), (1, V(x, -0.140, 1.49))], [(0, 0.046, 0.046, 0.046)], 2, 10 if hi else 6,
                           fwd=V(0, 1, 0), slot='belt') if hi else None)
+    if hi:
+        parts.append(superellipsoid('pack.flap', V(0, -0.207, 1.315), (0.150, 0.007, 0.092), e=(6, 6), n=(24, 8), slot='knapsack'))
+        for x in (-0.07, 0.07):
+            parts.append(limb('pack.strap', [(0, V(x, -0.216, 1.40)), (1, V(x, -0.214, 1.20))], [(0, 0.011, 0.0025, 0.0025)], 8, 6,
+                              fwd=V(0, 1, 0), slot='cartbox'))
+            parts.append(superellipsoid('pack.buckle', V(x, -0.219, 1.215), (0.012, 0.003, 0.010), e=(6, 6), n=(10, 4), slot='metal'))
     return [p for p in parts if p]
 
 def cartbox(hi=False):
@@ -496,9 +569,11 @@ def scabbard(hi=False):
                 8 if hi else 4, fwd=V(1, 0, 0), slot='metal')
     return [sc, hilt]
 
-SHAKO_Z0, SHAKO_Z1 = 1.732, 1.930
+SHAKO_Z0, SHAKO_Z1 = 1.716, 1.866   # Kirk ref: body ~ face height (was 1.732..1.930), brim just above the brow
+SHK_RX0, SHK_RY0 = 0.083, 0.100
+
 def shako(hi=False):
-    nu = 32 if hi else 14
+    nu = 32 if hi else 20
     tilt = Matrix.Rotation(math.radians(-4), 3, 'X')
     base = V(0, 0.004, SHAKO_Z0)
     def T(p): return base + tilt @ (p - base)
@@ -507,14 +582,14 @@ def shako(hi=False):
     if hi: nu = 240   # fine enough that the plate outline in the id bake is smooth, not stepped
     for t in ts:
         z = lerp(SHAKO_Z0, SHAKO_Z1, t)
-        rx = lerp(0.094, 0.113, t); ry = lerp(0.104, 0.122, t)
+        rx = lerp(SHK_RX0, 0.092, t); ry = lerp(SHK_RY0, 0.106, t)
         bd = 0.0022 * (ss(0.0, 0.01, t) * ss(0.075, 0.065, t) + ss(0.925, 0.935, t))   # leather bands
         rx += bd; ry += bd
         secs.append([T(p) for p in ring(V(0, 0.004, z), V(1, 0, 0), V(0, 1, 0), rx, ry, ry, nu, 2.0, 0.5)])
     body = grid_sweep('shako', secs, cap0=True, cap1=True)
     def sslot(p):
         q = tilt.inverted() @ (p - base) + base
-        if q.y > 0.06 and abs(q.x) / 0.046 + abs(q.z - 1.835) / 0.062 < 1.0:
+        if q.y > 0.06 and abs(q.x) / 0.036 + abs(q.z - 1.789) / 0.046 < 1.0:
             return 'metal'          # brass lozenge plate
         return 'felt'
     set_slot(body, sslot)
@@ -524,18 +599,34 @@ def shako(hi=False):
     for j in range(npk + 1):
         a = math.pi * (0.12 + 0.76 * j / npk)
         c = V(math.cos(a), math.sin(a), 0)
-        inner = V(0.094 * c.x, 0.004 + 0.104 * c.y, SHAKO_Z0 + 0.004)
-        outer = inner + V(c.x * 0.02, c.y * 0.065, -0.026)
+        inner = V(SHK_RX0 * c.x, 0.004 + SHK_RY0 * c.y, SHAKO_Z0 + 0.004)
+        outer = inner + V(c.x * 0.016, c.y * 0.055, -0.020)
         pk.append([T(inner), T(outer), T(outer + V(0, 0, 0.005)), T(inner + V(0, 0, 0.005))])
     peak = grid_sweep('peak', pk, closed_u=True, cap0=True, cap1=True, slot='felt')
     # plume on a short stem at the front-top, cockade below
-    top = T(V(0, 0.10, SHAKO_Z1 - 0.004))
-    plume = limb('plume', [(0, top), (0.4, top + V(0, 0.006, 0.08)), (1, top + V(0, 0.0, 0.205))],
-                 [(0, 0.009, 0.009, 0.009), (0.12, 0.020, 0.020, 0.020), (0.55, 0.024, 0.024, 0.024), (1, 0.004, 0.004, 0.004)],
-                 14 if hi else 5, 12 if hi else 6, fwd=V(0, 1, 0), slot='plume')
-    cock = superellipsoid('cockade', T(V(0, 0.122, SHAKO_Z1 - 0.022)), (0.021, 0.006, 0.021), e=(2, 2), n=(14, 6) if hi else (8, 3),
+    top = T(V(0, 0.086, SHAKO_Z1 - 0.004))
+    plume = superellipsoid('plume', top + V(0, -0.004, 0.040), (0.030, 0.030, 0.038), e=(2, 2), n=(28, 18) if hi else (10, 6),
+                           slot='plume')   # red pompom (concept)
+    cock = superellipsoid('cockade', T(V(0, 0.108, SHAKO_Z1 - 0.020)), (0.021, 0.006, 0.021), e=(2, 2), n=(14, 6) if hi else (8, 3),
                           slot='collar')
-    return [body, peak, plume, cock]
+    out = [body, peak, plume, cock]
+    if hi:   # raised brass lozenge plate with a rim (bake only)
+        pc = V(0, 0.004, 1.789); q = []
+        for k in range(48):
+            a = 2 * math.pi * k / 48; c, s_ = math.cos(a), math.sin(a)
+            r = 1.0 / (abs(c) / 0.034 + abs(s_) / 0.044)
+            q.append((c * r, s_ * r))
+        rings = []
+        for sc_, dz in ((1.0, 0.0), (1.0, 0.0022), (0.86, 0.0030), (0.0, 0.0034)):
+            row = []
+            for x, z in q:
+                zz = pc.z + z * sc_
+                tt = (zz - SHAKO_Z0) / (SHAKO_Z1 - SHAKO_Z0)
+                ry = lerp(SHK_RY0, 0.106, tt) + 0.002
+                row.append(T(V(x * sc_, pc.y + ry * math.sqrt(max(0.0, 1 - (x / lerp(SHK_RX0, 0.092, tt)) ** 2)) - 0.001 + dz, zz)))
+            rings.append(row)
+        out.append(grid_sweep('shako.plate', rings, cap0=False, cap1=False, slot='metal'))
+    return out
 
 def musket(hi=False):
     T = lambda p: R.REST['prop'] @ V(p)
@@ -576,11 +667,14 @@ def slot_body(o, near):
 
 def build_kit(hi, body_tree):
     parts = []
-    parts.append(build_head(192, 144) if hi else build_head(18, 13))
+    parts.append(build_head(192, 144) if hi else build_head(34, 22))
+    if not hi:
+        cb = collar_band((2, 28)); set_slot(cb, 'collar'); parts.append(cb)   # clean swept collar shell; the low body cage is fused without it (no voxel-ragged edge)
     parts += [build_hand(1, hi), build_hand(-1, hi)]
     parts += coat_tails(hi)
     parts += [crossbelt(body_tree, 1, hi), crossbelt(body_tree, -1, hi, off=0.0105)]
     parts += knapsack(hi) + cartbox(hi) + scabbard(hi) + shako(hi) + musket(hi)
+    if hi: parts += buttons(body_tree)
     return parts
 
 def preview_mats(o):
@@ -617,3 +711,55 @@ def drop_small_islands(o, keep_frac=0.02):
     bmesh.ops.delete(bm, geom=kill, context='FACES')
     bm.to_mesh(o.data); bm.free()
     return len(isl)
+
+
+# ------------------------------------------------------------------ bake-only detail: buttons, folds, seams
+def buttons(tree):
+    """brass buttons on the lapels, waistcoat and cuffs, projected onto the high-poly body (bake source only)."""
+    out = []
+    def on_body(x, z, r=0.0075, slot='metal', d=+1):
+        hit = tree.ray_cast(V(x, 0.5 * d, z), V(0, -d, 0))
+        if hit[0] is None: return
+        p, n = hit[0], hit[1]
+        out.append(superellipsoid('button', p + n * 0.0015, (r, r, 0.0028), e=(2, 2.6), n=(14, 6),
+                                  rot=n.to_track_quat('Z', 'Y').to_matrix(), slot=slot))
+    for i in range(7):   # lapel buttons (habit-veste: 7 a side)
+        z = lerp(1.38, 1.07, i / 6); lw = lerp(0.050, 0.098, ss(1.04, 1.40, z))
+        for sx in (1, -1): on_body(sx * (lw - 0.017), z)
+    for z in (0.94, 0.985, 1.025): on_body(0.0, z, 0.006)   # waistcoat
+    return out
+
+def add_folds(o, spread):
+    """sculpted cloth folds on the fused high-poly (spread pose): inner elbows, armpits, waist, knees; seams / lapel edges."""
+    me = o.data; me.update()
+    slot = np.zeros(len(me.polygons), np.int32); me.attributes['slot'].data.foreach_get('value', slot)
+    vslots = [set() for _ in me.vertices]
+    for p in me.polygons:
+        for vi in p.vertices: vslots[vi].add(int(slot[p.index]))
+    lap = {S['lapel'], S['piping']}
+    for v in me.vertices:
+        p = v.co; n = v.normal; d = 0.0; ax = abs(p.x); sx = 1.0 if p.x > 0 else -1.0
+        # inner elbow: arcs across the crook (front of the arm)
+        E = V(sx * (0.205 + spread), -0.012, 1.14)
+        u = p.z - E.z; fr = ss(-0.005, 0.03, p.y - E.y) * gauss(ax - (0.205 + spread), 0.05)
+        d += 0.0042 * fr * gauss(u, 0.045) * math.sin(2 * math.pi * u / 0.026 + 3.0 * (p.y - E.y) / 0.03)
+        # armpits: radial drag folds from the pit onto the sleeve and the coat side
+        A = V(sx * (0.150 + spread * 0.5), -0.005, 1.33)
+        r = (p - A).length
+        if r < 0.12:
+            ang = math.atan2(p.z - A.z, p.y - A.y)
+            d += 0.0035 * gauss(r, 0.06) * ss(0.012, 0.03, r) * math.sin(5.0 * ang)
+        # waist: horizontal compression folds at the sides / back above the belt line
+        if ax > 0.06 and p.y < 0.03:
+            d += 0.0026 * gauss(p.z - 1.06, 0.04) * math.sin(2 * math.pi * p.z / 0.021 + 18.0 * p.x)
+        # knees: breeches bunching above the gaiter top + behind the knee
+        if p.z < 0.75 and ax < 0.16:
+            d += 0.0032 * gauss(p.z - 0.60, 0.04) * math.sin(2 * math.pi * p.z / 0.024 + 25.0 * p.y)
+            d += 0.0030 * gauss(p.z - 0.50, 0.03) * ss(0.0, -0.03, p.y - 0.012) * math.sin(2 * math.pi * p.z / 0.018)
+        # seams: grooves where cloth panels meet; lapels / cuffs stand proud
+        vs = vslots[v.index]
+        if len(vs) > 1: d -= 0.0012
+        if vs & lap: d += 0.0016
+        if S['cuff'] in vs or S['collar'] in vs: d += 0.0010
+        if d: v.co = p + n * d
+    o.data.update()
