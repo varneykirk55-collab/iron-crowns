@@ -8,7 +8,7 @@ The player could declare war but could not really go on the offensive. Reproduce
 - **Undeclared conflicts**: for a nation we are at peace with, a dialog offers *Invade (undeclared)* or *Declare war & invade*. Hostilities start when the army crosses the border (`Sim.start_hostilities`); the victim defends and counterattacks at once, but its allies are not called in. A later formal declaration (F1, "Formally declare war") upgrades the conflict and calls the allies. Wars now carry `declared`; the HUD shows UNDECLARED WAR.
 - **Recapture**: AI majors *and minors* send armies to win back provinces they held at the start; the player gets a Retake button. Captures of your own former land log as "recaptures".
 - **Landless nations and defeat**: a nation with no provinces survives while it fields an army of ≥150 men, can retake land (its government returns to the first province it wins back), and is eliminated otherwise. A landless AI at peace invades its old homeland under the same rules. The player gets a DEFEAT screen (Load quicksave / Return to title / Quit) and the clock stops.
-- Invasion demo `--demo=invasion --nation=SWE|JPN|USA [--year=…]`, and `test_offensive` (`--only=offensive`, 22 checks).
+- Invasion demo `--demo=invasion --nation=SWE|JPN|USA [--year=…]`, and `test_offensive` (`--only=offensive`, 23 checks).
 ### Changed
 - Winners of a battle on an **invasion** order re-path to their objective; plain march orders behave as before.
 - Captured provinces update both nations' income/expense ledgers immediately (the province's population, taxes and resource count for the new owner at once).
@@ -17,8 +17,8 @@ The player could declare war but could not really go on the offensive. Reproduce
 - Army panel status shows invading / attacking / besieging (with siege %).
 - Saves: new fields `defeated`, per-army `invade`/`resume`, per-war `declared`. Older saves load with every war treated as declared.
 ### Verified
-- Full suite 161/161 (139 existing + 22 new), test_audio 28/28.
-- Sim hashes change (the AI now goes after lost provinces), which is expected; determinism is unchanged (save/load and 40-day replay identical).
+- Full suite 163/163 (140 existing + 23 new), test_audio 28/28.
+- Sim hashes change as expected (the AI now goes after lost provinces): SWE1800 417a5300…, USA1914 4679c5a2…, JPN1500 e104d558…; determinism is unchanged (save/load and 40-day replay identical).
 ### Not done / limitations
 - No naval combat (fleets are still transport only). Passing through third-party neutral land still requires war or an alliance (no military-access treaty yet).
 - The AI still opens wars with formal declarations; it uses undeclared invasion only to retake its homeland when landless and at peace.

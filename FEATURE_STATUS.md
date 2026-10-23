@@ -21,7 +21,7 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Instant procurement, current-era units only, no build waits | VERIFIED | Tests: "buy units", "older-era equipment cannot be procured". |
 | Army movement, path-finding, naval transport | VERIFIED | Tests (JPN route uses naval transport) and `campaign_USA_march.png`. |
 | Sieges and territory capture | VERIFIED | Tests (provinces change hands). |
-| **Player invasions (v0.4)**: select army → Invade/Attack/Retake on any foreign province, no declaration needed | VERIFIED (real click path + recorded demo) | `--only=offensive` 22/22. The test clicks the army marker, right-clicks the target, confirms "Invade (undeclared)" in the dialog, and presses the province panel's Retake / Invade buttons. Demos: `--demo=invasion --nation=SWE` and `--nation=JPN` (`rec/invasion_*_demo.mp4`, `shots/invasion_*`). |
+| **Player invasions (v0.4)**: select army → Invade/Attack/Retake on any foreign province, no declaration needed | VERIFIED (real click path + recorded demo) | `--only=offensive` 23/23. The test clicks the army marker, right-clicks the target, confirms "Invade (undeclared)" in the dialog, and presses the province panel's Retake / Invade buttons. Demos: `--demo=invasion --nation=SWE` and `--nation=JPN` (`deliverables/videos/invasion_*_demo.mp4`, `deliverables/screenshots/invade_*`). |
 | Undeclared conflict vs formal war | VERIFIED | Crossing the border starts hostilities: the defender fights back at once, but its allies are only called in by a formal declaration (which can still be made later from F1). Relations with the victim −55 and −4 with every great power; breaking a NAP costs stability. Alliances and peace truces still block an invasion. |
 | Interrupted invasions press on | VERIFIED | An invasion order that wins a battle on the way re-paths to its objective (tested with a two-province route). Plain march orders keep the old behaviour (stop where the battle was). |
 | Recapture of lost provinces (player and AI) | VERIFIED | Player: province panel "Retake" (test). AI: majors and minors now send armies to win back provinces they held at the start (test: Finland counterattacks Mariehamn). |
@@ -85,7 +85,7 @@ appear only in tests, not in this video. One weakness seen in the 1914 shots: a 
 | Build | Status |
 |---|---|
 | Linux x86_64 export | VERIFIED (xvfb/llvmpipe). The v0.3 export was run with the 1800 battle demo: it completed with no script errors, soldiers rendered (grenadier and gun-crew models included), and BATTLERESULT matched the editor run (39.5 s, end men [5039, 5166], Sweden wins). v0.1/v0.2 exports lacked the VAT data; fixed in v0.2.1. |
-| Windows x86_64 export | PARTIAL. Exported with the official templates; not run (no Windows machine / wine). |
+| Windows x86_64 export | PARTIAL. v0.4.0 exported with the official 4.7.2 templates and attached to the GitHub release `v0.4.0` (`IronCrowns_v0.4.0_windows_x86_64.zip`); not run (no Windows machine / wine). The matching Linux export was run under xvfb and completed `--demo=invasion` (Mariehamn captured, undeclared). |
 | Android | MISSING. No Android SDK or Android export templates on the build machine; touch input is implemented and tested with synthesized events. |
 
 ## Known issues / simplifications
