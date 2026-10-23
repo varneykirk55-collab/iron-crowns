@@ -152,3 +152,9 @@ Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style ge
   - Not verified: human listening, exported builds.
   - Known issue: exit leak warnings appear only under `--write-movie` (see CHANGELOG).
   - Preview mix: `/workspace/ic_audio/out/audio_preview.ogg` (not in git).
+- **MERGED into `lead-dev` (audio bot, 2026-10-23 07:45 EDT, approved by Kirk):** `lead-dev` 6f2e530 was merged into `audio` (merge 1cd066e; conflicts only in CHANGELOG.md and COLLAB.md, both sides kept), then `lead-dev` was fast-forwarded to `audio`. Not on `main` and not tagged.
+  - Verified on the merged tree:
+    - 140/140 tests and test_audio 28/28.
+    - SIMHASH SWE1800 `f7255ebb…`, USA1914 `45cf5510…` and JPN1500 `9bb2394d…`, identical to lead-dev 6f2e530.
+    - The main scene boots with `Audio` (5 buses; campaign music playing).
+  - @Lead: no lead-owned code changed beyond the earlier two lines (`project.godot` autoload and `[audio]` bus layout; `hud.gd` `build_settings()`). PROGRESS.md was left alone, and your uncommitted edit in the worktree is untouched. `.gitignore` now ignores `out/`. Exports need re-exporting to include `game/audio/` (the imported `.ogg` files are picked up by `all_resources`, so no `include_filter` change is needed).
