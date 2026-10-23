@@ -1,0 +1,59 @@
+{
+  "battle": {
+    "biome": "{ \"id\": \"scandinavia_boreal\", \"variant\": \"tundra\", \"prov\": 328, \"name\": \"Oslo\", \"region\": \"Norway\", \"lat\": 61.479, \"lon\": 9.272, \"elev\": 0.596, \"coastal\": true, \"relief\": 9.076, \"forest\": 0.65, \"rocks\": 1.6, \"birch\": 0.351765, \"pine\": 0.5, \"dry\": 0.5, \"mtn\": 917.6, \"snow_h\": 946.47, \"treeline\": 608.445, \"lake\": true, \"seed\": 2109834493 }",
+    "coastal": true,
+    "codes": [
+      "DNK",
+      "SWE"
+    ],
+    "elev": 0.118,
+    "era": "medieval",
+    "lat": 57.261,
+    "layout": {
+      "corridor": "(160.0, 270.1)",
+      "lake_c": "(306.2789, 283.9267)",
+      "mmis": 614,
+      "ms_ground": 312,
+      "ms_scenery": 524,
+      "n_cover": 32067,
+      "n_far": 5437,
+      "n_rocks": 257,
+      "n_trees": 9385,
+      "rock_c": "(-255.6212, -215.5332)",
+      "water_h": -1.76087646005468
+    },
+    "lon": 14.37,
+    "name": "Malmö",
+    "prov": 348,
+    "region": "Sweden",
+    "t": 14.1,
+    "terrain": "forest"
+  },
+  "horizon": {
+    "cpu_ms": 2425.0,
+    "draws": 137,
+    "median_ms": 971.336,
+    "min_ms": 871.037,
+    "objects": 409,
+    "p95_ms": 971.336,
+    "prims": 199238
+  },
+  "overview": {
+    "cpu_ms": 2455.0,
+    "draws": 138,
+    "median_ms": 1004.888,
+    "min_ms": 833.525,
+    "objects": 411,
+    "p95_ms": 1004.888,
+    "prims": 182221
+  },
+  "water": {
+    "cpu_ms": 1665.0,
+    "draws": 100,
+    "median_ms": 661.879,
+    "min_ms": 559.796,
+    "objects": 373,
+    "p95_ms": 661.879,
+    "prims": 177999
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "battle": {
+    "biome": "{ \"id\": \"scandinavia_boreal\", \"variant\": \"forest\", \"prov\": 348, \"name\": \"Malmö\", \"region\": \"Sweden\", \"lat\": 57.261, \"lon\": 14.37, \"elev\": 0.118, \"coastal\": true, \"relief\": 4.708, \"forest\": 1.0, \"rocks\": 0.6708, \"birch\": 0.204135, \"pine\": 0.2154, \"dry\": 0.22, \"mtn\": 180.0, \"snow_h\": 1241.73, \"treeline\": 798.255, \"lake\": true, \"seed\": 2109834493 }",
+    "coastal": true,
+    "codes": [
+      "DNK",
+      "SWE"
+    ],
+    "elev": 0.118,
+    "era": "medieval",
+    "lat": 57.261,
+    "layout": {
+      "corridor": "(160.0, 270.1)",
+      "lake_c": "(306.2789, 283.9267)",
+      "mmis": 622,
+      "ms_ground": 590,
+      "ms_scenery": 975,
+      "n_cover": 31982,
+      "n_far": 5424,
+      "n_rocks": 198,
+      "n_trees": 10167,
+      "rock_c": "(-255.6212, -215.5332)",
+      "water_h": -1.6834515616943
+    },
+    "lon": 14.37,
+    "name": "Malmö",
+    "prov": 348,
+    "region": "Sweden",
+    "t": 14.1,
+    "terrain": "forest"
+  },
+  "forest_edge": {
+    "cpu_ms": 2013.75,
+    "draws": 116,
+    "median_ms": 443.649,
+    "min_ms": 390.825,
+    "objects": 390,
+    "p95_ms": 488.247,
+    "prims": 172945
+  },
+  "formation": {
+    "cpu_ms": 1567.5,
+    "draws": 110,
+    "median_ms": 543.107,
+    "min_ms": 476.154,
+    "objects": 381,
+    "p95_ms": 604.842,
+    "prims": 165933
+  },
+  "horizon": {
+    "cpu_ms": 1933.75,
+    "draws": 136,
+    "median_ms": 360.235,
+    "min_ms": 311.308,
+    "objects": 407,
+    "p95_ms": 379.2,
+    "prims": 184597
+  },
+  "overview": {
+    "cpu_ms": 1958.75,
+    "draws": 137,
+    "median_ms": 637.454,
+    "min_ms": 552.482,
+    "objects": 410,
+    "p95_ms": 721.254,
+    "prims": 173102
+  },
+  "rocky": {
+    "cpu_ms": 1845.0,
+    "draws": 109,
+    "median_ms": 306.049,
+    "min_ms": 283.877,
+    "objects": 382,
+    "p95_ms": 333.558,
+    "prims": 181544
+  },
+  "top": {
+    "cpu_ms": 1111.25,
+    "draws": 99,
+    "median_ms": 219.26,
+    "min_ms": 205.554,
+    "objects": 372,
+    "p95_ms": 249.519,
+    "prims": 174110
+  },
+  "water": {
+    "cpu_ms": 1338.75,
+    "draws": 100,
+    "median_ms": 247.609,
+    "min_ms": 234.671,
+    "objects": 373,
+    "p95_ms": 269.912,
+    "prims": 169285
+  }
+}
