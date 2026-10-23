@@ -302,6 +302,7 @@ func is_point_over_ui(p: Vector2) -> bool:
 
 func build_settings(box: VBoxContainer) -> void:
 	box.add_child(L("Settings", 16, GOLD))
+	Audio.build_settings_rows(box, L)
 	var sc := Controls.ui_scale
 	box.add_child(row([L("UI scale", 14), B("−", func(): Controls.set_setting("ui_scale", maxf(0.75, snappedf(sc - 0.125, 0.125))); refresh_game_menu.call_deferred()),
 		L("%d%%" % int(round(sc * 100)), 14), B("+", func(): Controls.set_setting("ui_scale", minf(2.0, snappedf(sc + 0.125, 0.125))); refresh_game_menu.call_deferred())]))

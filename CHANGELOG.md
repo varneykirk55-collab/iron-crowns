@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.3.3 — 2026-10-23 (team readability for the 1800s soldiers, officers, music and audio)
+### Added
+- **Team readability at distance** (BJORN `character-refinement-2` 667e980, applied as 2a7c5ae). This is render-only. The coat area, marked by the UV2.y mask, is tinted toward the side colour as the camera moves away: up to 0.85 at 25–90 m and up to 0.95 at 90–200 m. When both sides would read the same, the clash pick recolours one of them; in 1800, Norway now reads red against Sweden's blue, matching the HUD and banners. The Swedish coat changes from 2a3d6e to 3a5a9a, so it is no longer near-black in the close defender view.
+- High quality gets a mid LOD (20/45 m), and the mid and far sets get a coat lift.
+- **One officer per c19 line or grenadier regiment** (R3, battle_view `6f2e530`). It stands to the right of the front rank and uses the `c19sr_officer` VAT model with its own 0.25 s crossfade. It is render-only: no RNG and no sim writes. It is turned off automatically if the c19sr swap is unavailable.
+- Artillery gun crews now crossfade between clips via `BattleVisuals.xfade_crew` (state keyed per crew member and gun).
+- **Music and military audio system**, merged into lead-dev from the `audio` branch (see the section below).
+### Verified
+- 140/140 tests, plus test_audio 28/28.
+- Outcome hash `0e814dda…` and sim hashes SWE1800 `f7255ebb…`, USA1914 `45cf5510…`, JPN1500 `9bb2394d…` are unchanged. 0 shader errors.
+- In the 1800 SWE battle, the two sides read red vs blue at close, mid and overhead on Low, Medium and High (3-way compare against v0.3.1 and v0.3.2 in `screenshots/compare/`). Other eras look the same as in v0.3.2.
+- Frame time on llvmpipe (1800 SWE, mean of 4 views) vs v0.3.2: Low +3 %, Medium −1 %, High at parity after a re-run (the first pass showed a noisy +62 % on the High overhead view).
+### Not done / limitations
+- The Windows build is exported but not run. The audio has not been listened to by a human.
+
+## Audio system (`audio` branch, merged into lead-dev 2026-10-23 07:45 EDT, ships in v0.3.3): music and military audio system
+### Added
+- **Audio system** (`game/scripts/audio/audio_manager.gd`, autoload `Audio`):
+  - Five buses: Master with a limiter; Music (default 0.6, battle track -3 dB trim); SFX (default 0.85) with a gentle compressor (-8 dB, 2.5:1) and limiter; Ambience and UI routed into SFX.
+  - Music moods with equal-power crossfades: campaign, tension (war or diplomacy) and battle. Stings for victory, defeat, war declared and new era, which duck the music.
+  - Positional battle SFX driven read-only by BattleSim events, with era-correct weapons, per-category voice caps, density gain, distant variants, and ambience, march, melee and engine beds.
+  - UI feedback sounds.
+  - Music and SFX sliders in Settings, saved to `user://audio.cfg`.
+  - `--audio=off` switch, and a synthesized fallback if a file is missing.
+- **75 original procedural audio assets** (6.25 MiB Ogg Vorbis, 543 s) plus their generator `pipeline/audio/`, which is deterministic and byte-reproducible. QA lives in `analyze_audio.py`, and `make_preview.py` builds the preview mix. No samples and no AI audio were used. See `AUDIO_LICENSES.md`.
+- `game/tests/test_audio.tscn`: 28 checks, including battle SFX vs music balance (SFX p90 must be at least 6 dB above the music median).
+### Changed (minimal touches to lead-owned files)
+- `game/project.godot`: `Audio` autoload added after `Controls`, plus `[audio] buses/default_bus_layout`.
+- `game/scripts/ui/hud.gd`: one line in `build_settings()` adds the audio sliders.
+### Verified
+- test_audio 28/28; full suite 135/135 on both the baseline (fa2081b) and this branch.
+- Sim hashes unchanged: SWE1800 e79839ca…, USA1914 45cf5510…, JPN1500 9bb2394d….
+- Battle outcome identical with audio on and off.
+- `--demo=battle --nation=SWE` (1800) gives the same BATTLERESULT as the baseline (39.5 s, end_men 5039/5166). Its `--write-movie` recording carries the mixed audio: 62.1 s, peak -2.0 dBFS, no clipped samples, battle-section 100 ms RMS p50 about -20 dBFS with p90 about -15.5 dBFS.
+- `analyze_audio.py`: all 75 files pass (max decoded peak -0.71 dBFS, every loop seam within the interior range). Rebuilding the assets is byte-identical.
+- `test_audio` snapshots and restores `user://audio.cfg`, so test runs never change a player's saved volumes.
+### Not verified
+- No human listening test (no subjective quality check).
+- Exported builds not run with audio.
+- Known issue: when the demo is recorded with `--write-movie`, Godot reports at exit that 8 ObjectDB instances leaked and 4 resources were still in use (`music_tension.ogg`, `sting_victory.ogg`). The movie writer stops mixing audio on the frame the demo calls `quit()`, so playbacks that were just stopped are never released. Normal runs (the demo without movie, the main scene, the tests) exit clean, and the baseline has no such warning.
+
 ## v0.3.2 — 2026-10-23 (BJORN's semi-realistic Napoleonic c19 soldiers)
 ### Added
 - **New 1800s soldiers** (BJORN `character-refinement` d93f576, applied as 456aa8d): semi-realistic Napoleonic line infantry (shako),

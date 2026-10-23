@@ -132,3 +132,43 @@ Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style ge
     - Verified on lead-dev and main: `--import` 0 errors, 140/140, outcome hash `0e814dda…`, SIMHASH SWE1800 `f7255ebb…` USA1914 `45cf5510…` JPN1500 `9bb2394d…`, 0 SHADER ERROR. Renders: `deliverables/v0.3.2/screenshots/compare/` (1800 SWE q0/q1/q2 close/close_def/mid/top + other eras q1). Perf vs v0.3.1 (llvmpipe, 1600x900): 1800 SWE mean q0 −11 %, q1 +4 %, q2 −17 % (`perf_table.md`).
     - **@BJORN readability request (please address in the delta):** in the default 1800 Norway-vs-Sweden battle both sides now read blue: NOR `coat 3a5f95` (light blue) vs SWE `2a3d6e` (navy), with white trousers/crossbelts on snow. At mid (70 m) and overhead the two lines are hard to tell apart and neither matches the HUD/banner colours (Norway red, Sweden blue); v0.3.1 read red vs blue. The `_side_palettes` separation check (coat distance < 0.22) does fire here but only darkens/shifts the defender, which doesn't help on snow. Ask: guarantee a minimum side contrast at distance (e.g. tint the coat toward `side_col` beyond `char_lod`, or a stronger team accent on shako/crossbelts at LOD1). See `compare_1800SWE_q2_mid.png`, `crop_1800SWE_q2_close.png`. Swedish navy coats also go quite dark in the close defender view.
     - Your delta (mid LOD + brighter far coats) was not in `out/` when v0.3.2 was cut; it goes in v0.3.3. Base it on `main@v0.3.2`.
+- **READY: 2026-10-23 07:35 EDT, BJORN, character-refinement-2 (team readability blocker + q2 mid LOD + far-coat lift) -> for v0.3.3**
+  - Branch `character-refinement-2` HEAD `667e980` in `/workspace/ic_rebase`, based on main@v0.3.2 `21bbfe1`. battle_visuals/assets/shaders only.
+  - Patch: `/workspace/iron-crowns-visual/out/character-refinement-2.patch` (12 files). Binaries: `out/character-refinement-2-binaries.tar.gz` (16 files, 37 MB).
+  - Verified on clean v0.3.2 + patch + tarball: 140/140, outcome hash `0e814dda...`, sim hashes SWE1800 `f7255ebb...`, USA1914 `45cf5510...`, JPN1500 `9bb2394d...` unchanged, 0 shader errors.
+  - Fixes: distance-scaled team tint via UV2.y mask (1800 SWE now red vs blue at mid/top), SWE coat 2a3d6e -> 3a5a9a, mid LOD (~1.2-1.5k tris) at q2, coat lift on mid/far sets. q2 vs control: close -13..-18%, mid/top -1..-10%.
+  - Compares (your battle_shots harness, q1): `out/char/stage10/teams/compare/sheet_1800SWE_q1.png`, `sheet_USA_q1.png`, `crop_1800SWE_q1_*.png`. Bench: `docs/char/BENCH_AFTER.md` "Stage 10".
+  - Optional for you (see `out/INTEGRATION.md`): R3 officer via `BattleVisuals.OFFICER_MODEL` / `officer_vat()`; gun-crew crossfade via `BattleVisuals.xfade_crew(...)` as the last `_put` arg in the crew loop.
+  - **Lead status / MERGED v0.3.3 (lead, 2026-10-23 ~08:50 EDT):** applied as `2a7c5ae` (author BJORN; patch sha256 `f932a795…`, tarball `c7c709a5…`; tree == `667e980` except PROGRESS.md) + `6f2e530` (lead) → lead-dev (which also carries the audio merge 1cd066e/a526478) → main, tag `v0.3.3`.
+    - R3 DONE (`6f2e530`, battle_view.gd): one `c19_officer|side|lod` multimesh pair per side; one officer per `c19_line`/`c19_grenadier` regiment, right of the front rank (`center + right*((files-1)*0.5*sp.x + 1.3) + facing*((ranks-1)*0.5*sp.y + 0.4)`), smoothed like soldiers, clips idle/walk/run/melee/rout/die, own crossfade state `v.xf_off`. Render only (no rng, no sim writes); disabled if the officer mmis have no ShaderMaterial after `BattleVisuals.apply` (no c19sr swap). c19 polish test line 81 now reads `20 == 20` multimeshes (+4 officer mms; outside the outcome hash).
+    - Crew xfade DONE: crew loop passes `BattleVisuals.xfade_crew(v, k, q, cur, cc, cct, 1.0, vt)` as the last `_put` arg for sr crews (cur: 5 dead, 2 rout/fled, 4 firing, else 0); non-sr crews stay white.
+    - Verified on lead-dev and main: `--import` 0 errors, 140/140 + test_audio 28/28, outcome hash `0e814dda…`, SIMHASH SWE1800 `f7255ebb…` USA1914 `45cf5510…` JPN1500 `9bb2394d…`, 0 SHADER ERROR.
+    - Readability gate PASSED: 1800 NOR red vs SWE blue at close/mid/top on q0/q1/q2 (`deliverables/v0.3.3/screenshots/compare/sheet_1800SWE_q{0,1,2}.png`, 3-way v0.3.1/v0.3.2/v0.3.3). Close defender view: SWE coats read blue (no longer near-black). Other eras q1 unchanged.
+    - Perf vs v0.3.2 (llvmpipe, 1600x900): 1800 SWE mean q0 +3 %, q1 −1 %, q2 at parity after re-run (first pass q2 top +62 % was noise; re-run 294/303 vs 315/296 ms).
+    - @BJORN (low priority): at overhead the red/blue is right but the figures are only a few pixels, so the lines still read mostly as white specks on snow (white trousers/crossbelts dominate). If cheap, push the tint onto trousers/shako at >90 m too.
+- **READY: 2026-10-23 01:00 EDT, audio bot, music and military audio system**
+  - Branch `audio` (worktree `/workspace/ic_audio`), based on `lead-dev` fa2081b. Not pushed and not merged.
+  - What changed:
+    - 75 original procedurally synthesized Ogg files (6.25 MiB) in `game/audio/`, with their generator in `pipeline/audio/`.
+    - The `Audio` autoload `game/scripts/audio/audio_manager.gd` and the bus layout `game/audio/default_bus_layout.tres`.
+    - `game/tests/test_audio.tscn` (28 checks).
+    - `AUDIO_LICENSES.md`.
+  - Lead-owned touches (minimal):
+    - `project.godot`: the autoload line and `[audio] buses/default_bus_layout`.
+    - `hud.gd`: one line in `build_settings()`.
+    - `FEATURE_STATUS.md` and `CHANGELOG.md` rows.
+  - The sim, combat, models and terrain are untouched. Audio only reads BattleSim events.
+  - Verified:
+    - test_audio 28/28. Full suite 135/135.
+    - Sim hashes are identical to fa2081b.
+    - The battle demo BATTLERESULT is identical with audio on and off.
+    - `fix_infer` is clean.
+  - Not verified: human listening, exported builds.
+  - Known issue: exit leak warnings appear only under `--write-movie` (see CHANGELOG).
+  - Preview mix: `/workspace/ic_audio/out/audio_preview.ogg` (not in git).
+- **MERGED into `lead-dev` (audio bot, 2026-10-23 07:45 EDT, approved by Kirk):** `lead-dev` 6f2e530 was merged into `audio` (merge 1cd066e; conflicts only in CHANGELOG.md and COLLAB.md, both sides kept), then `lead-dev` was fast-forwarded to `audio`. Not on `main` and not tagged.
+  - Verified on the merged tree:
+    - 140/140 tests and test_audio 28/28.
+    - SIMHASH SWE1800 `f7255ebb…`, USA1914 `45cf5510…` and JPN1500 `9bb2394d…`, identical to lead-dev 6f2e530.
+    - The main scene boots with `Audio` (5 buses; campaign music playing).
+  - @Lead: no lead-owned code changed beyond the earlier two lines (`project.godot` autoload and `[audio]` bus layout; `hud.gd` `build_settings()`). PROGRESS.md was left alone, and your uncommitted edit in the worktree is untouched. `.gitignore` now ignores `out/`. Exports need re-exporting to include `game/audio/` (the imported `.ogg` files are picked up by `all_resources`, so no `include_filter` change is needed).

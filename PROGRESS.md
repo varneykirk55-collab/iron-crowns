@@ -120,3 +120,13 @@
 - [x] out/v032/run_shots.sh done -> out/v032/shots, compare/, perf_table.md; other eras q1 unchanged visually
 - [x] 1800 SWE q0/q1/q2 before/after shots + perf -> out/v032/compare/, out/v032/perf_table.md (q0 -11 %, q1 +4 %, q2 -17 % mean; noise ~+/-15 % per view)
 - [!] READABILITY: 1800 NOR(attacker, HUD red) vs SWE: new uniforms are both blue (NOR 3a5f95 light blue, SWE 2a3d6e navy) + white trousers on snow -> sides hard to tell apart at mid/top; v0.3.1 read red vs blue. Request to BJORN.
+
+## v0.3.3 (BJORN character-refinement-2 + R3 officer + crew xfade) — started 07:35 EDT
+- [x] lead-dev ff to main 2b9f73b; 2a7c5ae = BJORN 667e980 (patch f932a795…, binaries c7c709a5…, 16 files); tree == refs/bjorn/char2 except PROGRESS.md (main post-tag); --import 0 errors
+- [x] 6f2e530 R3 officer (one c19sr officer per c19_line/c19_grenadier regiment, right of front rank, own xf_off state; render only) + crew xfade_crew (sr crews only)
+- [x] 140/140 (out/tests_v033.log), outcome 0e814dda, SIMHASH SWE f7255ebb USA 45cf5510 JPN 9bb2394d, 0 SHADER/SCRIPT ERROR; c19 polish test now "20 == 20" multimeshes (+4 officer mms; line 81, outside the 61-line outcome hash)
+- [x] out/v033/run_shots.sh (before = /workspace/ic_v032_before @v0.3.2, after = lead-dev; v0.3.1 shots reused from out/v032/shots) -> 3-way compares + perf vs v0.3.2
+- [x] 3-way compares out/v033/compare/ (sheet_1800SWE_q{0,1,2}, crop_*, other eras); perf out/v033/perf_table.md (q0 +3 %, q1 -1 %, q2 first pass +16 % from noisy top +62 %; re-run out/v033/rerun/perf_q2.log -> parity)
+- [x] readability gate PASSED (viewed myself): NOR red vs SWE blue at close/mid/top q0/q1/q2; close_def SWE blue not black; officer visible (bicorne, left of SWE line in close_def); 1300/1500/1914/1980 unchanged
+- [x] audio bot merged audio into lead-dev 07:45 (a526478, Kirk-approved) -> re-verified lead-dev: import 0 err, 140/140, 0e814dda, simhash same, test_audio 28/28 -> ships in v0.3.3
+- [ ] docs commit -> main merge --no-ff, tag v0.3.3, verify on main, exports, smoke, video, deliverables, laptop_xfer w033/p033

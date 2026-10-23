@@ -1,5 +1,5 @@
 {
- "vertices": 2513,
+ "vertices": 3378,
  "fps": 24,
  "clips": {
   "idle": {
@@ -44,8 +44,11 @@
  "lod": 0,
  "normals": "vatn rgba8 (n*0.5+0.5), same rows/cols as .vat",
  "near_verts": 2081,
- "tris_stored": 3615,
- "split": "verts [0,near_verts) = LOD0 set (drawn near), [near_verts,vertices) = LOD1 set (drawn past char_lod)",
+ "mid_verts": 2946,
+ "tris_mid": 1368,
+ "tris_far": 581,
+ "tris_stored": 4983,
+ "split": "verts [0,near_verts) = LOD0 set (drawn to char_lod), [near_verts,mid_verts) = mid set (drawn char_lod..char_mid), [mid_verts,vertices) = LOD1 set (drawn past char_mid)",
  "aabb": [
   [
    -0.7733745574951172,
@@ -55,7 +58,7 @@
   [
    1.359505295753479,
    2.7839722633361816,
-   1.4579821825027466
+   1.4586644172668457
   ]
  ],
  "max_reach": 1.005

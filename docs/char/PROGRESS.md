@@ -42,3 +42,33 @@ Notes: out/INTEGRATION.md + hash.sh lost on box restore ~23:33 EDT; recreate.
       godot --import + tests on rebased HEAD: 140/140, hash 0e814dda, 0 shader errors (out/tests_v031.log).
       packages vs v0.3.1 (out/pkg_v031.sh, verify out/verify_v031.sh): patch 36 files, tarball 28 binaries, hooks patch; clean v0.3.1 + patch + tarball: 140/140, hash 0e814dda, 0 shader errors (out/tests_v031_clean.log).
       INTEGRATION: base v0.3.1, q2 option note (A: q2 char_lod 30 m / B: mid LOD ~1.2-1.5k; Kirk's call), Requests 1-4 with rebased shas. COLLAB entry: Kirk adds it (we do not write to grand_strategy).
+- [ ] 9 FOLLOW-UP on d93f576 (handed to Rob at d93f576; started 05:19 EDT Oct 23; new commits on top, no grand_strategy writes)
+  - [x] 9a dd6157f option B mid LOD: char_body LODS[2] (torso 8, limb/leg 6, no feat/detail); LOD0 asset stores LOD0 | mid | LOD1 sets
+        (json mid_verts, tris_mid/tris_far); shader 3-band split by distance. Tris LOD0/mid/LOD1: line 3034/1368/581, gren 3238/1470/629,
+        art 2742/1352/573, off 2464/1198/512 (line verts 3378 = 2081 + 865 + 432). QUALITY q2 char_lod 20 / char_mid 45; q0 20/20, q1 30/30 (no mid band); LOD_DIST 45/75/120 untouched.
+  - [x] 9b coat lift on mid + far sets and LOD1 material (CHAR_FAR): coat slots (m==1, slot<=4) scaled toward palette luminance 0.28 (palette texelFetch is sRGB-coded on GL Compat), gain cap 2.0; LOD0 set unchanged.
+        A/B a_idle_mid all-far (--vx-charlod=1, q1): coat blue mean RGB ctl(old) 60/95/167, lift0 38/56/103, lift 52/78/142. Debug --vx-coatlift=<0..1>.
+  (stage 9 superseded by the v0.3.2 rebase below; the 4/18-run stage 9 bench on the old base was stopped, out/char/stage9/bench is partial)
+- [x] 9R REBASE onto gs main@v0.3.2 (21bbfe1; Rob merged d93f576 + his own R1 sr-xfade in _put and R2 debug node): new branch
+      character-refinement-2 from v0.3.2; PREVIEW-ONLY hook commits dropped (obsolete). 9a -> 5ebe944 (binaries re-baked), 9b -> b6c0989.
+      Backup: branch character-refinement (b3a9531) and backup/character-refinement-pre-v031 kept.
+- [ ] 10 TEAM READABILITY (Rob's v0.3.2 COLLAB request: 1800 NOR light blue vs SWE navy, white kit on snow, unreadable at mid/top)
+  - [x] 10a dccd3aa: distance team tint in char_vat (UV2.y team mask + coat slots): 25 -> 90 m coats to team_tint 0.85, trousers / belts /
+        shako / plume / knapsack / roll / cartbox / fur to 0.75; overhead range 90 -> 200 m everything but skin towards 0.95 (rest x0.7);
+        team colour = BattleView side colour (HUD / banner), luma-normalised to 0.32 (reads on snow and grass). LOD0 close-ups (<25 m) stay historical.
+        _side_palettes clash pick: when coats are closer than 0.22 it recolours the side whose coat is furthest from its own side colour
+        (1800: NOR -> red, historically plausible Dano-Norwegian red; was: SWE shifted, both still blue). SWE coat lightened 2a3d6e -> 3a5a9a.
+        Optional (d): OFFICER_MODEL "c19_officer" + officer_vat() (sr_vat refactor) for Rob's R3; xfade_crew(v,k,q,...) for gun crews. Debug --vx-teamtint=<0..1>.
+  - [x] 10b: tint colour + weights computed per instance in vertex() (no per-fragment pow). A/B 1800SWE q2, 3 runs med-fps
+        (out/char/stage10/bench_b): mid after 3.23 / notint 3.21 / v0.3.2 3.46; top 3.69 / 3.67 / 3.75 -> tint cost ~0.
+        Tests 140/140, hash 0e814dda, SIMHASH SWE f7255ebb USA 45cf5510 JPN 9bb2394d, 0 shader errors (out/tests_10b.log, out/simhash_10b.log).
+  - [x] 10f compares (Rob's battle_shots harness, 1600x900, q1, views close/close_def/mid/top; before = clean v0.3.2 /tmp/ic_v032, after = 2a6f12a):
+        /workspace/iron-crowns-visual/out/char/stage10/teams/{before,after}/ raw, compare/: sheet_1800SWE_q1.png (as Rob's sheet), sheet_USA_q1.png,
+        *_before_after.png per view, crop_1800SWE_q1_{close,close_def,mid,top}.png. Mid: NOR red vs SWE blue (was light blue vs navy-white);
+        top: blue vs red lines; close_def: lighter SWE blue, LOD0 uniforms historical. USA/CAN unchanged at close, slightly more saturated at mid/top.
+  - [x] 10g q2 bench vs same-build ctl (--vx-char=0), battle_shots, 3 runs, medians (docs/char/BENCH_AFTER.md "Stage 10"):
+        1800SWE close -16 / close_def -13 / mid -1 / top -5 %; USA close -16 / close_def -18 / mid -10 / top -1 %.
+  - [x] 10h packages vs v0.3.2 (out/pkg_v032.sh): out/character-refinement-2.patch + out/character-refinement-2-binaries.tar.gz (16 binaries; no hooks patch).
+        Clean v0.3.2 + patch + tarball (out/verify_v032.sh -> out/verify_v032.log): apply OK, tree == branch HEAD, 140/140, hash 0e814dda,
+        SIMHASH SWE f7255ebb USA 45cf5510 JPN 9bb2394d, 0 shader errors. INTEGRATION updated (R3 officer via OFFICER_MODEL / officer_vat, crew xfade_crew, q2 mid LOD).
+        COLLAB entry: Rob / Kirk add it (we do not write to grand_strategy).

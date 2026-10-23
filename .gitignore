@@ -15,3 +15,6 @@ deliverables/*.zip
 *.blend1
 __pycache__/
 *.pyc
+
+# audio preview / local renders
+out/

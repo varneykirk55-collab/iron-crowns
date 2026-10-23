@@ -174,19 +174,24 @@ def poses(kid, clips=None, ncol=8, angs=(90, 30), tag=None, lod=0):
     bpy.ops.render.render(write_still=True)
     print('max reach ratio', worst)
 
+def _append_sets(cm, kid):
+    """stage 9: append the mid set (char_body LODS[2]) and then the LOD1 set to a LOD0 CharMesh.
+    Returns (mid_verts = end of the mid set, mid tris)."""
+    mid_tris = 0
+    for lod in (2, 1):
+        o = B.build(kid, lod)
+        off = len(cm.co)
+        cm.co += o.co; cm.w += o.w
+        cm.faces += [(tuple(i + off for i in f[0]),) + tuple(f[1:]) for f in o.faces]
+        if lod == 2:
+            mid_tris = o.tris(); mid_end = len(cm.co)
+    return mid_end, mid_tris
+
 def _single(kid, pose, ang, path, res, lod=0, focus=(0.0, 0.95), height=2.0, dist=9.0):
     """one perspective still: rig rotated by ang (0 = facing camera), camera framing `height` m (vertical) around focus z"""
     common.reset_scene()
     cm = B.build(kid, lod)
-    near_verts = None
-    if lod == 0:
-        # stage 7: the LOD0 asset carries the LOD1 set after its own verts (VID >= near_verts); char_vat.gdshader
-        # draws one set per instance by camera distance (battle_visuals char_lod), the other collapses to a point.
-        near_tris = cm.tris(); near_verts = len(cm.co)
-        far = B.build(kid, 1)
-        off = len(cm.co)
-        cm.co += far.co; cm.w += far.w
-        cm.faces += [(tuple(i + off for i in f[0]),) + tuple(f[1:]) for f in far.faces]
+    # preview renders only the requested set (lod 0 / 2 = mid / 1); the bake stores all three in the LOD0 asset
     rig = build_rig(kid)
     o = to_object(cm); bind(o, rig); set_preview_color(o)
     if pose is not None:
@@ -245,13 +250,10 @@ def bake(kid, lod, keep_blend=False):
     cm = B.build(kid, lod)
     near_verts = None
     if lod == 0:
-        # stage 7: the LOD0 asset carries the LOD1 set after its own verts (VID >= near_verts); char_vat.gdshader
-        # draws one set per instance by camera distance (battle_visuals char_lod), the other collapses to a point.
+        # stage 7/9: the LOD0 asset carries [LOD0 | mid | LOD1] vertex sets (see _append_sets); char_vat.gdshader
+        # draws one set per instance by camera distance (battle_visuals char_lod / char_mid), the others collapse to a point.
         near_tris = cm.tris(); near_verts = len(cm.co)
-        far = B.build(kid, 1)
-        off = len(cm.co)
-        cm.co += far.co; cm.w += far.w
-        cm.faces += [(tuple(i + off for i in f[0]),) + tuple(f[1:]) for f in far.faces]
+        mid_verts, mid_tris = _append_sets(cm, kid)
     rig = build_rig(kid)
     o = to_object(cm, preview=keep_blend); bind(o, rig)
     if keep_blend:
@@ -262,8 +264,10 @@ def bake(kid, lod, keep_blend=False):
     meta = {'vertices': n, 'fps': 24, 'clips': {}, 'frames': 0, 'tris': cm.tris(), 'kit': kid, 'lod': lod,
             'normals': 'vatn rgba8 (n*0.5+0.5), same rows/cols as .vat'}
     if near_verts is not None:
-        meta.update({'tris': near_tris, 'near_verts': near_verts, 'tris_stored': cm.tris(),
-                     'split': 'verts [0,near_verts) = LOD0 set (drawn near), [near_verts,vertices) = LOD1 set (drawn past char_lod)'})
+        meta.update({'tris': near_tris, 'near_verts': near_verts, 'mid_verts': mid_verts, 'tris_mid': mid_tris,
+                     'tris_far': cm.tris() - near_tris - mid_tris, 'tris_stored': cm.tris(),
+                     'split': 'verts [0,near_verts) = LOD0 set (drawn to char_lod), [near_verts,mid_verts) = mid set '
+                              '(drawn char_lod..char_mid), [mid_verts,vertices) = LOD1 set (drawn past char_mid)'})
     row = 0
     worst = 1.0
     for cn, nf, loop, fn in A.CLIPS:
@@ -317,7 +321,7 @@ def bake(kid, lod, keep_blend=False):
             pb.rotation_quaternion = (1, 0, 0, 0); pb.location = (0, 0, 0)
         os.makedirs(common.BLEND, exist_ok=True)
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(common.BLEND, f'soldier_{kid}.blend'))
-    print('baked', kid, 'lod', lod, 'verts', n, 'near_verts', near_verts, 'tris', meta['tris'], 'stored', cm.tris(), 'frames', row, 'max reach', round(worst, 3))
+    print('baked', kid, 'lod', lod, 'verts', n, 'near_verts', near_verts, 'mid', meta.get('mid_verts'), meta.get('tris_mid'), 'tris', meta['tris'], 'stored', cm.tris(), 'frames', row, 'max reach', round(worst, 3))
 
 if __name__ == '__main__':
     argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else ['preview']

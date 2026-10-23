@@ -12,7 +12,15 @@
 //  CHAR_NONRM = rest-pose normals (no .vatn fetch)
 //  CHAR_NOXF  = no clip crossfade (ignores instance COLOR; no second VAT fetch)
 //  CHAR_VPAL  = palette + material class resolved per vertex (flat per part anyway) instead of per pixel
+//  CHAR_FAR   = far material (LOD1 asset): coat lift always on (see coat_lift)
 // char_vat.gdshader = LOD0 (full), char_vat_lod1.gdshader = LOD1 (cheap variant).
+// Stage 9: the LOD0 asset holds three vertex sets [0,near_verts) LOD0, [near_verts,mid_verts) mid (~1.3k tris),
+// [mid_verts,vat_verts) LOD1; per instance one set is drawn by camera distance (<= char_lod_dist: LOD0,
+// <= char_mid_dist: mid, else LOD1). char_mid_dist <= char_lod_dist (or no mid set) = stage 7 two-band behaviour.
+// Mid and far sets (and the LOD1 material) brighten dark coats (coat_lift) so regiments read at a distance.
+// Team tint (stage 9): by instance camera distance (team_near -> team_far) coats blend towards team_color (the
+// BattleView side colour, = HUD / banner) up to team_tint, and trousers / belts / shako / plume up to team_tint_acc,
+// so two blue (or two white-trousered) sides separate at mid / top zoom. Close up (< team_near) = nation colours.
 
 uniform sampler2D vat_tex : filter_nearest, repeat_disable;
 uniform sampler2D vat_nrm : filter_nearest, repeat_disable;
@@ -30,25 +38,49 @@ uniform float has_normals = 1.0;
 uniform float contact_dark = 0.3;
 uniform float contact_height = 0.3;
 uniform int near_verts = 0x7fffffff;  // stage 7: LOD0 mesh = near set [0,near_verts) + far (LOD1) set after it
-uniform float char_lod_dist = 1.0e9;  // battle_visuals char_lod: instances farther than this draw the far set
+uniform float char_lod_dist = 1.0e9;  // battle_visuals char_lod: instances farther than this draw the mid (or far) set
+uniform int mid_verts = -1;           // stage 9: end of the mid set (-1 / <= near_verts = no mid set)
+uniform float char_mid_dist = -1.0;   // battle_visuals char_mid: instances farther than this draw the far set
+uniform float coat_lift = 1.0;        // stage 9: mid / far coat brightening amount (0 = off, debug --vx-coatlift=)
+uniform float coat_target = 0.28;     // palette luminance (texelFetch value, sRGB-coded on GL Compatibility) dark coats are lifted towards (~old c19 mid-distance read)
+uniform float coat_gain_max = 2.0;    // cap on that gain (very dark coats stay darker than lighter ones)
+uniform float team_tint = 0.85;      // coat blend towards the side colour at >= team_far (0 = off, debug --vx-teamtint=)
+uniform float team_tint_acc = 0.75;   // same for trousers / crossbelts / shako / plume / knapsack (white on snow / top view otherwise dominates)
+uniform float team_near = 25.0;      // m: no tint closer than this (close-up uniforms stay historical)
+uniform float team_far = 90.0;       // m: full tint from here (Rob's mid view is ~70 m, top ~230 m)
+uniform float team_top = 200.0;      // m: overhead range: coat, accents (and, weaker, the rest bar skin) go to team_tint_top
+uniform float team_tint_top = 0.95;
 varying float team_amt;
+varying vec3 team_tc;   // distance team tint colour (palette space), per instance (computed in vertex())
+varying vec3 team_w;    // tint weights: coat / accents / rest (0 = off)
 varying float shade_var;
 varying float mat_id;
 varying float slot_u;
 varying float rest_h;
 varying float inst_k;
+varying float coat_k;   // 1 = mid / far set: lift dark coats
 
 #ifdef CHAR_VPAL
 varying vec3 v_alb;
 varying vec4 v_rsm;   // rough, metal, spec, ao
 #endif
 
-void vmat(float slot_u_, float team_amt_, float mat_id_, float rest_h_, float shade_var_, float inst_k_, out vec3 alb_o, out float rough_o, out float metal_o, out float spec_o, out float ao_o) {
+void vmat(float slot_u_, float team_amt_, float mat_id_, float rest_h_, float shade_var_, float inst_k_, float coat_k_, vec3 team_tc_, vec3 team_w_, out vec3 alb_o, out float rough_o, out float metal_o, out float spec_o, out float ao_o) {
 	int slot = clamp(int(slot_u_ * 32.0), 0, 31);
 	vec3 alb = texelFetch(palette, ivec2(slot, 0), 0).rgb;
 	float ta = clamp(team_amt_, 0.0, 1.0) * team_dye;
 	alb = mix(alb, team_color.rgb * 0.75, ta);
 	int m = int(mat_id_ + 0.5);
+	if (coat_k_ > 0.0 && m == 1 && slot <= 4) {   // coat / lapel / collar / cuff / turnback wool on mid + far sets
+		float lum = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+		alb *= mix(1.0, clamp(coat_target / max(lum, 1.0e-4), 1.0, coat_gain_max), coat_k_);
+	}
+	if (team_w_.x > 0.0) {   // distance team tint (weights / colour from vertex())
+		if ((m == 1 && slot <= 4) || team_amt_ > 0.5) { alb = mix(alb, team_tc_, team_w_.x); }
+		else if (slot == 6 || slot == 7 || slot == 9 || slot == 10 || slot == 12 || slot == 13 || slot == 14 || slot == 15 || slot == 23) {
+			alb = mix(alb, team_tc_ * 0.85, team_w_.y); }
+		else if (m != 5) { alb = mix(alb, team_tc_ * 0.85, team_w_.z); }
+	}
 	float sv = mix(1.0, shade_var_, 0.6);
 	float rough = 0.85; float metal = 0.0; float spec = 0.4;
 	if (m == 1) { rough = 0.93; spec = 0.22; alb *= sv; }                       // wool
@@ -91,9 +123,28 @@ void vertex() {
 	vec3 rest_n = NORMAL;
 	int vid = clamp(int(UV2.x * float(vat_verts)), 0, vat_verts - 1);
 	bool hide = false;
-	if (near_verts < vat_verts) {   // LOD0 only: pick the near or far geometry set per instance, collapse the other
-		vec3 dc = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz - CAMERA_POSITION_WORLD;
-		hide = (vid >= near_verts) != (dot(dc, dc) > char_lod_dist * char_lod_dist);
+	vec3 dcam = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz - CAMERA_POSITION_WORLD;
+	float dl = length(dcam);
+	{   // distance team tint, per instance (palette space ~ sRGB-coded; team_color is linear -> encode)
+		float k1 = smoothstep(team_near, team_far, dl); float k2 = smoothstep(team_far, team_top, dl);   // k2: overhead range
+		vec3 tc = pow(max(team_color.rgb, vec3(0.0)), vec3(1.0 / 2.2));
+		tc *= clamp(0.32 / max(dot(tc, vec3(0.2126, 0.7152, 0.0722)), 1.0e-3), 0.5, 1.2);   // mid-dark luminance: reads on snow and grass
+		team_tc = tc;
+		team_w = k1 > 0.0 || k2 > 0.0 ? vec3(k1 * team_tint + k2 * (team_tint_top - team_tint), k1 * team_tint_acc + k2 * (team_tint_top - team_tint_acc), k2 * team_tint_top * 0.7) : vec3(0.0);
+	}
+#ifdef CHAR_FAR
+	coat_k = coat_lift;
+#else
+	coat_k = 0.0;
+#endif
+	if (near_verts < vat_verts) {   // LOD0 only: pick the near / mid / far geometry set per instance, collapse the others
+		float d2 = dot(dcam, dcam);
+		int mv = max(mid_verts, near_verts);
+		float md = mv > near_verts ? max(char_mid_dist, char_lod_dist) : char_lod_dist;
+		int vset = vid < near_verts ? 0 : (vid < mv ? 1 : 2);
+		int band = d2 <= char_lod_dist * char_lod_dist ? 0 : (d2 <= md * md ? 1 : 2);
+		hide = vset != band;
+		coat_k = vset > 0 ? coat_lift : 0.0;
 	}
 	if (hide) {
 		VERTEX = vec3(0.0, -50.0, 0.0);
@@ -127,7 +178,7 @@ void vertex() {
 		slot_u = UV.x;
 #ifdef CHAR_VPAL
 		vec3 va3; float vr; float vm; float vs; float va;
-		vmat(slot_u, team_amt, mat_id, rest_h, shade_var, inst_k, va3, vr, vm, vs, va);
+		vmat(slot_u, team_amt, mat_id, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, va3, vr, vm, vs, va);
 		v_alb = va3; v_rsm = vec4(vr, vm, vs, va);
 #endif
 	}
@@ -138,7 +189,7 @@ void fragment() {
 	ALBEDO = v_alb; ROUGHNESS = v_rsm.x; METALLIC = v_rsm.y; SPECULAR = v_rsm.z; AO = v_rsm.w;
 #else
 	vec3 alb; float rough; float metal; float spec; float ao;
-	vmat(slot_u, team_amt, mat_id, rest_h, shade_var, inst_k, alb, rough, metal, spec, ao);
+	vmat(slot_u, team_amt, mat_id, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, alb, rough, metal, spec, ao);
 	ALBEDO = alb; ROUGHNESS = rough; METALLIC = metal; SPECULAR = spec; AO = ao;
 #endif
 }

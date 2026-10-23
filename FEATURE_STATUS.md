@@ -1,4 +1,4 @@
-# Feature status (v0.3.2): honest accounting
+# Feature status (v0.3.3): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -26,7 +26,9 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Era progression (global, calendar-driven), refit, old armies keep old kit | VERIFIED | Tests: 1913 → 1914 advance, refit, buying does not change the era; gameplay test sees the era change on 1 Jan 1914 in the real main scene. USA/SWE/JPN start armies use the right era's units in all 5 start years. |
 | Scripted end-to-end gameplay | VERIFIED (headless) | `--only=gameplay` 7/7: start as Sweden 1913, march, declare war, watch a battle + camera toggle, capture a province, save/load, era advance. The test grants extra funds so the invasion reliably succeeds. |
 | Save/load (F5/F9, named slots, title-menu load) | VERIFIED | `--only=save` 8/8 (deep equality, 180-day forward determinism, missing slot, list); gameplay test round trip; `shots/v02/saveload_*.png`. Watched battles load as unwatched. |
-| Sound / music | MISSING | |
+| Music (campaign / tension / battle + 4 stings), instrumental, original | VERIFIED (playback, mixing, transitions) / not listened to by a human | `res://tests/test_audio.tscn` 28/28. These checks confirm that music plays through the mixer (Master capture is non-silent), the crossfade is equal-power and completes, campaign resumes, loops wrap, stings duck the music, and the battle mood comes back to campaign afterwards. `pipeline/audio/analyze_audio.py` checks loop seams and decoded peaks. The battle demo recording (`--write-movie`) carries the real mixed output: peak -2.0 dBFS and no clipped samples over 62 s. Musical quality is not verified, because no subjective listening was possible. |
+| Battle & UI sound effects (era-correct weapons, cannon, explosions, impacts, crowds, hooves, melee, signals, ambience beds, UI) | VERIFIED (triggering, voice limits, no clipping) | test_audio: a watched c19 battle triggers volleys, cannon, impacts, crowd and signals; era→weapon mapping has no rifles before c20 and no automatic fire; musket voices are capped at 6 with 900 requests; global cap 24; mass gunfire (900 requests) peaks at -3.4 dBFS on Master and does not clip. Mix balance: in a watched battle at default volumes, SFX-only p90 is -18.4 dBFS against a battle-music median of -31.3 dBFS (the test requires a margin of at least 6 dB). Outcome is identical with `--audio=off`. Sound quality and realism are not verified by ear. |
+| Separate Music / SFX volume, saved | VERIFIED | test_audio: sliders → bus dB, 0 = mute, `user://audio.cfg` round trip. The sliders are in the in-game Settings menu only (the title menu has no settings screen). |
 | Naval combat | MISSING | Fleets are only transport markers. |
 
 ## Battles
@@ -47,7 +49,7 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Campaign army markers (`map_visuals.gd`) | VERIFIED | Tests click a marker and select/move the army; world/region/close zoom shots in `screenshots/campaign_*`. |
 | Victoria-style campaign map (terrain relief, biomes, snow, oceans, SDF borders, adaptive political tint, 3 terrain LODs) | VERIFIED (rendered, llvmpipe only) | v0.3.1. `screenshots/compare/` before/after for Alps, Rockies, Japan, Scandinavia, Himalayas, Europe world zoom, border close-up; picks identical to v0.3 on 15 views; selection/conquest/zoom checks; `perf_table.md` (q0/q1/q2). Region/close-zoom nation colours are muted by design. Not measured on a GPU. |
 | World-zoom ocean streaks | FIXED (v0.3.1) | Backdrop plane z-fighting; `screenshots/compare/compare_usa_world.png`. |
-| Semi-realistic Napoleonic c19 soldiers (line, grenadier, artillery crew; 47 nation uniforms; 0.25 s clip crossfade) | VERIFIED (rendered, llvmpipe only) | v0.3.2. `screenshots/compare/` 1800 SWE q0/q1/q2 close/mid/overhead vs v0.3.1; `perf_table.md`. PARTIAL readability: NOR vs SWE both blue at mid/overhead on snow (BJORN follow-up). Officer per regiment not done. |
+| Semi-realistic Napoleonic c19 soldiers (line, grenadier, artillery crew, one officer per line/grenadier regiment; 47 nation uniforms; 0.25 s clip crossfade incl. gun crews; distance team tint) | VERIFIED (rendered, llvmpipe only) | v0.3.2/v0.3.3. `screenshots/compare/` 1800 SWE q0/q1/q2 close/close_def/mid/top, 3-way v0.3.1/v0.3.2/v0.3.3; `perf_table.md`. Team readability: NOR red vs SWE blue at close/mid/overhead on all quality levels (v0.3.3). |
 | Terrain/sieges as 3D battles, naval battles | MISSING | Sieges resolve on the map only. |
 
 ## Recorded era battles (v0.2, 960x540, `tools/rec_eras.sh`, summaries from `tools/era_summary.py`)
