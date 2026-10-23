@@ -80,3 +80,11 @@
   main.apply_quality() forward Controls.quality to BattleVisuals.apply_quality(q) (single owner; stand-in + QUALITY_LOD + MSAA line removed),
   `--quality=` session override. 131/131, sim hashes unchanged, rendered 1800 SWE battle at q0/q1/q2 with identical BATTLERESULT.
 - main f28ce42 merge, tag v0.2.1, deliverables/v0.2.1.
+
+## v0.3 — eras batch + polish pass (DONE)
+- [x] graphics 1f7f279 (BJORN eras 1c951b9) + 882366e (BJORN polish 5adecc2, main.gd excluded per R4) merged to lead-dev (1ccdc1c, b190120)
+- [x] R5 map_visuals hook + marker click/selection tests, R6 medieval test update (fa2081b)
+- [x] Polish requests: grenadiers model c19_grenadier (make_gamedata.py/units.json), CREW_MODEL per-era crews, --import new glbs (0 errors) (670335a)
+- [x] Full suite 140/140; gameplay outcome hash 0e814dda… matches; sim hashes USA/JPN match, SWE1800 changes to f7255ebb… only because the serialized regiment "model" string changed (state dumps differ only in those 2 lines)
+- [x] Polish re-renders: 5 eras q1, BATTLERESULT identical to pre-polish recordings; c19 grenadier/gun-crew close-ups + tundra/forest/hills overhead (harness on production BattleView.setup); campaign world/region/close for 5 starts
+- [ ] main merge, tag v0.3, exports, deliverables/v0.3 + laptop_xfer

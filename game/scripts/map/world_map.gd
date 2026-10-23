@@ -96,6 +96,7 @@ func build() -> void:
 	Sim.era_changed.connect(func(_e): apply_era(); _refresh_ships())
 	Sim.game_started.connect(func(): lut_dirty = true; labels_dirty = true; apply_era())
 	apply_era()
+	add_child(preload("res://scripts/map/map_visuals.gd").new())   # BJORN: overworld army markers (cosmetic only; R5)
 
 # ---------------- political LUT ----------------
 func refresh_lut() -> void:

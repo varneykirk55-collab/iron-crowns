@@ -1,4 +1,4 @@
-# Feature status (v0.2.1): honest accounting
+# Feature status (v0.3): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -43,6 +43,8 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Melee | PARTIAL | Melee decides medieval battles (10–38 % of kills); from 1500 on it is ≤0.4 % and 0 % in c20/modern — fire dominates. That is plausible but means pike/bayonet units rarely fight hand to hand. |
 | Blender glTF assets, MultiMesh instancing, VAT animation, 2 LODs | VERIFIED | Scripts in `pipeline/blender/`. LOD switching is distance-based (45/75/120 m by quality). |
 | c19 graphics pass (BJORN, `battle_visuals.gd`, handoff 116c310) | VERIFIED (rendered, llvmpipe only) | New c19 line/hussar kit (white pipeclay straps readable from behind, smaller knapsack, short gaiters), own c19 field gun, material classes in the VAT shader, adaptive team dye, FILMIC lighting. c19 only; other eras keep the legacy look (tested). Rendering only: sim hashes and the BATTLERESULT of the recorded 1800 battle are identical to v0.2 and identical at q0/q1/q2. `videos/c19_battle_v021_q1.mp4`, `screenshots/c19_compare/`. Not measured on a GPU. |
+| All-era graphics + polish pass (BJORN, eras 1c951b9 + polish 5adecc2) | VERIFIED (rendered, llvmpipe only) | All 5 eras in the pass; depth-range fog and winter grade (overhead view no longer washed out, `screenshots/polish_closeups_and_snow/`); c19 grenadiers in bearskins, artillery-uniform gun crews (c19, early modern). Rendering only: BATTLERESULT of the 5 recorded era battles identical before and after (`evidence/battleresults_vs_baseline.md`). Overhead team colour still weak for c20/modern and pale colours. |
+| Campaign army markers (`map_visuals.gd`) | VERIFIED | Tests click a marker and select/move the army; world/region/close zoom shots in `screenshots/campaign_*`. |
 | Terrain/sieges as 3D battles, naval battles | MISSING | Sieges resolve on the map only. |
 
 ## Recorded era battles (v0.2, 960x540, `tools/rec_eras.sh`, summaries from `tools/era_summary.py`)

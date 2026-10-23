@@ -41,8 +41,11 @@ func _run() -> void:
 		test_camera_determinism()
 	if only == "" or only == "camera" or only == "visuals":
 		test_visuals_hook()
+		test_polish()
 	if only == "" or only == "controls":
 		await test_controls()
+	if only == "" or only == "controls" or only == "markers":
+		await test_map_markers()
 	if only == "" or only == "eras":
 		test_era_battles()
 	if only == "" or only == "gameplay":
@@ -737,6 +740,114 @@ func test_controls() -> void:
 	Sim.auto_deploy = true
 	await _frames(2)
 
+## R5 (v0.3): BJORN's map_visuals.gd is hooked into WorldMap.build(). It may only swap each army's "Standard"
+## mesh/material; picking (army_at_screen), selection, the ring/label and move orders must behave exactly as before.
+func _marker_state(m: Node) -> Dictionary:
+	var out := {}
+	for aid in m.map.army_nodes.keys():
+		var n: Node3D = m.map.army_nodes[aid]
+		var sp := _army_screen(m, aid)
+		var pick: int = -2 if m.map.camera.is_position_behind(n.global_position) else m.map.army_at_screen(sp)
+		out[aid] = [n.position, n.scale, n.visible, n.get_node("Ring").visible, n.get_node("Label").text, n.get_node("Label").visible, pick]
+	return out
+
+func _marker_swapped(m: Node, mv: Node, era_id: String) -> Array:
+	var want: Mesh = mv._mesh(era_id)
+	var ok := 0
+	for aid in m.map.army_nodes.keys():
+		var std: Node = m.map.army_nodes[aid].get_node("Standard")
+		var mi: MeshInstance3D = null
+		var stack := [std]
+		while stack.size() > 0 and mi == null:
+			var x: Node = stack.pop_back()
+			if x is MeshInstance3D: mi = x
+			stack.append_array(x.get_children())
+		if want != null and mi != null and mi.mesh == want and std.get_meta("vis_era", "") == era_id:
+			ok += 1
+	return [ok, m.map.army_nodes.size()]
+
+func _wait_ms(ms: int) -> void:
+	var tw := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - tw < ms:
+		await _frames(1)
+
+func _mouse_click(pos: Vector2, btn: MouseButton) -> void:
+	# parse_input_event takes window coordinates; the root viewport applies the stretch transform back to `pos`
+	var wpos: Vector2 = get_tree().root.get_final_transform() * pos
+	for pressed in [true, false]:
+		var e := InputEventMouseButton.new(); e.button_index = btn; e.pressed = pressed; e.position = wpos; e.global_position = wpos
+		Input.parse_input_event(e)
+		await _frames(2)
+
+func test_map_markers() -> void:
+	print("== Overworld army markers (map_visuals hook, R5) ==")
+	Sim.auto_deploy = true
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("SWE", 1800, 3)
+	await _frames(4)
+	Sim.set_speed(0)
+	var mv: Node = m.map.get_node_or_null("MapVisuals")
+	await _wait_ms(400)   # map_visuals re-checks every 0.25 s
+	var era_id := str(GameData.eras[Sim.era]["id"])
+	var sw: Array = _marker_swapped(m, mv, era_id) if mv else [0, -1]
+	check("markers: MapVisuals is hooked into the WorldMap and every army standard shows map_marker_%s (%d/%d)" % [era_id, sw[0], sw[1]],
+		mv != null and sw[1] > 0 and sw[0] == sw[1], str(sw))
+	# a forced re-swap must not change any army node's transform, visibility, ring, label or what picking returns
+	var aid: int = Sim.armies.keys().filter(func(k): return Sim.armies[k]["owner"] == "SWE")[0]
+	m.cam.fly_to(GameData.node_world(int(Sim.armies[aid]["node"])), 30.0, 0.05)
+	await _frames(20)
+	m.map.update_markers()
+	var before := _marker_state(m)
+	if mv:
+		for a in m.map.army_nodes.keys():
+			m.map.army_nodes[a].get_node("Standard").set_meta("vis_era", "")
+		mv._t = 0.0
+		mv._process(0.0)
+	var after := _marker_state(m)
+	var picks := 0
+	for a in before.keys():
+		if before[a][6] == a: picks += 1
+	check("markers: re-swapping changes no army position/scale/visibility/ring/label and army_at_screen picks the same armies (%d armies, %d self-picks)" % [before.size(), picks],
+		before == after and before.has(aid) and before[aid][6] == aid, "before %s after %s" % [str(before.get(aid)), str(after.get(aid))])
+	# mouse: left-click on the new marker selects the army, right-click orders a march
+	m.select_province(-1)
+	Controls.last_device = "kbm"
+	await _mouse_click(_army_screen(m, aid), MOUSE_BUTTON_LEFT)
+	var sel_ok: bool = m.map.selected_army == aid
+	var dest := -1
+	var vs := get_viewport().get_visible_rect().size
+	for pid in Sim.nation_provs["SWE"]:
+		if pid != int(Sim.armies[aid]["node"]):
+			var sp: Vector2 = m.map.camera.unproject_position(GameData.node_world(pid))
+			if sp.x > 80 and sp.y > 80 and sp.x < vs.x - 80 and sp.y < vs.y - 120 and m.map.province_at_screen(sp) == pid and m.map.army_at_screen(sp) < 0:
+				dest = pid
+				await _mouse_click(sp, MOUSE_BUTTON_RIGHT)
+				break
+	var move_ok: bool = dest > 0 and int(Sim.armies[aid].get("goal", -1)) == dest and not Sim.armies[aid]["path"].is_empty()
+	check("markers: mouse left-click on a swapped marker selects the army, right-click orders the march (army %d -> %d)" % [aid, dest],
+		sel_ok and move_ok and m.map.selected_army == aid and m.map.army_nodes[aid].get_node("Ring").visible,
+		"selected %d goal %s" % [m.map.selected_army, str(Sim.armies[aid].get("goal", -1))])
+	Sim.order_move(aid, int(Sim.armies[aid]["node"])); Sim.armies[aid]["goal"] = -1
+	# era change: markers re-swap to the new era kit and selection still works on them
+	var e0: int = Sim.era
+	var em := -1
+	for i in GameData.eras.size():
+		if str(GameData.eras[i]["id"]) == "medieval": em = i
+	Sim.era = em
+	await _wait_ms(400)
+	var sw2: Array = _marker_swapped(m, mv, "medieval") if mv else [0, -1]
+	m.select_province(-1)
+	await _frames(2)
+	await _mouse_click(_army_screen(m, aid), MOUSE_BUTTON_LEFT)
+	check("markers: era change re-swaps markers (medieval %d/%d) and click-select still works" % [sw2[0], sw2[1]],
+		sw2[1] > 0 and sw2[0] == sw2[1] and m.map.selected_army == aid, "selected %d" % m.map.selected_army)
+	Sim.era = e0
+	m.select_province(-1)
+	m.queue_free()
+	await _frames(2)
+
 func _count_class(n: Node, cls: String) -> int:
 	var c := 1 if n.is_class(cls) else 0
 	for ch in n.get_children():
@@ -869,8 +980,65 @@ func test_visuals_hook() -> void:
 	check("visuals: c19 battle gets the graphics pass at setup (look differs from legacy) %s" % str(looks.get("c19", [[]])[0]),
 		looks.has("c19") and looks["c19"][0] != legacy, str(looks))
 	check("visuals: apply() is idempotent on a set-up c19 battle", looks.has("c19") and looks["c19"][0] == looks["c19"][1], str(looks))
-	check("visuals: eras outside the pass keep the legacy look (medieval %s)" % str(looks.get("medieval", [[]])[0]),
-		looks.has("medieval") and looks["medieval"][0] == legacy and looks["medieval"][1] == legacy, str(looks))
+	# R6 (v0.3): medieval is in battle_visuals.ERAS now, so it gets the era pass too (no era stays legacy).
+	check("visuals: medieval battle gets the era pass at setup (look differs from legacy, apply() idempotent) %s" % str(looks.get("medieval", [[]])[0]),
+		looks.has("medieval") and looks["medieval"][0] != legacy and looks["medieval"][0] == looks["medieval"][1], str(looks))
+	Controls.quality = q0
+
+## v0.3 polish pass: c19 grenadiers use the bearskin model, gun crews wear the era artillery uniform (units.json +
+## BattleView.CREW_MODEL name them directly, so the battle_visuals runtime swap is a no-op), and a winter battle gets
+## the depth-range fog / snow grade instead of the full-field exponential haze.
+func test_polish() -> void:
+	print("== Polish pass (grenadiers, gun crews, snow) ==")
+	var q0: int = Controls.quality
+	Controls.quality = 1
+	var want_crew := {"c19": "c19_artillery", "early_modern": "em_gunner"}
+	for y in [1800, 1500]:
+		var bid := _cam_battle_setup(y)
+		var bv := BattleView.new()
+		add_child(bv)
+		bv.setup(bid)
+		var gren := [0, 0]; var guns := [0, 0]; var drawn := {}
+		for v in bv.rv:
+			var d: Dictionary = bv.sim.regs[int(v["i"])]["def"]
+			if str(d["id"]) == "grenadiers":
+				gren[0] += 1
+				if str(v["model"]) == "c19_grenadier": gren[1] += 1
+			if v.has("crew_model"):
+				guns[0] += 1
+				if str(v["crew_model"]) == want_crew.get(str(d["era"]), "?"): guns[1] += 1
+		for key in bv.mms.keys():
+			var m: String = str(key).split("|")[0]
+			if m in ["c19_grenadier", "c19_artillery", "em_gunner"]:
+				drawn[m] = drawn.get(m, 0) + (bv.mms[key]["mm"] as MultiMesh).instance_count
+		var before := [gren.duplicate(), guns.duplicate(), drawn.duplicate()]
+		BattleView.BattleVisuals.apply(bv)   # the runtime swap must find nothing left to do
+		var same := bv.mms.size()
+		BattleView.BattleVisuals.apply(bv)
+		if bv.era_id == "c19":
+			check("polish: c19 grenadiers drawn with c19_grenadier, gun crews with c19_artillery (grenadier regs %s, guns %s, multimesh rows %s)" % [str(gren), str(guns), str(drawn)],
+				gren[0] > 0 and gren[0] == gren[1] and guns[0] > 0 and guns[0] == guns[1] and drawn.get("c19_grenadier", 0) > 0 and drawn.get("c19_artillery", 0) > 0, str(before))
+		else:
+			check("polish: early-modern gun crews drawn with em_gunner (guns %s, rows %s)" % [str(guns), str(drawn)],
+				guns[0] > 0 and guns[0] == guns[1] and drawn.get("em_gunner", 0) > 0, str(before))
+		check("polish: %s re-apply() adds no multimeshes (%d == %d)" % [bv.era_id, same, bv.mms.size()], same == bv.mms.size(), "")
+		remove_child(bv)
+		bv.free()
+	# winter ground + light: tundra vs plains on the same c19 battle
+	var res := {}
+	for terr in ["plains", "tundra"]:
+		var bid2 := _cam_battle_setup(1800)
+		Sim.battles[bid2]["terrain"] = terr
+		var bv2 := BattleView.new()
+		add_child(bv2)
+		bv2.setup(bid2)
+		var e := bv2.environment
+		res[terr] = [e.fog_mode, snappedf(e.fog_depth_begin, 1.0), snappedf(e.tonemap_exposure, 0.001), snappedf(e.adjustment_contrast, 0.001)]
+		remove_child(bv2)
+		bv2.free()
+	check("polish: depth-range fog (field < 260 m clear) on plains and tundra; tundra exposure lower, contrast higher %s" % str(res),
+		res["plains"][0] == Environment.FOG_MODE_DEPTH and res["tundra"][0] == Environment.FOG_MODE_DEPTH and res["tundra"][1] >= 200.0
+		and res["tundra"][2] < res["plains"][2] and res["tundra"][3] > res["plains"][3], str(res))
 	Controls.quality = q0
 
 # ---------------------------------------------------------------- scripted gameplay (Task 7)

@@ -9,10 +9,12 @@ uniform float vis_pass = 0.0;
 varying float team_amt;
 varying float mat_id;
 varying float rest_h;
+varying vec3 rest_p;
 void vertex() {
 	team_amt = 1.0 - UV2.y;
 	mat_id = (1.0 - UV.y) * 16.0;
 	rest_h = VERTEX.y;
+	rest_p = VERTEX;
 }
 void fragment() {
 	vec3 base = COLOR.rgb;
@@ -33,7 +35,12 @@ void fragment() {
 		else if (m == 6) { rough = 0.6; spec = 0.35; }
 		else if (m == 9) { rough = 1.0; spec = 0.1; }
 		else if (m == 10) { rough = 0.5; metal = 0.6; spec = 0.5; }
+		else if (m == 12) { rough = 0.5; metal = 0.55; spec = 0.5; }
+		else if (m == 13) { rough = 0.9; spec = 0.2; alb = min(alb * 1.05, vec3(1.0)); }
+		else if (m == 14) { rough = 0.85; spec = 0.25; float n = fract(sin(dot(floor(rest_p * 1.6), vec3(12.9898, 78.233, 37.719))) * 43758.5453); alb *= n < 0.33 ? vec3(0.66, 0.64, 0.58) : (n > 0.7 ? vec3(1.14, 1.08, 0.92) : vec3(1.0)); }
+		else if (m == 15) { rough = 0.68; spec = 0.3; }
 		float ao = mix(0.6, 1.0, smoothstep(0.0, 0.6, rest_h));
+		if (m == 13) { ao = 1.0; }
 		ALBEDO = alb * brightness * mix(1.0, ao, 0.6);
 		AO = ao;
 		ROUGHNESS = rough;

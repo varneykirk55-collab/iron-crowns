@@ -54,7 +54,7 @@ u('musketeers', 'early_modern', 'Musketeers', 'ranged', 'em_musket', 'vat', 1000
 u('cuirassiers', 'early_modern', 'Cuirassiers', 'cav', 'em_cuirassier', 'cav', 500, 220, 7.0, {'iron': 1, 'horses': 2}, 22, 14, 0, 0, 0, 0, 0.35, 4.6, 72, 32)
 u('culverins', 'early_modern', 'Field Culverins', 'art', 'art_cannon', 'gun', 150, 200, 4.5, {'iron': 2}, 2, 3, 320, 7.0, 0.35, 1.0, 0.0, 0.6, 45, 4)
 u('line_inf', 'c19', 'Line Infantry', 'ranged', 'c19_line', 'vat', 1200, 140, 3.4, {'iron': 1}, 9, 9, 130, 4.0, 0.12, 0.65, 0.0, 1.5, 62)
-u('grenadiers', 'c19', 'Grenadiers', 'inf', 'c19_line', 'vat', 900, 160, 3.8, {'iron': 1}, 15, 13, 100, 6.0, 0.08, 0.6, 0.0, 1.6, 75)
+u('grenadiers', 'c19', 'Grenadiers', 'inf', 'c19_grenadier', 'vat', 900, 160, 3.8, {'iron': 1}, 15, 13, 100, 6.0, 0.08, 0.6, 0.0, 1.6, 75)
 u('hussars', 'c19', 'Hussars', 'cav', 'c19_hussar', 'cav', 600, 240, 7.0, {'horses': 2}, 21, 11, 0, 0, 0, 0, 0.1, 5.0, 70, 32)
 u('field_guns', 'c19', 'Field Artillery', 'art', 'art_cannon', 'gun', 200, 260, 5.0, {'iron': 3}, 2, 4, 420, 5.0, 0.40, 1.0, 0.0, 0.7, 50, 4)
 u('riflemen', 'c20', 'Rifle Infantry', 'ranged', 'c20_rifle', 'vat', 1500, 200, 4.0, {'iron': 1}, 10, 12, 220, 3.0, 0.10, 0.8, 0.05, 1.6, 65)

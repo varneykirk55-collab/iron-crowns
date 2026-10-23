@@ -2,7 +2,8 @@
 // INSTANCE_CUSTOM = (clip_start_frame, signed clip_count (negative = play once), clip_start_time, playback speed)
 // Visual pass (vis_pass = 1, set by scripts/battle/battle_visuals.gd for c19 battles): per-part material classes
 // from UV.v (pipeline common.MAT_*: mat = (1 - UV.y) * 16), deeper team dye, cheap height-based contact darkening,
-// per-instance horse coats. vis_pass = 0 (default) is the exact legacy look for every other era / asset.
+// per-instance horse coats; classes 12-15 (mail / canvas / camo / polymer) added for the other eras.
+// vis_pass = 0 (default) is the exact legacy look for every other era / asset.
 shader_type spatial;
 render_mode cull_disabled;
 uniform sampler2D vat_tex : filter_nearest, repeat_disable;
@@ -21,9 +22,11 @@ varying float shade_var;
 varying float mat_id;
 varying float rest_h;
 varying float inst_k;
+varying vec3 rest_p;
 
 void vertex() {
 	rest_h = VERTEX.y;
+	rest_p = VERTEX;
 	int vid = clamp(int(UV2.x * float(vat_verts)), 0, vat_verts - 1);
 	float start = INSTANCE_CUSTOM.x;
 	float cnt = abs(INSTANCE_CUSTOM.y);
@@ -40,6 +43,22 @@ void vertex() {
 	shade_var = 0.88 + 0.24 * fract(sin(float(INSTANCE_ID) * 12.9898) * 43758.5453);
 	inst_k = fract(sin(float(INSTANCE_ID) * 78.233 + 1.7) * 43758.5453);
 	mat_id = (1.0 - UV.y) * 16.0;
+}
+
+float vnoise(vec3 p) {  // cheap value noise for the camo class
+	vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	float n = i.x + i.y * 57.0 + i.z * 113.0;
+	float a = mix(mix(fract(sin(n) * 43758.5), fract(sin(n + 1.0) * 43758.5), f.x), mix(fract(sin(n + 57.0) * 43758.5), fract(sin(n + 58.0) * 43758.5), f.x), f.y);
+	float b = mix(mix(fract(sin(n + 113.0) * 43758.5), fract(sin(n + 114.0) * 43758.5), f.x), mix(fract(sin(n + 170.0) * 43758.5), fract(sin(n + 171.0) * 43758.5), f.x), f.y);
+	return mix(a, b, f.z);
+}
+
+vec3 camo(vec3 base, vec3 p, float k) {  // 3-tone disruptive pattern on the rest pose (moves with the cloth)
+	float n = vnoise(p * 7.0 + vec3(k * 31.0)) * 0.65 + vnoise(p * 15.0) * 0.35;
+	vec3 c = base;
+	if (n < 0.38) { c = base * vec3(0.62, 0.6, 0.55); }
+	else if (n > 0.62) { c = base * vec3(1.18, 1.1, 0.92); }
+	return c;
 }
 
 vec3 horse_coat(float k) {
@@ -77,10 +96,14 @@ void fragment() {
 		else if (m == 9) { rough = 1.0; spec = 0.1; }                              // fur / sheepskin / plume
 		else if (m == 10) { rough = 0.5; metal = 0.6; spec = 0.5; }                // blackened iron
 		else if (m == 11) { rough = 0.7; spec = 0.3; if (inst_k > 0.92) { alb = vec3(0.62, 0.6, 0.57); } } // hair / mane
+		else if (m == 12) { rough = 0.5; metal = 0.55; spec = 0.5; alb *= 0.94 + 0.1 * step(0.5, fract(rest_p.y * 40.0)); } // mail (riveted rings, faint banding)
+		else if (m == 13) { rough = 0.9; spec = 0.2; alb = min(alb * 1.05, vec3(1.0)); }  // canvas / webbing / linen: light accent, kept bright
+		else if (m == 14) { rough = 0.9; spec = 0.22; alb = camo(alb, rest_p, 0.0); }  // camo cloth (team tint survives in the mid tone)
+		else if (m == 15) { rough = 0.68; spec = 0.3; }                           // polymer / kevlar / rubber
 		else { alb *= shade_var; }
 		// contact darkening: cheap ground-proximity occlusion on the rest-pose height
 		float ao = mix(1.0 - contact_dark, 1.0, smoothstep(0.0, contact_height, rest_h));
-		if (m == 7) { ao = 1.0; }  // never darken the white belts / slings
+		if (m == 7 || m == 13) { ao = 1.0; }  // never darken the white belts / slings / light webbing
 		ALBEDO = alb * brightness * mix(1.0, ao, 0.65);
 		AO = ao;
 		ROUGHNESS = rough;

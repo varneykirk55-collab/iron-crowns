@@ -2,7 +2,7 @@
 import sys, os, math
 sys.path.insert(0, os.path.dirname(__file__))
 import bpy
-import common, rigkit, c19_kit
+import common, rigkit, c19_kit, med_kit, em_kit
 from common import hexc, MeshBuilder
 
 BONES = [
@@ -25,14 +25,18 @@ SKIN = hexc('e2b48e'); METAL = hexc('a3abb3'); LEATHER = hexc('4a3220'); WOOD = 
 HORSE = hexc('6b4a30'); HORSE_D = hexc('3a281b'); BOOT = hexc('231d19')
 
 VARIANTS = {
-    'med_knight': dict(rider=METAL, surcoat=TEAM, hat='greathelm', weapon='lance', barding=True),
-    'em_cuirassier': dict(rider=TEAM, surcoat=METAL, hat='lobster', weapon='sabre'),
+    'med_knight': dict(rider=METAL, surcoat=TEAM, hat='greathelm', weapon='lance', barding=True, builder='med_knight'),
+    'em_cuirassier': dict(rider=TEAM, surcoat=METAL, hat='lobster', weapon='sabre', builder='em_cuirassier'),
     'c19_hussar': dict(rider=TEAM, surcoat=hexc('d9c36a'), hat='shako', weapon='sabre', builder='c19_hussar'),
 }
 
 def build(name, kit, detail):
     if kit.get('builder') == 'c19_hussar':  # visual pass: detailed Napoleonic kit (pipeline/blender/c19_kit.py)
         return c19_kit.hussar(name, GROUPS, detail)
+    if kit.get('builder') == 'em_cuirassier':  # visual pass: early-modern cuirassier (pipeline/blender/em_kit.py)
+        return em_kit.cuirassier(name, GROUPS, detail)
+    if kit.get('builder') == 'med_knight':  # visual pass: medieval knight (pipeline/blender/med_kit.py)
+        return med_kit.knight(name, GROUPS, detail)
     s = 8 if detail else 5
     b = MeshBuilder(name, GROUPS)
     # horse
