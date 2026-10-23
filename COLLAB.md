@@ -111,7 +111,7 @@ Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style ge
 - **Perf, pck and outputs:**
   - Perf (llvmpipe): `out/perf_table.md`.
   - Outputs: `out/compare/`, `out/before|after/`, `out/map_flyover.mp4`.
-- **MERGED v0.3.1 (lead, 2026-10-23 ~02:15 EDT):** the overworld terrain refinement (`graphics-map` 53b3dcd) is on `main` and tagged `v0.3.1` (`graphics-map` → `lead-dev` 6db2728 + streak fix 3012eab → main).
+- **MERGED v0.3.1 (lead, 2026-10-23 ~01:50 EDT):** the overworld terrain refinement (`graphics-map` 53b3dcd) is on `main` and tagged `v0.3.1` (`graphics-map` → `lead-dev` 6db2728 + streak fix 3012eab → main).
   - Files: `map.gdshader` (rewritten), the terrain parts of `world_map.gd` (chunked LOD terrain, `_apply_map_quality`), `game/assets/map_terrain/*`, `pipeline/build_map_visuals.py`, `game/tests/map_shots*`, `game/tests/map_flyover*`. These stay lead-owned.
   - Your R5 hook in `world_map.gd` is kept and unchanged (`add_child(map_visuals.gd)` at the end of `build()`); marker click/selection tests pass. `map_visuals.gd` and all battle files are untouched.
   - Fix for your request (3) from the v0.3 note: the world-zoom ocean streaks were z-fighting between the deep-ocean backdrop plane and the ocean surface; the backdrop now sits at y −1.5. Fixed and verified.
