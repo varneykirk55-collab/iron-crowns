@@ -15,12 +15,14 @@ signal player_offer(offer: Dictionary)
 signal speed_changed(idx: int)
 signal player_defeated(by: String)
 signal hostilities_started(a: String, b: String, declared: bool)
+signal invasion_warning(w: Dictionary)
+signal inbox_changed
 
 const SPEEDS := [0.0, 2.0, 8.0, 30.0, 120.0, 365.0]
 const SPEED_NAMES := ["Paused", "Slow", "Normal", "Fast", "Very fast", "Year/sec"]
 const MONTH_DAYS := [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 const MONTH_NAMES := ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-const BATTLE_SECONDS_PER_DAY := 15.0
+const BATTLE_SECONDS_PER_DAY := 5.0   # v0.5: a battle occupies about a week of campaign time (was 15 s/day, ~3 days) so nearby armies can reinforce it
 const WATCH_DAYS_PER_SEC := 1.0
 const FOOD_RES := ["grain", "fish", "horses"]
 const POP_CURVE := [[1300.0, 0.06], [1500.0, 0.09], [1800.0, 0.2], [1914.0, 0.42], [1980.0, 0.8], [2030.0, 1.0]]
@@ -57,6 +59,9 @@ var _port_reach := {}             # era -> {pid: [{to, cost, path}]}
 var _neighbors_cache := {}
 var _path_cache := {}
 var defeated := false             # the player's campaign is over (no land and no viable army)
+var spotted := {}                 # army id -> province it was reported heading for (player warnings; saved)
+var offer_block := {}             # "FROM|kind" -> day until which that nation will not repeat the offer (saved)
+var _seen_by_player := {}         # army id -> detected today (derived each day; not saved)
 var _cores := {}                  # code -> [pid] provinces the nation held at the start (recapture targets; derived, not saved)
 const VIABLE_ARMY_MEN := 150.0    # a landless nation fights on while it has an army at least this large
 
@@ -71,12 +76,12 @@ func new_game(player_code: String, year: int, seed: int = 1, doy: int = 0) -> vo
 	era = GameData.era_for_year(year + doy / 365.0)
 	nations.clear(); prov_owner.clear(); nation_provs.clear(); sieges.clear(); armies.clear(); battles.clear()
 	relations.clear(); treaties.clear(); wars.clear(); event_log.clear(); pending_offers.clear()
-	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear()
+	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 	next_army_id = 1; next_battle_id = 1; watching_battle = -1; accum = 0.0
-	defeated = false; _cores.clear()
+	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear(); offer_block.clear()
 	stats = {"wars_declared": 0, "ai_wars": 0, "peace": 0, "ai_peace": 0, "alliances": 0, "ai_alliances": 0, "trades": 0,
 		"ai_trades": 0, "naps": 0, "ai_naps": 0, "gifts": 0, "captures": 0, "battles": 0, "eliminated": 0, "era_changes": 0,
-		"ai_units_bought": 0, "ai_proposals": 0, "ai_rejections": 0, "invasions": 0, "undeclared": 0, "recaptures": 0}
+		"ai_units_bought": 0, "ai_proposals": 0, "ai_rejections": 0, "invasions": 0, "undeclared": 0, "recaptures": 0, "reinforcements": 0}
 	for code in GameData.countries.keys():
 		var c: Dictionary = GameData.countries[code]
 		var major := GameData.majors.has(code)
@@ -160,7 +165,7 @@ func _spawn_army(code: String, pid: int, units: Array) -> int:
 	var id := next_army_id
 	next_army_id += 1
 	armies[id] = {"id": id, "owner": code, "node": pid, "path": [], "progress": 0.0, "units": units, "state": "idle",
-		"battle": -1, "ai_next": day + rng.randi_range(0, 6), "goal": -1, "invade": "", "resume": false, "name": _army_name(code)}
+		"battle": -1, "ai_next": day + rng.randi_range(0, 6), "goal": -1, "invade": "", "resume": false, "reinforce": -1, "name": _army_name(code)}
 	armies_changed.emit()
 	return id
 
@@ -232,6 +237,7 @@ func tick_day() -> void:
 	_step_sieges()
 	if ai_enabled:
 		_ai_military_daily()
+	_scan_detection()
 	if p[2] == 1:
 		_month()
 	day_passed.emit(day)
@@ -241,7 +247,7 @@ func _era_check() -> void:
 	if e > era:
 		era = e
 		stats["era_changes"] += 1
-		_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear()
+		_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 		log_event("A new era dawns: the %s. New equipment can be procured; existing armies keep their old kit until refitted." % GameData.eras[era]["name"], "era", [])
 		era_changed.emit(era)
 
@@ -637,7 +643,7 @@ func declare_war(a: String, b: String, by_ai: bool = false) -> bool:
 		add_relation(a, b, -10.0)
 		log_event("%s formally declares war on %s!" % [nations[a]["name"], nations[b]["name"]], "war", [a, b], by_ai)
 		_call_allies(a, b)
-		_neighbors_cache.clear(); _path_cache.clear()
+		_neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 		hostilities_started.emit(a, b, true)
 		return true
 	var broke_nap := has_treaty(a, b, "nap")
@@ -655,7 +661,7 @@ func declare_war(a: String, b: String, by_ai: bool = false) -> bool:
 				add_relation(a, c, -6.0)
 	log_event("%s declares war on %s!%s" % [nations[a]["name"], nations[b]["name"], " (breaking a non-aggression pact)" if broke_nap else ""], "war", [a, b], by_ai)
 	_call_allies(a, b)
-	_neighbors_cache.clear(); _path_cache.clear()
+	_neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 	hostilities_started.emit(a, b, true)
 	return true
 
@@ -703,7 +709,7 @@ func start_hostilities(a: String, b: String, by_ai: bool = false) -> bool:
 		if c != a and c != b and nations[c]["major"] and nations[c]["alive"]:
 			add_relation(a, c, -4.0)
 	log_event("%s invades %s without a declaration of war!%s" % [nations[a]["name"], nations[b]["name"], " (breaking a non-aggression pact)" if broke_nap else ""], "war", [a, b], by_ai)
-	_neighbors_cache.clear(); _path_cache.clear()
+	_neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 	hostilities_started.emit(a, b, false)
 	return true
 
@@ -723,7 +729,7 @@ func make_peace(a: String, b: String, by_ai: bool = false) -> void:
 		if (s["by"] == a and prov_owner[pid] == b) or (s["by"] == b and prov_owner[pid] == a):
 			sieges.erase(pid)
 	log_event("Peace between %s and %s. Current borders are recognised." % [nations[a]["name"], nations[b]["name"]], "peace", [a, b], by_ai)
-	_path_cache.clear()
+	_path_cache.clear(); _reach_cache.clear()
 
 func war_score(code: String, other: String) -> float:
 	var w: Dictionary = wars.get(_key(code, other), {})
@@ -834,8 +840,19 @@ func propose(a: String, b: String, kind: String, by_ai: bool = false) -> Diction
 		elif auto_respond_player == "decline":
 			add_relation(a, b, -3.0)
 			return {"accepted": false, "eval": ev}
+		# v0.5 diplomatic inbox: one offer per nation and kind; a declined (or lapsed) offer is not repeated for a while
+		var bk := a + "|" + kind
+		if int(offer_block.get(bk, -1)) > day:
+			return {"accepted": false, "throttled": true, "eval": ev}
+		for o in pending_offers:
+			if o["from"] == a and o["kind"] == kind:
+				o["day"] = day; o["eval"] = ev      # the envoy simply presses the same offer again
+				inbox_changed.emit()
+				return {"accepted": false, "pending": true, "eval": ev, "merged": true}
+		offer["urgent"] = is_urgent_offer(offer)
 		pending_offers.append(offer)
 		player_offer.emit(offer)
+		inbox_changed.emit()
 		return {"accepted": false, "pending": true, "eval": ev}
 	var accepted: bool = ev["score"] > 0.0
 	if accepted:
@@ -848,13 +865,63 @@ func propose(a: String, b: String, kind: String, by_ai: bool = false) -> Diction
 			log_event("%s rejects our %s proposal." % [nations[b]["name"], _kind_name(kind)], "diplo", [a, b])
 	return {"accepted": accepted, "eval": ev}
 
-func respond_offer(offer: Dictionary, accept: bool) -> void:
+const OFFER_COOLDOWN := {"trade": 240, "nap": 300, "alliance": 300, "peace": 120}   # days after a refusal
+const OFFER_TTL := 90                                                                # days an unanswered offer stays open
+
+## Peace offers while we are at war, and alliance offers while we are at war, need attention; the rest is routine.
+func is_urgent_offer(o: Dictionary) -> bool:
+	return o["kind"] == "peace" or (o["kind"] == "alliance" and at_war_any(player))
+
+func inbox_counts() -> Dictionary:
+	var u := 0
+	for o in pending_offers:
+		if o.get("urgent", is_urgent_offer(o)):
+			u += 1
+	return {"total": pending_offers.size(), "urgent": u}
+
+func respond_offer(offer: Dictionary, accept: bool, quiet: bool = false) -> void:
 	pending_offers.erase(offer)
+	var a: String = offer["from"]; var b: String = offer["to"]; var kind: String = offer["kind"]
 	if accept:
-		_apply_treaty(offer["from"], offer["to"], offer["kind"], true)
+		# the situation may have changed since the envoy arrived
+		if not nations[a]["alive"] or evaluate(a, b, kind)["score"] <= -900.0:
+			log_event("The %s offered by %s no longer applies." % [_kind_name(kind), nations[a]["name"]], "diplo", [a, b])
+		else:
+			_apply_treaty(a, b, kind, true)
 	else:
-		add_relation(offer["from"], offer["to"], -4.0)
-		log_event("We declined the %s offered by %s." % [_kind_name(offer["kind"]), nations[offer["from"]]["name"]], "diplo", [offer["from"], offer["to"]])
+		add_relation(a, b, -1.0 if quiet else -4.0)
+		offer_block[a + "|" + kind] = day + int(OFFER_COOLDOWN.get(kind, 180))
+		if not quiet:
+			log_event("We declined the %s offered by %s." % [_kind_name(kind), nations[a]["name"]], "diplo", [a, b])
+	inbox_changed.emit()
+
+## Bulk answers from the inbox. `kind` "" = every routine (non-urgent) offer. Dismissing is a polite "not now":
+## a smaller relations cost than declining one by one, and the same cooldown.
+func respond_all(kind: String, accept: bool) -> int:
+	var n := 0
+	for o in pending_offers.duplicate():
+		if (kind == "" and not o.get("urgent", is_urgent_offer(o))) or o["kind"] == kind:
+			respond_offer(o, accept, not accept)
+			n += 1
+	if n > 0 and not accept:
+		log_event("We set aside %d diplomatic proposal%s." % [n, "" if n == 1 else "s"], "diplo", [player])
+	return n
+
+## Monthly: unanswered offers lapse after OFFER_TTL days (and are not repeated straight away).
+func _expire_offers() -> void:
+	var changed := false
+	for o in pending_offers.duplicate():
+		var stale: bool = day - int(o["day"]) > OFFER_TTL or not nations[o["from"]]["alive"] \
+			or evaluate(o["from"], o["to"], o["kind"])["score"] <= -900.0
+		if stale:
+			pending_offers.erase(o)
+			offer_block[o["from"] + "|" + o["kind"]] = day + 60
+			changed = true
+	for k in offer_block.keys():
+		if int(offer_block[k]) <= day:
+			offer_block.erase(k)
+	if changed:
+		inbox_changed.emit()
 
 func _kind_name(kind: String) -> String:
 	return {"trade": "trade agreement", "alliance": "defensive alliance", "nap": "non-aggression pact", "peace": "peace"}.get(kind, kind)
@@ -875,7 +942,7 @@ func _apply_treaty(a: String, b: String, kind: String, by_ai: bool) -> void:
 			log_event("%s and %s sign a ten-year non-aggression pact." % [nations[a]["name"], nations[b]["name"]], "diplo", [a, b], by_ai)
 		"peace":
 			make_peace(a, b, by_ai)
-	_neighbors_cache.clear()
+	_neighbors_cache.clear(); _reach_cache.clear()
 
 func cancel_treaty(a: String, b: String, kind: String) -> void:
 	if kind == "nap":
@@ -883,6 +950,7 @@ func cancel_treaty(a: String, b: String, kind: String) -> void:
 	else:
 		_set_treaty(a, b, kind, false)
 	add_relation(a, b, -15.0)
+	_reach_cache.clear()
 	log_event("%s cancels the %s with %s." % [nations[a]["name"], _kind_name(kind), nations[b]["name"]], "diplo", [a, b], a != player)
 
 func gift(a: String, b: String, amount: float) -> bool:
@@ -1093,6 +1161,7 @@ func order_move(aid: int, to_pid: int) -> Dictionary:
 	a["goal"] = to_pid
 	a["invade"] = ""
 	a["resume"] = false
+	a["reinforce"] = -1
 	if a["state"] == "siege":
 		a["state"] = "idle"
 	armies_changed.emit()
@@ -1159,6 +1228,7 @@ func order_invade(aid: int, to_pid: int, dry_run: bool = false) -> Dictionary:
 	a["goal"] = to_pid
 	a["invade"] = tgt
 	a["resume"] = true      # an invasion presses on to its objective after winning a battle on the way
+	a["reinforce"] = -1
 	if a["state"] == "siege":
 		a["state"] = "idle"
 	stats["invasions"] += 1
@@ -1215,6 +1285,7 @@ func _move_armies() -> void:
 					a["path"] = []; a["progress"] = 0.0; a["goal"] = -1; a["invade"] = ""
 					break
 			a["progress"] -= d
+			a["prev"] = a["node"]      # v0.5: where it came from (the direction it enters a battle)
 			a["node"] = nxt
 			a["path"].pop_front()
 			if a["path"].is_empty():
@@ -1234,6 +1305,11 @@ func armies_in(pid: int) -> Array:
 
 func _check_battle(aid: int, pid: int) -> bool:
 	var a: Dictionary = armies[aid]
+	# v0.5: arriving where a battle is being fought joins it (on our side, or our ally's)
+	var jb := _joinable_battle(a, pid)
+	if jb >= 0:
+		_join_battle(aid, jb)
+		return true
 	var enemies: Array = []
 	for o in armies_in(pid):
 		if o["id"] != aid and at_war(a["owner"], o["owner"]) and o["state"] != "battle":
@@ -1242,6 +1318,123 @@ func _check_battle(aid: int, pid: int) -> bool:
 		return false
 	_start_battle(pid, [aid], enemies)
 	return true
+
+# ======================= mid-battle reinforcements (v0.5) =======================
+const REINFORCE_DEPLOY_S := 4.0   # battle seconds between reaching the field and entering the fighting
+
+## Ongoing battle at `pid` that army `a` can join, and on which side: returns the battle id or -1.
+func _joinable_battle(a: Dictionary, pid: int) -> int:
+	for bid in battles.keys():
+		var b: Dictionary = battles[bid]
+		if b["done"] or b["prov"] != pid:
+			continue
+		if _reinforce_side(a["owner"], b) >= 0:
+			return bid
+	return -1
+
+## Side (0/1) nation `code` would fight on in battle `b`, or -1.
+func _reinforce_side(code: String, b: Dictionary) -> int:
+	for sd in 2:
+		var mine: String = b["codes"][sd]; var theirs: String = b["codes"][1 - sd]
+		if (code == mine or has_treaty(code, mine, "alliance")) and at_war(code, theirs):
+			return sd
+	return -1
+
+## Bearing (degrees) from a province to another node, on the map.
+func _bearing(from: int, to: int) -> float:
+	var a := GameData.node_lonlat(from); var c := GameData.node_lonlat(to)
+	var dx := c.x - a.x
+	if dx > 180.0: dx -= 360.0
+	elif dx < -180.0: dx += 360.0
+	return rad_to_deg(atan2(dx * cos(deg_to_rad((a.y + c.y) * 0.5)), c.y - a.y))
+
+## Which edge of its own side's line an army arriving from `prev` enters by: "rear", "left" or "right".
+## The attacker's line faces the way it came from; the defender's line faces the attacker.
+func _entry_edge(b: Dictionary, sd: int, prev: int) -> String:
+	if prev < 0 or prev == b["prov"]:
+		return "rear"
+	var rear_dir: float = b.get("axis", 0.0) + (0.0 if sd == 0 else 180.0)
+	var delta := fposmod(_bearing(b["prov"], prev) - rear_dir + 180.0, 360.0) - 180.0
+	if absf(delta) <= 50.0:
+		return "rear"
+	return "right" if (delta > 0.0) == (sd == 0) else "left"
+
+## Player / AI order: march army `aid` to battle `bid` and join it on arrival.
+## mode: "direct" (enters by the edge it marches in from and attacks), "flank" (swings round to a flank),
+## "support" (forms up behind our own line and holds).
+func order_reinforce(aid: int, bid: int, mode: String = "direct", dry_run: bool = false) -> Dictionary:
+	if not armies.has(aid) or not battles.has(bid):
+		return {"ok": false, "msg": "No such army or battle"}
+	var a: Dictionary = armies[aid]
+	var b: Dictionary = battles[bid]
+	if b["done"]:
+		return {"ok": false, "msg": "That battle is over"}
+	if a["state"] == "battle":
+		return {"ok": false, "msg": "Army is fighting"}
+	var sd := _reinforce_side(a["owner"], b)
+	if sd < 0:
+		return {"ok": false, "msg": "We are not part of that battle"}
+	var pid: int = b["prov"]
+	var path := find_path(a["owner"], a["node"], pid) if a["node"] != pid else []
+	if path.is_empty() and a["node"] != pid:
+		return {"ok": false, "msg": _no_route_msg(a, pid, "")}
+	var days := est_days(a, path) if not path.is_empty() else 0
+	if dry_run:
+		return {"ok": true, "days": days, "side": sd}
+	a["path"] = path; a["progress"] = 0.0; a["goal"] = pid
+	a["invade"] = ""; a["resume"] = false
+	a["reinforce"] = bid; a["rmode"] = mode
+	if a["state"] == "siege":
+		a["state"] = "idle"
+	if a["node"] == pid:
+		_join_battle(aid, bid)
+	if a["owner"] == player:
+		log_event("%s marches to reinforce the battle of %s (~%d days)." % [a["name"], GameData.provinces[pid]["name"], days], "battle", [a["owner"]])
+	armies_changed.emit()
+	return {"ok": true, "days": days, "side": sd}
+
+## The army has reached the battlefield: schedule it into the fight at the battle time matching its arrival day.
+func _join_battle(aid: int, bid: int) -> void:
+	var a: Dictionary = armies[aid]
+	var b: Dictionary = battles[bid]
+	var sd := _reinforce_side(a["owner"], b)
+	if sd < 0 or b["done"]:
+		return
+	var mode: String = a.get("rmode", "direct") if a.get("reinforce", -1) == bid else "direct"
+	var edge := "rear" if mode == "support" else _entry_edge(b, sd, int(a.get("prev", -1)))
+	if mode == "flank" and edge == "rear":
+		edge = "left" if aid % 2 == 0 else "right"
+	var obj := "hold" if mode == "support" else ("assault" if b["orders"][sd].get("objective", "") == "hold" and sd == 0 else "")
+	var units: Array = []
+	for i in a["units"].size():
+		var u: Dictionary = a["units"][i]
+		if u["men"] >= 1.0:
+			units.append({"army_id": aid, "unit_index": i, "type": u["type"], "men": u["men"]})
+	a["state"] = "battle"; a["battle"] = bid; a["path"] = []; a["progress"] = 0.0
+	a["reinforce"] = -1; a["goal"] = -1
+	b["armies"][sd].append(aid)
+	if b["sim"] == null:
+		# still deploying: the army simply fights from the start
+		b["units"][sd].append_array(units)
+	else:
+		var at_t := float(day - int(b["start_day"])) * BATTLE_SECONDS_PER_DAY + REINFORCE_DEPLOY_S
+		b["sim"].add_reinforcements(sd, units, at_t, edge, obj)
+		b["reinforced"] = b.get("reinforced", 0) + 1
+	stats["reinforcements"] = stats.get("reinforcements", 0) + 1
+	var who: String = a["name"]
+	if a["owner"] != player:
+		who = "%s's %s" % [nations[a["owner"]]["name"], a["name"]]
+	var where: String = {"left": " on the left flank", "right": " on the right flank", "rear": ""}[edge]
+	log_event("%s joins the battle of %s%s." % [who, GameData.provinces[b["prov"]]["name"], where], "battle", [a["owner"]], a["owner"] != player)
+	armies_changed.emit()
+
+## AI: when a battle starts, nearby armies of both sides (and allies) think again today instead of in a week.
+func _wake_nearby(b: Dictionary) -> void:
+	for o in armies.values():
+		if o["state"] == "battle" or o["owner"] == player:
+			continue
+		if _reinforce_side(o["owner"], b) >= 0 and GameData.node_km(o["node"], b["prov"]) < army_speed(o) * 6.0:
+			o["ai_next"] = mini(int(o["ai_next"]), day)
 
 # ======================= battles =======================
 func _start_battle(pid: int, att: Array, def: Array) -> int:
@@ -1276,8 +1469,10 @@ func _start_battle(pid: int, att: Array, def: Array) -> int:
 	var b := {"id": bid, "prov": pid, "armies": [att, def], "codes": [att_code, def_code], "units": sides, "terrain": terr,
 		"sim": null, "watched": false, "awaiting": false, "player_side": player_side, "start_day": day, "done": false,
 		"orders": [BattleSim.ai_orders(sides[0], sides[1], false, terr), BattleSim.ai_orders(sides[1], sides[0], true, terr)],
-		"seed": int(hash(str(bid) + str(day) + str(pid)) & 0x7fffffff)}
+		"seed": int(hash(str(bid) + str(day) + str(pid)) & 0x7fffffff),
+		"axis": _bearing(pid, int(armies[att[0]].get("prev", pid))) if int(armies[att[0]].get("prev", pid)) != pid else 0.0}
 	battles[bid] = b
+	_wake_nearby(b)
 	stats["battles"] += 1
 	if player_side >= 0 and not auto_deploy:
 		b["awaiting"] = true
@@ -1345,6 +1540,15 @@ func _resolve_battle(b: Dictionary) -> void:
 	b["done"] = true
 	var s: BattleSim = b["sim"]
 	var res := s.result()
+	# v0.5: reinforcements still on the way when the battle ended never fought: they stay out of its outcome
+	var late: Dictionary = s.pending_armies()
+	for sd in 2:
+		for id in late.keys():
+			b["armies"][sd].erase(id)
+	for id in late.keys():
+		if armies.has(id):
+			armies[id]["state"] = "idle"; armies[id]["battle"] = -1
+	b["late"] = late.keys()
 	var regs := s.regs
 	for i in regs.size():
 		var r: Dictionary = regs[i]
@@ -1420,6 +1624,10 @@ func _resolve_battle(b: Dictionary) -> void:
 	battle_resolved.emit(b["id"], res)
 	var bid: int = b["id"]
 	_check_landless()
+	# late arrivals still facing an enemy in the province start a fresh engagement
+	for id in late.keys():
+		if armies.has(id) and armies[id]["state"] == "idle" and armies[id]["node"] == pid:
+			_check_battle(id, pid)
 	# keep finished battles briefly for UI/tests; prune old ones
 	for k in battles.keys():
 		if battles[k]["done"] and day - int(battles[k]["start_day"]) > 30 and k != bid:
@@ -1495,7 +1703,7 @@ func transfer_province(pid: int, new_owner: String) -> void:
 	if recapture:
 		stats["recaptures"] += 1
 	_add_war_score(new_owner, old, 15.0 if nations[old]["capital"] == pid else 8.0)
-	_neighbors_cache.clear(); _path_cache.clear()
+	_neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 	log_event("%s %s %s from %s." % [nations[new_owner]["name"], "recaptures" if recapture else "captures", GameData.provinces[pid]["name"], nations[old]["name"]], "capture", [new_owner, old], new_owner != player)
 	# a nation that had lost all its land gets a seat of government back
 	if not nation_provs[new_owner].has(nations[new_owner]["capital"]):
@@ -1565,6 +1773,7 @@ func _eliminate(code: String, by: String) -> void:
 # ======================= monthly =======================
 func _month() -> void:
 	_check_landless()
+	_expire_offers()
 	var ctx := _economy_ctx()
 	for code in nations.keys():
 		if nations[code]["alive"]:
@@ -1670,7 +1879,7 @@ func _ai_diplomacy(code: String) -> void:
 	var st_tab := _strength_table()
 	var al_tab := _alliance_table()
 	var my_s: float = st_tab.get(code, 0.0)
-	var best := ""; var best_v := 0.0
+	var cands: Array = []   # [value, code, strength ratio]
 	for t in neighbors_of(code):
 		if not nations[t]["alive"] or not can_declare_war(code, t)["ok"] or has_treaty(code, t, "nap"):
 			continue
@@ -1685,9 +1894,33 @@ func _ai_diplomacy(code: String) -> void:
 		var v := ratio * 10.0 - rel * 0.3 + (8.0 if not nations[t]["major"] else 0.0)
 		if t == player:
 			v += 2.0
-		if ratio > 1.8 and rel < 10.0 and v > best_v:
+		if ratio > 1.8 and rel < 10.0 and v > 0.0:
+			cands.append([v, t, ratio])
+	if cands.is_empty() or rng.randf() >= n["aggression"] * 0.045:
+		return
+	# v0.5 geographic relevance (only evaluated once a war is actually on the table): our armies must be able
+	# to get there. Border wars are preferred; an overseas war needs a short crossing and a clear strength edge.
+	var mkd := float(GameData.eras[era]["move_km_day"])
+	var best := ""; var best_v := 0.0
+	for c in cands:
+		var t: String = c[1]
+		var crow := GameData.km_between(GameData.node_lonlat(n["capital"]), GameData.node_lonlat(nations[t]["capital"]))
+		if crow / 2.2 / mkd > AI_MAX_CAMPAIGN_DAYS:
+			continue    # even by the fastest sea route it is out of reach
+		var border := _shares_border(code, t)
+		var reach := crow / mkd
+		if not border:
+			var rm := _reach_map(code, n["capital"], AI_MAX_CAMPAIGN_DAYS * mkd, t)
+			var tc: int = nations[t]["capital"]
+			if not rm.has(tc):
+				continue
+			reach = rm[tc][0] / mkd
+			if reach > AI_CAMPAIGN_DAYS or c[2] < 2.5:
+				continue
+		var v: float = c[0] + (6.0 if border else 0.0) - minf(reach, AI_MAX_CAMPAIGN_DAYS) / 10.0
+		if v > best_v:
 			best_v = v; best = t
-	if best != "" and rng.randf() < n["aggression"] * 0.045:
+	if best != "":
 		declare_war(code, best, true)
 
 func _ai_military_daily() -> void:
@@ -1728,47 +1961,403 @@ func _ai_military_daily() -> void:
 			continue
 		if not a["path"].is_empty() or a["state"] == "siege":
 			continue
-		# defend: enemy armies inside our land
-		var target := -1; var best := 1e18
-		for o in armies.values():
-			if o["node"] >= GameData.SEA_NODE or not at_war(code, o["owner"]):
-				continue
-			if prov_owner.get(o["node"], "") == code and army_strength(o) < my_s * 1.25:
-				var d := GameData.node_km(a["node"], o["node"])
-				if d < best:
-					best = d; target = o["node"]
-		if target < 0:
-			# counterattack: win back our own provinces held by an enemy (majors and minors alike)
-			for pid in cores_of(code):
-				var po: String = prov_owner.get(pid, "")
-				if po == code or po == "" or not at_war(code, po):
-					continue
-				var danger := 0.0
-				for o in armies_in(pid):
-					if at_war(code, o["owner"]):
-						danger += army_strength(o)
-				if danger > my_s * 1.1:
-					continue
-				var d := GameData.node_km(a["node"], pid) * 0.6
-				if d < best:
-					best = d; target = pid
-		if target < 0 and n["major"]:
-			# attack: nearest enemy province that is not defended by a much stronger army
-			for e in enemies:
-				for pid in nation_provs[e]:
-					var danger := 0.0
-					for o in armies_in(pid):
-						if at_war(code, o["owner"]):
-							danger += army_strength(o)
-					if danger > my_s * 1.1:
-						continue
-					var d := GameData.node_km(a["node"], pid) * (0.7 if nations[e]["capital"] == pid else 1.0)
-					if d < best:
-						best = d; target = pid
-		if target < 0 and not n["major"] and a["node"] != n["capital"]:
-			target = n["capital"]
+		if a.get("reinforce", -1) >= 0:
+			continue
+		var decision := _ai_war_decision(aid, a, my_s, enemies)
+		var target: int = decision["target"]
 		if target >= 0 and target != a["node"]:
 			order_move(aid, target)
+
+## v0.5 strategic AI: every order an AI army gets in wartime is scored, not "nearest enemy province".
+## Order of business: (1) beat enemy armies inside our land, (2) keep enough at home to meet any enemy
+## army threatening it, (3) rest a battered army, (4) campaign: the best-value target we can reach,
+## weighing travel time (overseas crossings cost more), the defenders around it, its worth (capital,
+## population, our lost provinces, adjacency to our land) and the risk of a far-away front.
+func _ai_war_decision(aid: int, a: Dictionary, my_s: float, enemies: Array) -> Dictionary:
+	var code: String = a["owner"]
+	var n: Dictionary = nations[code]
+	# 0) an ongoing battle of ours (or an ally's) close enough to reach in time: march to it (same order as the player)
+	var rb := -1; var rd := 1e18
+	for bid in battles.keys():
+		var b: Dictionary = battles[bid]
+		if b["done"] or _reinforce_side(code, b) < 0:
+			continue
+		var km := GameData.node_km(a["node"], b["prov"])
+		if km < army_speed(a) * 6.0 and km < rd:     # about as long as a battle lasts on the campaign map
+			rd = km; rb = bid
+	if rb >= 0:
+		var r := order_reinforce(aid, rb, "direct")
+		if r["ok"]:
+			return {"target": -1, "why": "reinforce"}
+	# 1) defend: enemy armies inside our land that we can take on
+	var target := -1; var best := 1e18
+	for o in armies.values():
+		if o["node"] >= GameData.SEA_NODE or not at_war(code, o["owner"]):
+			continue
+		if prov_owner.get(o["node"], "") == code and army_strength(o) < my_s * 1.25:
+			var d := GameData.node_km(a["node"], o["node"])
+			if d < best:
+				best = d; target = o["node"]
+	if target >= 0:
+		return {"target": target, "why": "defend"}
+	# 2) home defence: the threat to our land (enemy armies within reach of it) against what stays home
+	var threat := _home_threat(code)
+	var home_s := 0.0
+	for o in armies.values():
+		if o["owner"] == code and o["id"] != aid and o["path"].is_empty() and prov_owner.get(o["node"], "") == code:
+			home_s += army_strength(o)
+	var must_guard: bool = threat["strength"] > home_s * 1.1 and not nation_provs[code].is_empty()
+	# 3) readiness: an army that has lost half its men does not start new offensives
+	var ready := _readiness(a)
+	# 4) campaign
+	var camp := {}
+	if ready >= AI_MIN_READINESS:
+		camp = _best_campaign(aid, a, my_s, enemies, n["major"])
+	if must_guard:
+		# a short counterattack is fine (we can be back in time); a far expedition is not
+		if not camp.is_empty() and camp["days"] <= AI_GUARD_DAYS:
+			return {"target": camp["pid"], "why": "nearby attack while guarding"}
+		var guard: int = threat["pid"] if threat["pid"] >= 0 else n["capital"]
+		return {"target": guard, "why": "guard home"}
+	if not camp.is_empty():
+		return {"target": camp["pid"], "why": "campaign", "score": camp["score"]}
+	if prov_owner.get(a["node"], "") != code and not nation_provs[code].is_empty():
+		return {"target": n["capital"], "why": "regroup" if ready < AI_MIN_READINESS else "no worthwhile target"}
+	return {"target": -1, "why": "hold"}
+
+const AI_CAMPAIGN_DAYS := 45.0       # a normal campaign: reachable within about six weeks
+const AI_MAX_CAMPAIGN_DAYS := 100.0  # beyond this no target is worth it
+const AI_GUARD_DAYS := 15.0          # an army needed at home only strikes this close
+const AI_MIN_READINESS := 0.5        # men / establishment below which no new offensive starts
+const AI_THREAT_KM := 700.0          # enemy armies this close to our land count as a threat
+
+func _readiness(a: Dictionary) -> float:
+	var m := 0.0; var mx := 0.0
+	for u in a["units"]:
+		m += u["men"]; mx += u["max"]
+	return m / maxf(mx, 1.0)
+
+## Strength of enemy armies inside or near our land, and the province they threaten most.
+func _home_threat(code: String) -> Dictionary:
+	var s := 0.0; var pid := -1; var worst := 0.0
+	var cap: int = nations[code]["capital"]
+	for o in armies.values():
+		if not at_war(code, o["owner"]):
+			continue
+		var on := int(o["node"])
+		var near := false
+		if on < GameData.SEA_NODE and prov_owner.get(on, "") == code:
+			near = true
+		elif GameData.node_km(on, cap) < AI_THREAT_KM:
+			near = true
+		elif o["goal"] >= 0 and prov_owner.get(o["goal"], "") == code and GameData.node_km(on, o["goal"]) < AI_THREAT_KM * 1.5:
+			near = true
+		if near:
+			var st := army_strength(o)
+			s += st
+			if st > worst:
+				worst = st
+				var g: int = o["goal"]
+				pid = g if g >= 0 and prov_owner.get(g, "") == code else cap
+	return {"strength": s, "pid": pid}
+
+## Route costs (km-equivalent: a sea leg counts at 1/2.2 of its length) from `from` to every province the
+## nation's armies may enter, up to `max_km`. Value per province: [cost, needs_sea_transport].
+## Cached until borders, wars or alliances change (every place that clears _path_cache clears it too).
+var _reach_cache := {}
+func _reach_map(code: String, from: int, max_km: float, invading: String = "", targets: Dictionary = {}) -> Dictionary:
+	var ck := "%s|%d|%d|%s|%d" % [code, from, int(max_km), invading, targets.hash()]
+	if _reach_cache.has(ck):
+		return _reach_cache[ck]
+	if _reach_cache.size() > 256:
+		_reach_cache.clear()
+	var out := {}
+	var start := from
+	var dist := {}
+	var sea0 := false
+	if from >= GameData.SEA_NODE:
+		# at sea: start from the nearest port we may use
+		var z: Dictionary = GameData.seazones[from - GameData.SEA_NODE]
+		var bd := 1e18
+		for port in z["ports"]:
+			var dk := GameData.node_km(from, port)
+			if dk < bd and passable(code, port, invading):
+				bd = dk; start = port
+		if start == from:
+			_reach_cache[ck] = out
+			return out
+		sea0 = true
+	var ports := _ports()
+	var left := targets.size()
+	dist[start] = [0.0, sea0]
+	var heap := [[0.0, start]]
+	while not heap.is_empty():
+		var top: Array = _heap_pop(heap)
+		var u: int = top[1]
+		var du: Array = dist[u]
+		if top[0] > du[0]:
+			continue
+		if top[0] > max_km:
+			break
+		out[u] = du
+		if not targets.is_empty() and targets.has(u):
+			left -= 1
+			if left <= 0:
+				break    # every province we asked about has been reached
+		for nb in GameData.provinces[u]["neighbors"].keys():
+			if not passable(code, nb, invading):
+				continue
+			var nd: float = du[0] + GameData.node_km(u, nb)
+			if nd < dist.get(nb, [1e18])[0]:
+				dist[nb] = [nd, du[1]]
+				_heap_push(heap, [nd, nb])
+		for r in ports.get(u, []):
+			var v: int = r["to"]
+			if not passable(code, v, invading):
+				continue
+			var nd2: float = du[0] + (r["cost"] - 150.0) / 0.8 / 2.2 + 30.0   # sea distance at sea speed + embarking
+			if nd2 < dist.get(v, [1e18])[0]:
+				dist[v] = [nd2, true]
+				_heap_push(heap, [nd2, v])
+	_reach_cache[ck] = out
+	return out
+
+## Campaign travel time from `from` to `to` (days, -1 when there is no route).
+func _campaign_days(code: String, from: int, to: int, invading: String = "") -> float:
+	var path := find_path(code, from, to, invading)
+	if path.is_empty():
+		return -1.0
+	var land := 0.0; var sea := 0.0
+	var last := from
+	for nd in path:
+		var km := GameData.node_km(last, nd)
+		if last >= GameData.SEA_NODE:
+			sea += km
+		else:
+			land += km
+		last = nd
+	return (land + sea / 2.2) / float(GameData.eras[era]["move_km_day"])
+
+## Best offensive target for an AI army, or {} when nothing is worth the risk.
+func _best_campaign(aid: int, a: Dictionary, my_s: float, enemies: Array, major: bool) -> Dictionary:
+	var code: String = a["owner"]
+	var cands := {}
+	for pid in cores_of(code):
+		var po: String = prov_owner.get(pid, "")
+		if po != "" and po != code and at_war(code, po):
+			cands[pid] = true
+	if major:
+		for e in enemies:
+			for pid in nation_provs[e]:
+				cands[pid] = true
+	if cands.is_empty():
+		return {}
+	# one bounded route search from the army gives travel time to every candidate (and whether it needs ships)
+	var speed := army_speed(a)
+	var max_km := AI_MAX_CAMPAIGN_DAYS * speed
+	var near := {}
+	for pid in cands.keys():
+		if GameData.node_km(a["node"], pid) / 2.2 <= max_km:
+			near[pid] = true
+	if near.is_empty():
+		return {}
+	cands = near
+	var reach := _reach_map(code, int(a["node"]), max_km, "", cands)
+	var foes: Array = []
+	for o in armies.values():
+		if at_war(code, o["owner"]) and o["node"] < GameData.SEA_NODE:
+			foes.append([int(o["node"]), army_strength(o)])
+	var best := {}; var best_score := 0.0
+	for pid in cands.keys():
+		if not reach.has(pid):
+			continue
+		var days: float = reach[pid][0] / speed
+		var overseas: bool = reach[pid][1]
+		# estimated cost: enemy armies at or around the objective, plus the garrison
+		var danger := 0.0
+		for f in foes:
+			if GameData.node_km(f[0], pid) < 350.0:
+				danger += f[1]
+		var gar := garrison(pid) * 40.0
+		if my_s < (danger + gar) * 1.3:
+			continue
+		var po: String = prov_owner[pid]
+		var value := 10.0 + clampf(prov_pop(pid) / 1.0e6, 0.0, 10.0) * 2.0
+		if nations[po]["capital"] == pid:
+			value += 12.0
+		if cores_of(code).has(pid):
+			value += 25.0
+		var adjacent := false
+		for nb in GameData.provinces[pid]["neighbors"].keys():
+			if prov_owner.get(nb, "") == code:
+				adjacent = true
+				break
+		if adjacent:
+			value += 10.0
+		if nation_provs[po].size() <= 2:
+			value += 6.0
+		# cost: time on the road, an overseas expedition, and how contested the objective is
+		var cost := days + (20.0 if overseas else 0.0) + danger / maxf(my_s, 1.0) * 30.0
+		if days > AI_CAMPAIGN_DAYS:
+			cost += (days - AI_CAMPAIGN_DAYS) * 1.5   # a far front needs a much better reason
+		var score := value / (cost + 10.0)
+		if score > best_score:
+			best_score = score
+			best = {"pid": pid, "days": days, "score": score, "overseas": overseas}
+	if best.is_empty() or best_score < 0.12:
+		return {}
+	return best
+
+
+# ======================= detection / invasion warnings (v0.5) =======================
+## Era-appropriate detection: watch posts, scouts and observers (medieval, pike & shot), cavalry screens
+## and coastal observation (1800s), reconnaissance (1914) and radar (modern). Range in km around every
+## province a nation holds and every army it fields; at sea the range is scaled (little before coastal
+## observation, more with radar).
+const DETECT_KM := {"medieval": 60.0, "early_modern": 110.0, "c19": 180.0, "c20": 350.0, "modern": 900.0}
+const DETECT_SEA := {"medieval": 0.5, "early_modern": 0.6, "c19": 1.0, "c20": 1.2, "modern": 1.5}
+const DETECT_NAMES := {"medieval": "Scouts and watch posts", "early_modern": "Scouts", "c19": "Pickets and coastal observers",
+	"c20": "Reconnaissance", "modern": "Radar"}
+var _prov_r := {}
+
+func detect_range(at_sea: bool = false) -> float:
+	var eid: String = GameData.eras[era]["id"]
+	return float(DETECT_KM.get(eid, 150.0)) * (float(DETECT_SEA.get(eid, 1.0)) if at_sea else 1.0)
+
+## Rough radius of a province (half the typical distance to its neighbours): watch posts cover its edges too.
+func _province_radius(pid: int) -> float:
+	if _prov_r.has(pid):
+		return _prov_r[pid]
+	var ds: Array = []
+	for nb in GameData.provinces[pid]["neighbors"].keys():
+		ds.append(GameData.node_km(pid, nb))
+	ds.sort()
+	var r := 0.0 if ds.is_empty() else clampf(float(ds[ds.size() / 2]) * 0.5, 0.0, 400.0)
+	_prov_r[pid] = r
+	return r
+
+## Can `code` see army `a` right now?
+func detects(code: String, a: Dictionary) -> bool:
+	if a["owner"] == code or is_friendly(code, a["owner"]):
+		return true
+	var pos := army_pos_lonlat(a)
+	var at_sea: bool = a["node"] >= GameData.SEA_NODE
+	var r := detect_range(at_sea)
+	if not at_sea and prov_owner.get(a["node"], "") == code:
+		return true      # on our soil
+	for pid in nation_provs.get(code, []):
+		if GameData.km_between(GameData.node_lonlat(pid), pos) < r + _province_radius(pid):
+			return true
+	for o in armies.values():
+		if o["owner"] == code and GameData.km_between(army_pos_lonlat(o), pos) < r:
+			return true
+	return false
+
+## Armies that concern the player: at war with us, or carrying an invasion order against us.
+func _threatens_player(a: Dictionary) -> bool:
+	var o: String = a["owner"]
+	if o == player or is_friendly(player, o):
+		return false
+	if at_war(o, player) or a.get("invade", "") == player:
+		return true
+	var g: int = a.get("goal", -1)
+	return g >= 0 and prov_owner.get(g, "") == player
+
+## Map / panel rule: an army threatening the player is only shown while detected.
+func hidden_from_player(a: Dictionary) -> bool:
+	if not _threatens_player(a):
+		return false
+	var v = _seen_by_player.get(a["id"])
+	if v == null:
+		v = detects(player, a)
+		_seen_by_player[a["id"]] = v
+	return not v
+
+## Daily: refresh what the player can see; warn once per army and objective as an approaching force is spotted.
+func _scan_detection() -> void:
+	_seen_by_player.clear()
+	if not nations.has(player) or not nations[player]["alive"]:
+		return
+	for aid in spotted.keys().duplicate():
+		if not armies.has(aid):
+			spotted.erase(aid)
+	for a in armies.values():
+		if not _threatens_player(a):
+			continue
+		var seen := detects(player, a)
+		_seen_by_player[a["id"]] = seen
+		if not seen or a["state"] == "battle":
+			continue
+		# where is it heading? its objective if that is our land, otherwise our province it is in or about to enter
+		var goal: int = a.get("goal", -1)
+		var tgt := -1
+		if goal >= 0 and prov_owner.get(goal, "") == player:
+			tgt = goal
+		elif a["node"] < GameData.SEA_NODE and prov_owner.get(a["node"], "") == player:
+			tgt = a["node"]
+		elif not a["path"].is_empty() and prov_owner.get(int(a["path"][0]), "") == player:
+			tgt = int(a["path"][0])
+		if tgt < 0:
+			continue
+		if spotted.get(a["id"], -1) == tgt:
+			continue
+		spotted[a["id"]] = tgt
+		_warn(a, tgt)
+
+func _approx_men(men: float) -> String:
+	var eid: String = GameData.eras[era]["id"]
+	var step: float = {"medieval": 1000.0, "early_modern": 1000.0, "c19": 500.0, "c20": 500.0, "modern": 100.0}.get(eid, 500.0)
+	var v := maxf(step, round(men / step) * step)
+	return ("about %s" if eid in ["medieval", "early_modern"] else "roughly %s") % _thousands(v)
+
+static func _thousands(v: float) -> String:
+	var n := int(v)
+	var t := str(n)
+	if n >= 1000:
+		t = "%d,%03d" % [n / 1000, n % 1000]
+	return t
+
+func _warn(a: Dictionary, tgt: int) -> void:
+	var path: Array = a["path"]
+	var eta := -1
+	if not path.is_empty() and path.has(tgt):
+		# remaining travel: the legs up to the objective, less what is already covered on the current leg
+		var km := 0.0; var sea_km := 0.0
+		var last: int = a["node"]
+		for nd in path.slice(0, path.find(tgt) + 1):
+			var k := GameData.node_km(last, nd)
+			if last >= GameData.SEA_NODE:
+				sea_km += k
+			else:
+				km += k
+			last = nd
+		var done_km: float = a["progress"]
+		if a["node"] >= GameData.SEA_NODE:
+			sea_km = maxf(sea_km - done_km, 0.0)
+		else:
+			km = maxf(km - done_km, 0.0)
+		eta = maxi(1, int(ceil((km + sea_km / 2.2) / army_speed(a))))
+	elif a["node"] == tgt:
+		eta = 0
+	var ours := 0.0
+	for o in armies.values():
+		if o["owner"] == player and o["node"] < GameData.SEA_NODE and GameData.node_km(o["node"], tgt) < 250.0:
+			ours += army_men(o)
+	var men := army_men(a)
+	var eid: String = GameData.eras[era]["id"]
+	var who: String = nations[a["owner"]]["name"]
+	var how := "at sea" if a["node"] >= GameData.SEA_NODE else ("inside our borders" if prov_owner.get(a["node"], "") == player else "on the march")
+	var undeclared: bool = not at_war(a["owner"], player)
+	var text := "%s report: %s army of %s men %s, heading for %s%s." % [DETECT_NAMES.get(eid, "Scouts"), who, _approx_men(men), how,
+		GameData.provinces[tgt]["name"], (" — arrival in about %d days" % eta) if eta > 0 else (" — it is there now" if eta == 0 else "")]
+	if undeclared:
+		text += " No war has been declared."
+	if ours < men * 0.8:
+		text += " Our forces nearby are outnumbered (%s men)." % _thousands(ours)
+	var w := {"army": a["id"], "owner": a["owner"], "province": tgt, "men": men, "approx": _approx_men(men), "eta": eta,
+		"day": day, "undeclared": undeclared, "ours": ours, "text": text}
+	log_event(text, "warning", [player, a["owner"]])
+	invasion_warning.emit(w)
 
 # ======================= log =======================
 func log_event(text: String, kind: String = "info", codes: Array = [], by_ai: bool = false) -> void:
@@ -1793,7 +2382,7 @@ const SAVE_VERSION := 1
 const SAVE_DIR := "user://saves"
 const SAVE_FIELDS := ["speed_idx", "day", "start_year", "start_doy", "era", "player", "nations", "prov_owner", "nation_provs",
 	"sieges", "armies", "next_army_id", "battles", "next_battle_id", "relations", "treaties", "wars", "event_log", "accum",
-	"stats", "pending_offers", "ai_enabled", "slow_during_watch", "defeated"]
+	"stats", "pending_offers", "ai_enabled", "slow_during_watch", "defeated", "spotted", "offer_block"]
 signal game_loaded
 
 ## Full campaign state as plain Variants (no objects). Battle sims are converted with BattleSim.to_dict().
@@ -1820,7 +2409,7 @@ func serialize_state() -> Dictionary:
 
 func apply_state(d: Dictionary) -> void:
 	GameData.load_all()
-	defeated = false; _cores.clear()
+	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear(); offer_block.clear()
 	for f in SAVE_FIELDS:
 		if f == "battles" or not d.has(f):
 			continue
@@ -1834,7 +2423,7 @@ func apply_state(d: Dictionary) -> void:
 		battles[bid] = c
 	rng.seed = d["rng_seed"]
 	rng.state = d["rng_state"]
-	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear()
+	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 	# A battle that was being watched continues off-screen after loading (no 3D view is open).
 	watching_battle = -1
 	for b in battles.values():
@@ -1848,12 +2437,26 @@ func apply_state(d: Dictionary) -> void:
 			a["invade"] = ""
 		if not a.has("resume"):
 			a["resume"] = false
+		if not a.has("reinforce"):
+			a["reinforce"] = -1
 	for w in wars.values():
 		if not w.has("declared"):
 			w["declared"] = true
-	for k in ["invasions", "undeclared", "recaptures"]:
+	for k in ["invasions", "undeclared", "recaptures", "reinforcements"]:
 		if not stats.has(k):
 			stats[k] = 0
+	if not d.has("spotted"):
+		spotted = {}
+	if not d.has("offer_block"):
+		offer_block = {}
+	# older saves could hold the same offer several times: keep one per nation and kind
+	var uniq := {}; var kept: Array = []
+	for o in pending_offers:
+		var k: String = o["from"] + "|" + o["kind"]
+		if not uniq.has(k):
+			uniq[k] = true; kept.append(o)
+	pending_offers = kept
+	_seen_by_player.clear()
 	running = not defeated
 	game_loaded.emit()
 

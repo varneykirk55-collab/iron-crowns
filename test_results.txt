@@ -1,20 +1,20 @@
 {
   "failed": 0,
   "godot": "4.7.2-stable (official)",
-  "passed": 163,
+  "passed": 205,
   "results": [
     {
-      "detail": "durations=[42.5, 44.1, 43.7, 41.2, 44.9, 35.6, 46.0, 41.4] wins(att,def)=[6, 2]",
+      "detail": "durations=[40.3, 37.0, 41.1, 41.9, 44.9, 40.7, 37.9, 36.7] wins(att,def)=[8, 0]",
       "pass": true,
-      "test": "battle duration medieval mean 42.4s (target 25-50s)"
+      "test": "battle duration medieval mean 40.1s (target 25-50s)"
     },
     {
-      "detail": "durations=[41.6, 42.2, 33.9, 36.6, 43.9, 36.2, 42.4, 47.8] wins(att,def)=[4, 4]",
+      "detail": "durations=[41.6, 41.2, 42.2, 41.8, 43.0, 39.8, 36.5, 42.8] wins(att,def)=[7, 1]",
       "pass": true,
-      "test": "battle duration early_modern mean 40.6s (target 25-50s)"
+      "test": "battle duration early_modern mean 41.1s (target 25-50s)"
     },
     {
-      "detail": "durations=[40.4, 42.8, 29.0, 31.9, 41.1, 27.9, 39.4, 40.0] wins(att,def)=[4, 4]",
+      "detail": "durations=[40.4, 39.1, 29.0, 35.7, 41.1, 31.2, 36.1, 40.1] wins(att,def)=[6, 2]",
       "pass": true,
       "test": "battle duration c19 mean 36.6s (target 25-50s)"
     },
@@ -74,12 +74,12 @@
       "test": "USA: order army to enemy capital Ontario"
     },
     {
-      "detail": "[winner side 1, 10s, losses 300/2] ",
+      "detail": "[winner side 0, 36s, losses 1818/1947] ",
       "pass": true,
       "test": "USA: a battle was triggered and resolved by the battle model"
     },
     {
-      "detail": "captured [\"Ontario\", \"Michigan\", \"Wisconsin\", \"Minnesota\", \"Ontario\"] by 29 Nov 1800; provinces 53 -> 51",
+      "detail": "captured [\"Ontario\"] by 17 Jun 1800; provinces 53 -> 51",
       "pass": true,
       "test": "USA: territory changed hands via siege"
     },
@@ -89,22 +89,22 @@
       "test": "USA: ownership table reflects capture"
     },
     {
-      "detail": "trade 336, alliance 9, NAP 44, proposals 448, rejections 49",
+      "detail": "trade 362, alliance 8, NAP 28, proposals 464, rejections 42",
       "pass": true,
       "test": "USA: AI nations negotiate (trade/alliance/NAP)"
     },
     {
-      "detail": "AI wars 31, AI peace 1, captures total 93, nations eliminated 27",
+      "detail": "AI wars 18, AI peace 4, captures total 20, nations eliminated 15",
       "pass": true,
       "test": "USA: AI nations declare war / make peace"
     },
     {
-      "detail": "773 units bought by AI",
+      "detail": "757 units bought by AI",
       "pass": true,
       "test": "USA: AI nations recruit armies"
     },
     {
-      "detail": "22 AI majors gained provinces",
+      "detail": "13 AI majors gained provinces",
       "pass": true,
       "test": "USA: AI majors expand territory"
     },
@@ -144,12 +144,12 @@
       "test": "SWE: order army to enemy capital Oslo"
     },
     {
-      "detail": "[winner side 0, 29s, losses 481/1352] ",
+      "detail": "[winner side 0, 29s, losses 467/1362] ",
       "pass": true,
       "test": "SWE: a battle was triggered and resolved by the battle model"
     },
     {
-      "detail": "captured [\"Oslo\", \"Sundsvall\", \"Stockholm\", \"Sundsvall\", \"Western Sweden\", \"Northeastern Sweden\", \"Northern Sweden\", \"Luleå\", \"Northeastern Sweden II\", \"Tromsø\"] by 25 Feb 1801; provinces 8 -> 4",
+      "detail": "captured [\"Oslo\", \"Western Sweden\", \"Northeastern Sweden\"] by 8 Jul 1800; provinces 8 -> 8",
       "pass": true,
       "test": "SWE: territory changed hands via siege"
     },
@@ -159,22 +159,22 @@
       "test": "SWE: ownership table reflects capture"
     },
     {
-      "detail": "trade 340, alliance 7, NAP 30, proposals 455, rejections 63",
+      "detail": "trade 379, alliance 4, NAP 30, proposals 486, rejections 50",
       "pass": true,
       "test": "SWE: AI nations negotiate (trade/alliance/NAP)"
     },
     {
-      "detail": "AI wars 32, AI peace 3, captures total 61, nations eliminated 31",
+      "detail": "AI wars 25, AI peace 6, captures total 29, nations eliminated 22",
       "pass": true,
       "test": "SWE: AI nations declare war / make peace"
     },
     {
-      "detail": "711 units bought by AI",
+      "detail": "840 units bought by AI",
       "pass": true,
       "test": "SWE: AI nations recruit armies"
     },
     {
-      "detail": "28 AI majors gained provinces",
+      "detail": "17 AI majors gained provinces",
       "pass": true,
       "test": "SWE: AI majors expand territory"
     },
@@ -219,12 +219,12 @@
       "test": "JPN: route uses naval transport"
     },
     {
-      "detail": "[winner side 1, 25s, losses 1203/79] ",
+      "detail": "[winner side 1, 50s, losses 5543/3612] ",
       "pass": true,
       "test": "JPN: a battle was triggered and resolved by the battle model"
     },
     {
-      "detail": "captured [\"Okha\"] by 21 Jul 1800; provinces 9 -> 10",
+      "detail": "captured [\"Western Russia\"] by 25 Nov 1800; provinces 9 -> 10",
       "pass": true,
       "test": "JPN: territory changed hands via siege"
     },
@@ -234,22 +234,22 @@
       "test": "JPN: ownership table reflects capture"
     },
     {
-      "detail": "trade 357, alliance 8, NAP 33, proposals 447, rejections 46",
+      "detail": "trade 349, alliance 5, NAP 41, proposals 467, rejections 51",
       "pass": true,
       "test": "JPN: AI nations negotiate (trade/alliance/NAP)"
     },
     {
-      "detail": "AI wars 30, AI peace 0, captures total 37, nations eliminated 27",
+      "detail": "AI wars 25, AI peace 7, captures total 24, nations eliminated 22",
       "pass": true,
       "test": "JPN: AI nations declare war / make peace"
     },
     {
-      "detail": "747 units bought by AI",
+      "detail": "773 units bought by AI",
       "pass": true,
       "test": "JPN: AI nations recruit armies"
     },
     {
-      "detail": "21 AI majors gained provinces",
+      "detail": "18 AI majors gained provinces",
       "pass": true,
       "test": "JPN: AI majors expand territory"
     },
@@ -294,37 +294,37 @@
       "test": "watched battle is not stepped by the strategic clock"
     },
     {
-      "detail": "day 194 -> 224",
+      "detail": "day 59 -> 89",
       "pass": true,
       "test": "strategic sim keeps running during watched battle"
     },
     {
-      "detail": "25.0 s of real time, winner side 1",
+      "detail": "35.2 s of real time, winner side 0",
       "pass": true,
       "test": "watched battle resolves in real time (15-85 s)"
     },
     {
-      "detail": "other battles resolved meanwhile: 1, log entries 115",
+      "detail": "other battles resolved meanwhile: 0, log entries 42",
       "pass": true,
       "test": "other battles/events continued meanwhile (none skipped)"
     },
     {
-      "detail": "day 263 (21 Sep 1800), wars 7, battles in progress 1, armies 209, treaties 98, sieges 1",
+      "detail": "day 241 (30 Aug 1800), wars 6, battles in progress 1, armies 206, treaties 81, sieges 1",
       "pass": true,
       "test": "save: campaign state is non-trivial at save time"
     },
     {
-      "detail": "Saved \"test_slot\" (21 Sep 1800) size 998276 B",
+      "detail": "Saved \"test_slot\" (30 Aug 1800) size 985632 B",
       "pass": true,
       "test": "save: write user://saves/test_slot.save"
     },
     {
-      "detail": "{ \"magic\": \"IRONCROWNS\", \"version\": 1, \"player\": \"SWE\", \"nation\": \"Sweden\", \"date\": \"21 Sep 1800\", \"era\": \"Age of Revolutions\", \"saved_unix\": 1792764969 }",
+      "detail": "{ \"magic\": \"IRONCROWNS\", \"version\": 1, \"player\": \"SWE\", \"nation\": \"Sweden\", \"date\": \"30 Aug 1800\", \"era\": \"Age of Revolutions\", \"saved_unix\": 1792783716 }",
       "pass": true,
       "test": "save: metadata header readable"
     },
     {
-      "detail": "Loaded \"test_slot\" (21 Sep 1800), 998040 bytes identical",
+      "detail": "Loaded \"test_slot\" (30 Aug 1800), 985396 bytes identical",
       "pass": true,
       "test": "save: loaded state deep-equals saved state"
     },
@@ -334,7 +334,7 @@
       "test": "save: in-progress battles restored as live BattleSim objects"
     },
     {
-      "detail": "both at 20 Mar 1801, 208 armies, 2 battles, 222 events",
+      "detail": "both at 26 Feb 1801, 206 armies, 2 battles, 237 events",
       "pass": true,
       "test": "save: determinism, original and loaded runs identical after 180 more days"
     },
@@ -349,14 +349,14 @@
       "test": "save: slot appears in save list"
     },
     {
-      "detail": "winner 0, t=36.5s, 1145 frames; ",
+      "detail": "winner 0, t=39.0s, 1223 frames; ",
       "pass": true,
       "test": "camera: battle under a live view (no toggles) == bare sim"
     },
     {
-      "detail": "steps 365/365, men [1200.0, 781.065035827416, 1200.0, 424.081798109027, 200.0, 886.805158205628, 402.889953040105, 415.657854190128, 854.878661388497, 571.374573550761, 581.975871185597] / [1200.0, 781.065035827416, 1200.0, 424.081798109027, 200.0, 886.805158205628, 402.889953040105, 415.657854190128, 854.878661388497, 571.374573550761, 581.975871185597] ",
+      "detail": "steps 390/390, men [1200.0, 814.401771198146, 1200.0, 413.576606546261, 200.0, 884.944719478126, 388.730904205488, 415.657854190128, 834.146600012338, 582.510076339224, 553.112171345769] / [1200.0, 814.401771198146, 1200.0, 413.576606546261, 200.0, 884.944719478126, 388.730904205488, 415.657854190128, 834.146600012338, 582.510076339224, 553.112171345769] ",
       "pass": true,
-      "test": "camera: 27 camera toggles + zoom input give an identical battle"
+      "test": "camera: 29 camera toggles + zoom input give an identical battle"
     },
     {
       "detail": "min 0.000 max 1.000",
@@ -429,7 +429,7 @@
       "test": "controls: 37 InputMap actions registered, gameplay actions all have gamepad bindings"
     },
     {
-      "detail": "focus @Button@2012:<Button#363243507662>, device joy",
+      "detail": "focus @Button@2012:<Button#390540038089>, device joy",
       "pass": true,
       "test": "controls: gamepad focus lands on title-menu buttons"
     },
@@ -449,7 +449,7 @@
       "test": "controls: Y pauses/unpauses, D-pad right raises speed"
     },
     {
-      "detail": "visible true, focus @Button@2455:<Button#409766729972> -> @Button@2959:<Button#432214645797>",
+      "detail": "visible true, focus @Button@2460:<Button#437314918658> -> @Button@2974:<Button#460215819336>",
       "pass": true,
       "test": "controls: Back opens diplomacy with gamepad focus inside; D-pad navigates it"
     },
@@ -464,7 +464,7 @@
       "test": "controls: L3 economy, Start game menu (focused), Start again closes"
     },
     {
-      "detail": "(800.0, 800.0) -> (870.0003, 800.0)",
+      "detail": "(800.0, 800.0) -> (868.2278, 800.0)",
       "pass": true,
       "test": "controls: left stick moves the map cursor reticle (no on-screen controller)"
     },
@@ -504,7 +504,7 @@
       "test": "controls: long-press marches the selected army to the pressed province"
     },
     {
-      "detail": "scale true big true perf 'FPS 96   frame 133.3 ms avg / 252.4 worst (2 s)' msaa 0",
+      "detail": "scale true big true perf 'FPS 116   frame 154.0 ms avg / 284.2 worst (2 s)' msaa 0",
       "pass": true,
       "test": "controls: UI scale, large touch targets, F3 perf overlay and quality settings apply"
     },
@@ -544,9 +544,9 @@
       "test": "medieval: units/models present and era-tagged (levy_spear, archers, knights, bombard)"
     },
     {
-      "detail": "men [3120.0, 3120.0] -> 2340/2525",
+      "detail": "men [3120.0, 3120.0] -> 2183/2224",
       "pass": true,
-      "test": "medieval: full battle resolves (winner 1, 33.0s)"
+      "test": "medieval: full battle resolves (winner 0, 39.6s)"
     },
     {
       "detail": "[\"medieval\"]",
@@ -564,9 +564,9 @@
       "test": "early_modern: units/models present and era-tagged (pike, musketeers, cuirassiers, culverins)"
     },
     {
-      "detail": "men [3850.0, 3850.0] -> 2704/3086",
+      "detail": "men [3850.0, 3850.0] -> 2683/2996",
       "pass": true,
-      "test": "early_modern: full battle resolves (winner 1, 34.3s)"
+      "test": "early_modern: full battle resolves (winner 1, 35.2s)"
     },
     {
       "detail": "[\"early_modern\"]",
@@ -584,7 +584,7 @@
       "test": "c19: units/models present and era-tagged (line_inf, grenadiers, hussars, field_guns)"
     },
     {
-      "detail": "men [4100.0, 4100.0] -> 2867/3186",
+      "detail": "men [4100.0, 4100.0] -> 2840/3065",
       "pass": true,
       "test": "c19: full battle resolves (winner 1, 30.7s)"
     },
@@ -639,9 +639,9 @@
       "test": "modern: projectile types fit the era [\"rifle_tracer\", \"tank_round\", \"shell\"]"
     },
     {
-      "detail": "{ \"medieval\": 0.09765361506532, \"early_modern\": 0.00263919650533, \"c19\": 0.00201275300102, \"c20\": 0.0, \"modern\": 0.0 }",
+      "detail": "{ \"medieval\": 0.07992753433155, \"early_modern\": 0.0282340561241, \"c19\": 0.00541859565633, \"c20\": 0.0, \"modern\": 0.0 }",
       "pass": true,
-      "test": "melee share of kills falls with era (medieval 0.10 > c19 0.00 > modern 0.00)"
+      "test": "melee share of kills falls with era (medieval 0.08 > c19 0.01 > modern 0.00)"
     },
     {
       "detail": "",
@@ -691,17 +691,227 @@
     {
       "detail": "",
       "pass": true,
-      "test": "gameplay: captured enemy province(s) [328] by 30 Dec 1913"
+      "test": "gameplay: captured enemy province(s) [328] by 15 Oct 1913"
     },
     {
-      "detail": "Loaded \"gameplay_test\" (30 Dec 1913)",
+      "detail": "Loaded \"gameplay_test\" (15 Oct 1913)",
       "pass": true,
-      "test": "gameplay: save/load restores 30 Dec 1913 exactly"
+      "test": "gameplay: save/load restores 15 Oct 1913 exactly"
     },
     {
       "detail": "",
       "pass": true,
       "test": "gameplay: era advanced to Age of Mechanised War on 1 Jan 1914 (game started 1913)"
+    },
+    {
+      "detail": "[]",
+      "pass": true,
+      "test": "medieval: marching over any terrain without enemy fire never costs morale or causes a rout (scenery is not an obstacle)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "medieval SWE vs NOR 1300: spearmen reach melee instead of breaking under arrows (40/40 made contact, 0 routed before contact; v0.4.0 had 15/80 pre-contact routs)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "medieval: archers stay dangerous (83% of kills are missiles)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "medieval mirror battles stay contested (attacker wins 20/30)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "medieval: a lone spear regiment charging four archer regiments can still be shot to pieces before contact (8/8)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "medieval: levy charged by three knight regiments still routs after melee losses (8/8)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "medieval: a holding spear regiment sniped by archers out of reach does not stand still forever — it counter-charges (left_line=true, contact at -1.0s, winner side 0)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "battle scenery: no rocks inside the (190.0, 240.0) m fighting area (covers every era's deployment depth)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "AI 1800: attacks stay regional (18 orders, median 1147 km, max 2566 km)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "AI 1300: attacks stay regional (19 orders, median 1391 km, max 2780 km)"
+    },
+    {
+      "detail": "orders toward Japan: 0",
+      "pass": true,
+      "test": "AI: Saudi Arabia (24k men) at war with Japan in 1800 sends no army to the Japanese home islands (8,000+ km away) in 240 days"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "AI: a justified overseas campaign still happens — Britain at war with France lands an army aimed at Marseille (sea crossing true)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "AI: Finland, facing a large Swedish army within reach, keeps its armies on guard (guard home)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "AI: a full-strength army campaigns (campaign), the same army at 40% strength does not start a new offensive (hold)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "AI: no special protection — a strong Finland at war with a weakened player Sweden marches on Swedish land (after 1 days)"
+    },
+    {
+      "detail": "Scouts and watch posts report: Norway army of about 5,000 men on the march, heading for Sundsvall — arrival in about 10 days. Our forces nearby are outnumbered (0 men).",
+      "pass": true,
+      "test": "detection 1300: a Norwegian army is hidden until scouts spot it, then a warning names Sundsvall, its size and ETA (187 km out, 10 days' warning, ETA 10)"
+    },
+    {
+      "detail": "Radar report: Norway army of roughly 6,000 men on the march, heading for Northeastern Sweden II — arrival in about 6 days. Our forces nearby are outnumbered (0 men).",
+      "pass": true,
+      "test": "detection 1980: radar spots the same kind of force much further out (747 km vs 187 km in 1300; 6 days' warning)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "detection 1800: an undeclared invasion force is reported before it crosses the border ('Pickets and coastal observers report: Finland army of roughly 6,500 men on the march, head')"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "detection: one warning per approaching army and objective (1300: 1, 1980: 1, 1800: 1)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "detection range grows with each era [60, 110, 180, 350, 900] km (land)"
+    },
+    {
+      "detail": "hidden visible false, neutral visible true",
+      "pass": true,
+      "test": "detection: an enemy army far outside our detection is not shown on the map or in the province panel; a neutral army there still is"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "detection: the warning appears in the HUD and the clock drops to Normal speed (speed Normal, toast '⚠ Pickets and coastal observers report: Finland army of roug')"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "detection: save/load keeps what was already reported (no duplicate warning)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: a 5k army in the next province (6 days' march) arrives on day 6 and joins the battle of Sapporo in progress (15 regiments -> 19)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: the reinforcement changes the fight (defender win false -> false; attacker losses 801 -> 1606)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: no duplicated troops (18400 men before, 4109 lost, 14290 after) and the reinforcement's casualties persist"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: an army 22 days away arrives too late — battle result identical to the unreinforced one (winner 0, 28.4 s, losses [777, 1325])"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: watched (real-time), unwatched (5 s/day) and saved-then-loaded battles with a reinforcement are identical (11 regiments, winner 0, 456 steps)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: arrivals enter at the requested edge (left flank: x=-135, beyond the fighting) and only after the arrival time"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: the entry edge depends on where the army comes from (seen: [\"right\", \"rear\"]; no approach = rear)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: an AI army nearby (178 km) is ordered to its nation's battle on its own (true) and arrives too late, leaving the result untouched"
+    },
+    {
+      "detail": "battle 1",
+      "pass": true,
+      "test": "reinforce: AI vs AI (1914) — Germany attacks Lyon; the second French army 291 km away marches in on its own and fights in the battle"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "reinforce: works in all five eras [\"medieval\", \"early_modern\", \"c19\", \"c20\", \"modern\"]"
+    },
+    {
+      "detail": "pressed true",
+      "pass": true,
+      "test": "reinforce: player presses 'Reinforce' on the army panel; while the battle is watched in 3D the army arrives and its regiments appear on the field (15 -> 19 regiments drawn)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "inbox: 5 routine trade offers arrive without a single popup; the top bar shows '✉ Inbox (5)'"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "inbox: the same offer repeated 6 times while pending stays one entry (5 pending)"
+    },
+    {
+      "detail": "Routine proposals (5) Set aside all routine Trade agreements (5) Accept all Decline all Russia — trade agreement · relat",
+      "pass": true,
+      "test": "inbox: the Inbox lists the offers grouped by kind and 'Set aside all routine' clears them in one click (relations +16 -> +15)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "inbox: a set-aside offer is not re-sent for 240 days (throttled true), then may return (true)"
+    },
+    {
+      "detail": "✉ United States of America offers peace — see the Inbox",
+      "pass": true,
+      "test": "inbox: 8 peace requests from United States of America during the war = 1 urgent entry, highlighted in the top bar, announced by a notice (no popup)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "inbox: after declining, the enemy does not ask again for 120 days ('Needs attention' listed: true)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "inbox: save/load keeps pending offers and cooldowns; an unanswered offer lapses after 90 days"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "inbox: 8-year campaign, envoys ignored: 12 new offers, 0 waiting, no duplicates, nothing older than 121 days"
     },
     {
       "detail": "selected true asked true pressed true path [100343, 408]",
@@ -749,14 +959,14 @@
       "test": "offensive: casualties persist after the battle (no free replacements: 5581 men after the siege, 5600 before the battle)"
     },
     {
-      "detail": "Mariehamn Owner: Sweden Terrain: Forest · Resource: Fish Population: 6416 · Garrison: 300 Sweden — 1st Army (5581 men) Raise regiments here: Line Infantry  140 ",
+      "detail": "Mariehamn Owner: Sweden Terrain: Forest · Resource: Fish Population: 6417 · Garrison: 300 Sweden — 1st Army (5581 men) Raise regiments here: Line Infantry  140 ",
       "pass": true,
       "test": "offensive: the province panel now shows Mariehamn as Swedish with recruitment available"
     },
     {
       "detail": "",
       "pass": true,
-      "test": "offensive: AI FIN counterattacks to win back Mariehamn (army dispatched true, battle at the province true, 25 days)"
+      "test": "offensive: AI FIN counterattacks to win back Mariehamn (army dispatched true, battle at the province true, 15 days)"
     },
     {
       "detail": "pressed true goal true armies [\"51@343:idle\"] | Northeastern Sweden Owner: Finland  (relation -76, UNDECLARED WAR) Terrain: Forest · Resource: Fish Population: 95.6k · Garrison: 311 Retake Northeastern Sweden: ⚔ Retake with 1st Army (5600 men) · ~33 days Diplomacy with Finland",
@@ -806,7 +1016,7 @@
     {
       "detail": "",
       "pass": true,
-      "test": "offensive: SWE's invasion of Northeastern Greenland wins a battle on the way at Faeroe Is., then marches on and captures the objective (136 days)"
+      "test": "offensive: SWE's invasion of Northeastern Greenland wins a battle on the way at Faeroe Is., then marches on and captures the objective (140 days)"
     },
     {
       "detail": "",
@@ -816,9 +1026,9 @@
     {
       "detail": "[]",
       "pass": true,
-      "test": "offensive: 4-year AI run still conquers (26 captures, 0 recaptures, 33 wars, 25 nations eliminated) and leaves no landless nation without an army"
+      "test": "offensive: 4-year AI run still conquers (22 captures, 0 recaptures, 33 wars, 22 nations eliminated) and leaves no landless nation without an army"
     }
   ],
-  "seconds": 208.696,
-  "total": 163
+  "seconds": 357.545,
+  "total": 205
 }

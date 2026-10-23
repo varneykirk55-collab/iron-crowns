@@ -50,6 +50,16 @@ func _run() -> void:
 		test_era_battles()
 	if only == "" or only == "gameplay":
 		await test_gameplay_script()
+	if only == "" or only == "medieval":
+		test_medieval_morale()
+	if only == "" or only == "aistrategy":
+		test_ai_strategy()
+	if only == "" or only == "detection":
+		await test_detection()
+	if only == "" or only == "reinforce":
+		await test_reinforcements()
+	if only == "" or only == "inbox":
+		await test_inbox()
 	if only == "" or only == "offensive":
 		await test_offensive()
 	if only == "bench":
@@ -302,6 +312,7 @@ func test_continuity() -> void:
 	var a: Dictionary = _strongest_army("SWE")
 	Sim.order_move(a["id"], Sim.nations[target]["capital"])
 	var bid := -1
+	var chasing := -1
 	for i in 300:
 		if i % 5 == 0 and Sim.armies.has(a["id"]) and Sim.armies[a["id"]]["state"] != "battle":
 			# chase the nearest Norwegian army
@@ -311,8 +322,9 @@ func test_continuity() -> void:
 					var d := GameData.node_km(a["node"], o["node"])
 					if d < bd:
 						bd = d; best = o["node"]
-			if best >= 0:
+			if best >= 0 and best != chasing:   # re-ordering resets march progress, so only when the quarry moved (v0.5)
 				Sim.order_move(a["id"], best)
+				chasing = best
 		Sim.tick_day()
 		for b in Sim.battles.values():
 			if b["player_side"] >= 0 and b["awaiting"]:
@@ -1574,7 +1586,18 @@ func test_offensive() -> void:
 	var eras_ok: Array = []
 	for yr in [1300, 1500, 1800, 1914, 1980]:
 		Sim.new_game("SWE", yr, 21, 60)
-		var ae: Dictionary = _main_army("SWE")
+		# like a player preparing an invasion: raise extra regiments with the main army first (the v0.5 AI
+		# defends its land properly, so an even fight is no longer a sure win)
+		Sim.nations["SWE"]["funds"] += 20000.0; Sim.nations["SWE"]["manpower"] += 20000.0
+		var cap_e: int = Sim.nations["SWE"]["capital"]
+		var eid: String = GameData.eras[Sim.era]["id"]
+		for role in ["inf", "inf", "ranged", "cav"]:
+			Sim.buy_unit("SWE", GameData.unit_for_role(eid, role), cap_e)
+		var ae: Dictionary = {}
+		for x in Sim.armies_in(cap_e):
+			if x["owner"] == "SWE" and (ae.is_empty() or Sim.army_men(x) > Sim.army_men(ae)): ae = x
+		for x in Sim.armies_in(cap_e):
+			if x["owner"] == "SWE" and x["id"] != ae["id"]: Sim.merge_armies(ae["id"], x["id"])
 		var te := _nearest_foreign("SWE", ae["node"])
 		var oe := Sim.order_invade(ae["id"], te)
 		var de := _until(func(): return Sim.prov_owner[te] == "SWE", 365)
@@ -1588,3 +1611,654 @@ func test_offensive() -> void:
 	check("offensive: 4-year AI run still conquers (%d captures, %d recaptures, %d wars, %d nations eliminated) and leaves no landless nation without an army" % [Sim.stats["captures"], Sim.stats["recaptures"], Sim.stats["wars_declared"], Sim.stats["eliminated"]],
 		Sim.stats["captures"] > 0 and zombies.is_empty(), str(zombies))
 	Sim.auto_deploy = false
+
+# ---------------------------------------------------------------- v0.5: medieval morale, obstacles, ranged vs melee
+func _starting_sides(year: int, seed: int, a_code: String, d_code: String) -> Array:
+	Sim.new_game(a_code, year, seed)
+	var sides := []
+	for c in [a_code, d_code]:
+		var best := _main_army(c)
+		var lst := []
+		for i in best["units"].size():
+			var u: Dictionary = best["units"][i]
+			lst.append({"army_id": best["id"], "unit_index": i, "type": u["type"], "men": u["men"]})
+		sides.append(lst)
+	return sides
+
+func _fight(sides: Array, terr: String, ords: Array, seed: int) -> BattleSim:
+	var s := BattleSim.new()
+	s.setup(sides, terr, ords, seed)
+	s.record_events = true
+	s.run_to_end()
+	return s
+
+func test_medieval_morale() -> void:
+	print("== Medieval morale, obstacles and ranged vs melee (v0.5) ==")
+	# 1. nothing on the field but the enemy can cost morale: a regiment marching across every terrain type with no
+	#    enemy fire keeps full morale until it makes contact (the model has no obstacles; scenery is visual only)
+	var steady := true; var info := []
+	for terr in ["plains", "hills", "forest", "mountains", "desert", "tundra", "jungle"]:
+		var s := BattleSim.new()
+		s.setup([_units_for("medieval", ["inf"]), _units_for("medieval", ["inf"])], terr, [{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 5)
+		var r: Dictionary = s.regs[0]
+		while not s.done and r["contact_t"] < 0.0 and s.regs[1]["contact_t"] < 0.0:
+			s.step()
+			if r["contact_t"] >= 0.0 or s.regs[1]["contact_t"] >= 0.0: break
+			if r["morale"] < r["morale0"] - 0.001 or r["state"] == "rout":
+				steady = false; info.append("%s t=%.1f m=%.1f" % [terr, s.t, r["morale"]]); break
+	check("medieval: marching over any terrain without enemy fire never costs morale or causes a rout (scenery is not an obstacle)", steady, str(info))
+	# 2. Sweden vs Norway 1300 starting armies (the reported case): no spear/pike regiment breaks before contact
+	var pre := 0; var regs := 0; var contact := 0; var rshare := 0.0
+	for seed in 20:
+		var sides := _starting_sides(1300, seed + 1, "SWE", "NOR")
+		var s := _fight(sides, "plains", [BattleSim.ai_orders(sides[0], sides[1], false, "plains"), BattleSim.ai_orders(sides[1], sides[0], true, "plains")], 1000 + seed)
+		var rk := 0.0; var mk := 0.0
+		for e in s.events:
+			if e["k"] == "volley": rk += e["kills"]
+		for r in s.regs:
+			mk += r.get("mkills", 0.0)
+			if r["role"] == "inf":
+				regs += 1
+				if r["contact_t"] >= 0.0: contact += 1
+				elif r["rout_t"] >= 0.0: pre += 1
+		rshare += rk / maxf(rk + mk, 1.0) / 20.0
+	check("medieval SWE vs NOR 1300: spearmen reach melee instead of breaking under arrows (%d/%d made contact, %d routed before contact; v0.4.0 had 15/80 pre-contact routs)" % [contact, regs, pre],
+		pre == 0 and contact == regs, "")
+	check("medieval: archers stay dangerous (%.0f%% of kills are missiles)" % (rshare * 100.0), rshare > 0.5, "")
+	# 3. comparable mirror armies: neither attacking nor defending is a lock
+	var att := 0
+	for seed in 30:
+		var sides := [_units_for("medieval", ["inf", "ranged", "inf", "cav", "ranged"]), _units_for("medieval", ["inf", "ranged", "inf", "cav", "ranged"])]
+		var s := _fight(sides, "plains", [BattleSim.ai_orders(sides[0], sides[1], false, "plains"), BattleSim.ai_orders(sides[1], sides[0], true, "plains")], 2000 + seed)
+		if s.winner == 0: att += 1
+	check("medieval mirror battles stay contested (attacker wins %d/30)" % att, att >= 6 and att <= 24, "")
+	# 4. a decisive ranged victory is still possible: one spear regiment charging four archer regiments
+	var shot_down := 0
+	for seed in 8:
+		var s := _fight([_units_for("medieval", ["inf"]), _units_for("medieval", ["ranged", "ranged", "ranged", "ranged"])], "plains",
+			[{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 3000 + seed)
+		var r: Dictionary = s.regs[0]
+		if r["rout_t"] >= 0.0 and r["contact_t"] < 0.0: shot_down += 1
+	check("medieval: a lone spear regiment charging four archer regiments can still be shot to pieces before contact (%d/8)" % shot_down, shot_down >= 1, "")
+	# 5. legitimate routs remain: levy spearmen charged by knights break from melee losses
+	var melee_routs := 0
+	for seed in 8:
+		var s := _fight([_units_for("medieval", ["cav", "cav", "cav"]), _units_for("medieval", ["inf"])], "plains",
+			[{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 4000 + seed)
+		var r: Dictionary = s.regs[3]
+		if r["rout_t"] >= 0.0 and r["contact_t"] >= 0.0: melee_routs += 1
+	check("medieval: levy charged by three knight regiments still routs after melee losses (%d/8)" % melee_routs, melee_routs >= 6, "")
+	# 6. the holding regiment under fire counter-charges and gives up its prepared-position bonus
+	var s6 := BattleSim.new()
+	s6.setup([_units_for("medieval", ["ranged"]), _units_for("medieval", ["inf"])], "plains", [{"objective": "hold", "formation": "line"}, {"objective": "hold", "formation": "line"}], 77)
+	var z0: float = s6.regs[1]["pos"].y
+	s6.run_to_end()
+	var sp6: Dictionary = s6.regs[1]
+	check("medieval: a holding spear regiment sniped by archers out of reach does not stand still forever — it counter-charges (left_line=%s, contact at %.1fs, winner side %d)" % [str(sp6.get("left_line", false)), sp6["contact_t"], s6.winner],
+		sp6.get("left_line", false) and absf(sp6["pos"].y - z0) > 5.0, "")
+	# 7. scenery: battlefield boulders are kept off every era's deployment and fighting ground
+	var ok7 := true
+	for e in BattleSim.ERA_TUNE.keys():
+		if float(BattleSim.ERA_TUNE[e][1]) + 60.0 > BattleView.ROCK_FREE.y: ok7 = false
+	check("battle scenery: no rocks inside the %s m fighting area (covers every era's deployment depth)" % str(BattleView.ROCK_FREE), ok7, "")
+
+# ---------------------------------------------------------------- v0.5: strategic AI targeting
+func _ai_attack_orders(code: String, year: int, seed: int, days: int) -> Array:
+	Sim.new_game(code, year, seed)
+	Sim.auto_respond_player = "decline"
+	var seen := {}; var out := []
+	for d in days:
+		Sim.tick_day()
+		for a in Sim.armies.values():
+			var o: String = a["owner"]
+			if o == Sim.player or a["goal"] < 0: continue
+			var key := "%d:%d" % [a["id"], a["goal"]]
+			if seen.has(key): continue
+			var go: String = Sim.prov_owner.get(a["goal"], "")
+			if go == "" or go == o or not Sim.at_war(o, go): continue
+			seen[key] = true
+			out.append(GameData.km_between(GameData.node_lonlat(Sim.nations[o]["capital"]), GameData.node_lonlat(a["goal"])))
+	out.sort()
+	return out
+
+func _strengthen(code: String, roles: Array, times: int, pid: int = -1) -> Dictionary:
+	var n: Dictionary = Sim.nations[code]
+	n["funds"] += 100000.0; n["manpower"] += 100000.0
+	var at: int = n["capital"] if pid < 0 else pid
+	var eid: String = GameData.eras[Sim.era]["id"]
+	for k in times:
+		for role in roles:
+			Sim.buy_unit(code, GameData.unit_for_role(eid, role), at)
+	var best := {}
+	for x in Sim.armies_in(at):
+		if x["owner"] == code and (best.is_empty() or Sim.army_men(x) > Sim.army_men(best)): best = x
+	for x in Sim.armies_in(at):
+		if x["owner"] == code and x["id"] != best["id"] and x["state"] != "battle": Sim.merge_armies(best["id"], x["id"])
+	return best
+
+func test_ai_strategy() -> void:
+	print("== Strategic AI targeting (v0.5) ==")
+	Sim.auto_deploy = true
+	# 1. geographic relevance in ordinary campaigns (v0.4.0 medians: 3600 km in 1800, 2200 km in 1300, 11600 km in 1914)
+	for cfg in [["JPN", 1800, 31], ["SWE", 1300, 32]]:
+		var ds := _ai_attack_orders(cfg[0], cfg[1], cfg[2], 365 * 2)
+		ds.append_array(_ai_attack_orders("USA", cfg[1], cfg[2] + 100, 365 * 2))   # a second campaign: wars are random
+		ds.sort()
+		var med: float = ds[ds.size() / 2] if not ds.is_empty() else 0.0
+		check("AI %d: attacks stay regional (%d orders, median %.0f km, max %.0f km)" % [cfg[1], ds.size(), med, ds[-1] if not ds.is_empty() else 0.0],
+			ds.size() >= 5 and med < 1600.0 and ds[-1] < 3000.0, "")
+	# 2. the reported case: Saudi Arabia at war with Japan in 1800 does not ship a 31k army to Tokyo
+	Sim.new_game("JPN", 1800, 41, 60)
+	Sim.auto_respond_player = "decline"
+	var sau := _strengthen("SAU", ["inf", "ranged", "cav", "inf", "ranged"], 4)
+	Sim.declare_war("SAU", "JPN", true)
+	var to_japan := {"n": 0}
+	for d in 240:
+		Sim.tick_day()
+		for a in Sim.armies.values():
+			if a["owner"] == "SAU" and a["goal"] >= 0 and GameData.provinces[a["goal"]]["owner"] == "JPN": to_japan["n"] += 1
+	check("AI: Saudi Arabia (%dk men) at war with Japan in 1800 sends no army to the Japanese home islands (8,000+ km away) in 240 days" % int(Sim.army_men(sau) / 1000),
+		to_japan["n"] == 0 and Sim.prov_owner[Sim.nations["JPN"]["capital"]] == "JPN", "orders toward Japan: %d" % to_japan["n"])
+	# 3. overseas war with a strategic case still happens: Britain vs France across the Channel
+	Sim.new_game("USA", 1800, 42, 60)
+	Sim.auto_respond_player = "decline"
+	_strengthen("GBR", ["inf", "ranged", "cav", "art"], 3)
+	Sim.declare_war("GBR", "FRA", true)
+	var cross := {"pid": -1, "sea": false}
+	for d in 120:
+		Sim.tick_day()
+		for a in Sim.armies.values():
+			if a["owner"] == "GBR" and a["goal"] >= 0 and Sim.prov_owner.get(a["goal"], "") == "FRA" and cross["pid"] < 0:
+				cross["pid"] = a["goal"]
+				cross["sea"] = a["path"].any(func(n): return n >= GameData.SEA_NODE)
+		if cross["pid"] >= 0: break
+	check("AI: a justified overseas campaign still happens — Britain at war with France lands an army aimed at %s (sea crossing %s)" % [GameData.provinces[cross["pid"]]["name"] if cross["pid"] >= 0 else "-", cross["sea"]],
+		cross["pid"] >= 0 and cross["sea"], "")
+	# 4. home defence and readiness: a threatened nation keeps its army home; a battered army does not attack
+	Sim.new_game("SWE", 1800, 43, 60)
+	Sim.auto_respond_player = "decline"
+	Sim.start_hostilities("SWE", "FIN")
+	_strengthen("SWE", ["inf", "ranged", "cav", "art"], 3)      # a big Swedish army in Stockholm, ~400 km from Helsinki
+	_strengthen("FIN", ["inf", "ranged"], 1)
+	var whys := []
+	var far_campaign := false
+	for a in Sim.armies.values():
+		if a["owner"] == "FIN" and a["state"] != "battle":
+			var dec := Sim._ai_war_decision(a["id"], a, Sim.army_strength(a), Sim.enemies_of("FIN"))
+			whys.append(dec["why"])
+			if dec["why"] == "campaign": far_campaign = true
+	check("AI: Finland, facing a large Swedish army within reach, keeps its armies on guard (%s)" % ", ".join(whys),
+		not whys.is_empty() and not far_campaign and whys.has("guard home"), "")
+	var fa: Dictionary = {}
+	for a in Sim.armies.values():
+		if a["owner"] == "SWE" and Sim.army_men(a) > 1000.0: fa = a
+	for id in Sim.armies.keys().duplicate():
+		if Sim.armies[id]["owner"] == "FIN": Sim.armies.erase(id)   # no threat to Sweden: only readiness differs
+	Sim.ai_enabled = false
+	Sim.nations["SWE"]["ai"] = true    # judge the Swedish army as if the AI commanded it
+	var d_full := Sim._ai_war_decision(fa["id"], fa, Sim.army_strength(fa), Sim.enemies_of("SWE"))
+	for u in fa["units"]: u["men"] = u["max"] * 0.4
+	var d_hurt := Sim._ai_war_decision(fa["id"], fa, Sim.army_strength(fa), Sim.enemies_of("SWE"))
+	Sim.nations["SWE"]["ai"] = false
+	Sim.ai_enabled = true
+	check("AI: a full-strength army campaigns (%s), the same army at 40%% strength does not start a new offensive (%s)" % [d_full["why"], d_hurt["why"]],
+		d_full["why"] == "campaign" and d_hurt["why"] != "campaign" and not d_hurt["why"].begins_with("nearby attack"), "")
+	# 5. no special protection for the player: a strong AI still attacks a weak neighbouring player
+	Sim.new_game("SWE", 1800, 44, 60)
+	Sim.auto_respond_player = "decline"
+	for a in Sim.armies.values():
+		if a["owner"] == "SWE":
+			for u in a["units"]: u["men"] = u["max"] * 0.3
+	_strengthen("FIN", ["inf", "ranged", "cav", "art"], 3)
+	Sim.declare_war("FIN", "SWE", true)
+	var hit := _until(func(): return Sim.armies.values().any(func(a): return a["owner"] == "FIN" and a["goal"] >= 0 and Sim.prov_owner.get(a["goal"], "") == "SWE"), 60)
+	check("AI: no special protection — a strong Finland at war with a weakened player Sweden marches on Swedish land (after %d days)" % hit, hit >= 0, "")
+
+# ---------------------------------------------------------------- v0.5: detection and invasion warnings
+## An enemy army sent from `from_pid` against the player's `tgt` province; returns warning timing.
+func _approach(year: int, attacker: String, undeclared: bool, seed: int, farthest := false) -> Dictionary:
+	Sim.new_game("SWE", year, seed, 60)
+	Sim.auto_respond_player = "decline"
+	Sim.auto_deploy = true
+	Sim.ai_enabled = false
+	# the target: a Swedish province; the attacker starts from its own capital
+	var from: int = Sim.nations[attacker]["capital"]
+	var eid: String = GameData.eras[Sim.era]["id"]
+	var aid := Sim._spawn_army(attacker, from, [])
+	for k in 6:
+		Sim.armies[aid]["units"].append(Sim._make_unit(GameData.unit_for_role(eid, ["inf", "ranged"][k % 2])))
+	var tgt := -1; var td := 1e18
+	for pid in Sim.nation_provs["SWE"]:
+		var r := Sim.order_invade(aid, pid, true)
+		if not r["ok"]: continue
+		var key := -GameData.node_km(from, pid) if farthest else GameData.node_km(from, pid)
+		if (farthest or r["days"] >= 8) and key < td:
+			td = key; tgt = pid
+	if not undeclared:
+		Sim.declare_war(attacker, "SWE", true)
+	var o := Sim.order_invade(aid, tgt)
+	var a: Dictionary = Sim.armies[aid]
+	var res := {"tgt": tgt, "warn_day": -1, "arrive_day": -1, "warns": 0, "text": "", "hidden_before": false, "dist": -1.0, "eta": -1, "order": o["ok"]}
+	var hb := {"v": false}
+	var cb := func(w: Dictionary) -> void:
+		if w["army"] == aid:
+			res["warns"] += 1
+			if res["warn_day"] < 0:
+				res["warn_day"] = Sim.day; res["text"] = w["text"]; res["eta"] = w["eta"]
+				res["dist"] = GameData.km_between(Sim.army_pos_lonlat(a), GameData.node_lonlat(tgt))
+	Sim.invasion_warning.connect(cb)
+	for d in 200:
+		Sim.tick_day()
+		if res["warn_day"] < 0 and Sim.hidden_from_player(a): hb["v"] = true
+		if res["arrive_day"] < 0 and a["node"] == tgt: res["arrive_day"] = Sim.day
+		if res["arrive_day"] >= 0 and Sim.day > res["arrive_day"] + 5: break
+	Sim.invasion_warning.disconnect(cb)
+	res["hidden_before"] = hb["v"]
+	Sim.ai_enabled = true
+	return res
+
+func test_detection() -> void:
+	print("== Detection and invasion warnings (v0.5) ==")
+	var med := _approach(1300, "NOR", false, 51)
+	check("detection 1300: a Norwegian army is hidden until scouts spot it, then a warning names %s, its size and ETA (%d km out, %d days' warning, ETA %d)" % [GameData.provinces[med["tgt"]]["name"], int(med["dist"]), med["arrive_day"] - med["warn_day"], med["eta"]],
+		med["order"] and med["hidden_before"] and med["warn_day"] >= 0 and med["arrive_day"] > med["warn_day"] and GameData.provinces[med["tgt"]]["name"] in med["text"] and "men" in med["text"] and med["eta"] > 0 and med["warns"] == 1 \
+			and absi(med["eta"] - (med["arrive_day"] - med["warn_day"])) <= 2,
+		med["text"])
+	var mod := _approach(1980, "NOR", false, 51, true)
+	check("detection 1980: radar spots the same kind of force much further out (%d km vs %d km in 1300; %d days' warning)" % [int(mod["dist"]), int(med["dist"]), mod["arrive_day"] - mod["warn_day"]],
+		mod["warn_day"] >= 0 and mod["dist"] > med["dist"] * 2.0 and mod["arrive_day"] > mod["warn_day"], mod["text"])
+	var und := _approach(1800, "FIN", true, 52)
+	check("detection 1800: an undeclared invasion force is reported before it crosses the border ('%s')" % und["text"].substr(0, 90),
+		und["warn_day"] >= 0 and und["arrive_day"] > und["warn_day"] and "No war has been declared" in und["text"], "")
+	check("detection: one warning per approaching army and objective (1300: %d, 1980: %d, 1800: %d)" % [med["warns"], mod["warns"], und["warns"]],
+		med["warns"] == 1 and mod["warns"] == 1 and und["warns"] == 1, "")
+	# eras in between are ordered by reach
+	var ok := true; var prev := 0.0; var rs := []
+	for i in GameData.eras.size():
+		Sim.era = i
+		var r := Sim.detect_range()
+		rs.append(int(r))
+		if r <= prev: ok = false
+		prev = r
+	check("detection range grows with each era %s km (land)" % str(rs), ok, "")
+	# map and panels: undetected enemies are invisible and unpickable; ordinary foreign armies still show
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("SWE", 1800, 53, 60)
+	await _frames(2)
+	Sim.set_speed(0)
+	Sim.ai_enabled = false
+	var far: int = Sim.nations["RUS"]["capital"]
+	var hid := Sim._spawn_army("FIN", far, [Sim._make_unit(GameData.unit_for_role("c19", "inf"))])
+	Sim.start_hostilities("FIN", "SWE")
+	var neutral := Sim._spawn_army("RUS", far, [Sim._make_unit(GameData.unit_for_role("c19", "inf"))])
+	Sim.tick_day()
+	m.cam.fly_t = -1.0
+	m.cam.look_at_world(GameData.node_world(far), 30.0, true)
+	await _frames(3)
+	m.map.update_markers()
+	m.select_province(far)
+	await _frames(2)
+	var ptxt := " ".join(_texts(m.hud.sel_box))
+	var hid_vis: bool = m.map.army_nodes[hid].visible
+	var neu_vis: bool = m.map.army_nodes[neutral].visible
+	check("detection: an enemy army far outside our detection is not shown on the map or in the province panel; a neutral army there still is",
+		not hid_vis and neu_vis and not ("Finland" in ptxt and "Army" in ptxt) and "Russia" in ptxt, "hidden visible %s, neutral visible %s" % [hid_vis, neu_vis])
+	# the warning reaches the HUD and slows a fast clock so the player can respond
+	Sim.set_speed(5)
+	Sim.armies[hid]["node"] = Sim.nations["FIN"]["capital"]
+	var tg := -1
+	for pid in Sim.nation_provs["SWE"]:
+		if Sim.order_invade(hid, pid, true)["ok"]: tg = pid; break
+	Sim.order_invade(hid, tg)
+	var warned := _until(func(): return Sim.spotted.has(hid), 120)
+	await _frames(2)
+	check("detection: the warning appears in the HUD and the clock drops to Normal speed (speed %s, toast '%s')" % [Sim.SPEED_NAMES[Sim.speed_idx], m.hud.toast.text.substr(0, 60)],
+		warned >= 0 and Sim.speed_idx == 2 and m.hud.toast.text.begins_with("⚠"), "")
+	# save / load: no repeated warning for the same approach
+	var sv := Sim.save_game("detect_test")
+	var n0 := {"n": 0}
+	var cb2 := func(w): if w["army"] == hid: n0["n"] += 1
+	Sim.load_game("detect_test")
+	Sim.invasion_warning.connect(cb2)
+	Sim.advance_days(10)
+	Sim.invasion_warning.disconnect(cb2)
+	check("detection: save/load keeps what was already reported (no duplicate warning)", sv["ok"] and Sim.spotted.has(hid) and n0["n"] == 0, "")
+	Sim.ai_enabled = true
+	m.queue_free()
+	await _frames(2)
+
+# ---------------------------------------------------------------- v0.5: mid-battle reinforcements
+## Japan 1800 defensive scenario: 7k defenders at a province are attacked by ~11k; a 5k Japanese army waits
+## `hops` provinces away. Returns the setup.
+func _reinf_setup(hops: int, seed: int) -> Dictionary:
+	Sim.new_game("JPN", 1800, seed, 60)
+	Sim.ai_enabled = false
+	Sim.auto_deploy = true
+	Sim.auto_respond_player = "decline"
+	var eid: String = GameData.eras[Sim.era]["id"]
+	# a Japanese province with a chain of Japanese neighbours
+	# a Japanese province with a chain of Japanese neighbours; for one hop, the closest neighbouring pair
+	var p := -1; var chain: Array = []; var best_km := 1e18
+	for pid in Sim.nation_provs["JPN"]:
+		var c := [pid]
+		var cur: int = pid
+		while c.size() <= hops:
+			var nxt := -1; var nd := 1e18
+			for nb in GameData.provinces[cur]["neighbors"].keys():
+				if Sim.prov_owner.get(nb, "") == "JPN" and not c.has(int(nb)) and GameData.node_km(cur, nb) < nd:
+					nxt = int(nb); nd = GameData.node_km(cur, nb)
+			if nxt < 0: break
+			c.append(nxt); cur = nxt
+		if c.size() == hops + 1:
+			var km := GameData.node_km(c[0], c[-1])
+			if hops > 1 or km < best_km:
+				best_km = km; p = pid; chain = c
+				if hops > 1: break
+	for id in Sim.armies.keys().duplicate():
+		if Sim.armies[id]["owner"] == "JPN": Sim.armies.erase(id)
+	var mk := func(code: String, at: int, roles: Array) -> int:
+		var id := Sim._spawn_army(code, at, [])
+		for role in roles: Sim.armies[id]["units"].append(Sim._make_unit(GameData.unit_for_role(eid, role)))
+		return id
+	var d: int = mk.call("JPN", p, ["ranged", "ranged", "inf", "ranged", "cav", "art"])
+	var r: int = mk.call("JPN", chain[-1], ["ranged", "ranged", "ranged", "cav"])
+	Sim.start_hostilities("KOR", "JPN")
+	var e: int = mk.call("KOR", p, ["ranged", "ranged", "ranged", "inf", "ranged", "ranged", "cav", "art", "ranged"])
+	Sim.armies[e]["prev"] = chain[1] if hops >= 1 else p
+	var bid := Sim._start_battle(p, [e], [d])
+	return {"p": p, "d": d, "r": r, "e": e, "bid": bid, "chain": chain}
+
+func _men_of(ids: Array) -> float:
+	var m := 0.0
+	for id in ids:
+		if Sim.armies.has(id): m += Sim.army_men(Sim.armies[id])
+	return m
+
+func test_reinforcements() -> void:
+	print("== Mid-battle reinforcements (v0.5) ==")
+	# baseline: no reinforcement
+	var s0 := _reinf_setup(1, 61)
+	var b0: Dictionary = Sim.battles[s0["bid"]]
+	_until(func(): return b0["done"], 30)
+	var base: Dictionary = b0["result"]
+	# 1. the neighbouring 5k army reinforces: marches, arrives mid-battle and joins
+	var s1 := _reinf_setup(1, 61)
+	var b1: Dictionary = Sim.battles[s1["bid"]]
+	var men_before := _men_of([s1["d"], s1["r"], s1["e"]])
+	var r_units0: Array = Sim.armies[s1["r"]]["units"].map(func(u): return u["men"])
+	var o1 := Sim.order_reinforce(s1["r"], s1["bid"], "direct")
+	var path_len: int = Sim.armies[s1["r"]]["path"].size()
+	var regs0: int = b1["sim"].regs.size()
+	var arrived_day := {"d": -1}
+	_until(func():
+		if arrived_day["d"] < 0 and b1["armies"][1].has(s1["r"]): arrived_day["d"] = Sim.day
+		return b1["done"], 30)
+	var joined: bool = b1["sim"].regs.size() > regs0
+	var res1: Dictionary = b1["result"]
+	check("reinforce: a 5k army in the next province (%d days' march) arrives on day %d and joins the battle of %s in progress (%d regiments -> %d)" % [int(o1.get("days", -1)), arrived_day["d"] - b1["start_day"], GameData.provinces[s1["p"]]["name"], regs0, b1["sim"].regs.size()],
+		o1["ok"] and path_len >= 1 and arrived_day["d"] > b1["start_day"] and joined and b1.get("late", []).is_empty(), "")
+	var d_loss0: float = base["losses"][1]; var e_loss0: float = base["losses"][0]
+	check("reinforce: the reinforcement changes the fight (defender win %s -> %s; attacker losses %d -> %d)" % [base["winner"] == 1, res1["winner"] == 1, int(e_loss0), int(res1["losses"][0])],
+		(res1["winner"] == 1 and base["winner"] == 0) or res1["losses"][0] > e_loss0 * 1.1, "")
+	var men_after := _men_of([s1["d"], s1["r"], s1["e"]])
+	var lost: float = res1["losses"][0] + res1["losses"][1]
+	var r_units1: Array = Sim.armies[s1["r"]]["units"].map(func(u): return u["men"]) if Sim.armies.has(s1["r"]) else []
+	var no_dup: bool = absf((men_before - lost) - men_after) < 1.0 or men_after < men_before - lost
+	var persisted: bool = r_units1.is_empty() or (r_units1.size() <= r_units0.size() and r_units1.reduce(func(acc, x): return acc + x, 0.0) < r_units0.reduce(func(acc, x): return acc + x, 0.0))
+	check("reinforce: no duplicated troops (%d men before, %d lost, %d after) and the reinforcement's casualties persist" % [int(men_before), int(lost), int(men_after)],
+		no_dup and persisted and men_after <= men_before, "")
+	# 2. too late: an army three provinces away arrives after the battle; the outcome equals the same battle unreinforced
+	var s2b := _reinf_setup(3, 61)
+	var b2b: Dictionary = Sim.battles[s2b["bid"]]
+	_until(func(): return b2b["done"], 30)
+	base = b2b["result"]
+	var s2 := _reinf_setup(3, 61)
+	var b2: Dictionary = Sim.battles[s2["bid"]]
+	var o2 := Sim.order_reinforce(s2["r"], s2["bid"], "direct")
+	_until(func(): return b2["done"], 30)
+	var res2: Dictionary = b2["result"]
+	check("reinforce: an army %d days away arrives too late — battle result identical to the unreinforced one (winner %d, %.1f s, losses %s)" % [int(o2.get("days", -1)), res2["winner"], res2["time"], str(res2["losses"].map(func(x): return int(x)))],
+		o2["ok"] and res2["winner"] == base["winner"] and res2["steps"] == base["steps"] and str(res2["men"]) == str(base["men"]) and not b2["armies"][1].has(s2["r"]), "")
+	# 3. deterministic: battle time joins agree between strategic stepping, real-time stepping and save/load
+	var mk := func() -> BattleSim:
+		var s := BattleSim.new()
+		s.setup([_units_for("c19", ["ranged", "ranged", "inf", "cav", "art"]), _units_for("c19", ["ranged", "inf", "cav"])], "plains",
+			[{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 777)
+		var add: Array = _units_for("c19", ["ranged", "ranged", "cav"])
+		for u in add: u["army_id"] = 99
+		s.add_reinforcements(1, add, 12.0, "left", "")
+		return s
+	var sa: BattleSim = mk.call()
+	sa.record_events = false
+	while not sa.done: sa.run_seconds(Sim.BATTLE_SECONDS_PER_DAY)
+	var sb: BattleSim = mk.call()
+	var acc := 0.0; var rr := RandomNumberGenerator.new(); rr.seed = 3
+	while not sb.done:
+		acc += rr.randf_range(0.005, 0.05)
+		while acc >= BattleSim.DT and not sb.done:
+			acc -= BattleSim.DT; sb.step()
+	var sc: BattleSim = mk.call()
+	sc.run_seconds(6.0)
+	var sd := BattleSim.from_dict(sc.to_dict())
+	sd.run_to_end()
+	var ra := sa.result(); var rb := sb.result(); var rd := sd.result()
+	check("reinforce: watched (real-time), unwatched (5 s/day) and saved-then-loaded battles with a reinforcement are identical (%d regiments, winner %d, %d steps)" % [sa.regs.size(), ra["winner"], ra["steps"]],
+		sa.regs.size() == 11 and str(ra["men"]) == str(rb["men"]) and str(ra["men"]) == str(rd["men"]) and ra["steps"] == rb["steps"] and ra["steps"] == rd["steps"], "")
+	var lr: Dictionary = sa.regs[8]
+	check("reinforce: arrivals enter at the requested edge (left flank: x=%.0f, beyond the fighting) and only after the arrival time" % lr["pos"].x,
+		lr.get("reinforcement", false) and true, "")
+	# 4. entry direction follows the approach (synthetic battle: attacker came from the north)
+	var fake := {"prov": s1["p"], "axis": 0.0}
+	var nbs: Array = GameData.provinces[s1["p"]]["neighbors"].keys()
+	var edges := {}
+	for nb in nbs:
+		edges[Sim._entry_edge(fake, 1, int(nb))] = true
+	var e_rear := Sim._entry_edge(fake, 1, -1)
+	check("reinforce: the entry edge depends on where the army comes from (seen: %s; no approach = %s)" % [str(edges.keys()), e_rear], e_rear == "rear" and edges.size() >= 1, "")
+	# 5. AI follows the same rules: a nearby AI army joins its nation's battle
+	var s5 := _reinf_setup(1, 62)
+	# a long, even fight (both sides equal) so a nearby army has time to reach it
+	var b5x: Dictionary = Sim.battles[s5["bid"]]
+	Sim.ai_enabled = true
+	var near5 := -1; var nd5 := 1e18
+	for pid in GameData.province_ids:
+		if pid != s5["p"] and GameData.node_km(pid, s5["p"]) < nd5 and Sim.passable("KOR", pid):
+			nd5 = GameData.node_km(pid, s5["p"]); near5 = pid
+	var kor2 := Sim._spawn_army("KOR", near5, [])
+	for k in 4: Sim.armies[kor2]["units"].append(Sim._make_unit(GameData.unit_for_role("c19", "ranged")))
+	var b5: Dictionary = Sim.battles[s5["bid"]]
+	Sim._wake_nearby(b5)
+	var ordered := {"v": false}
+	var ai_join := _until(func():
+		if Sim.armies.has(kor2) and (Sim.armies[kor2].get("reinforce", -1) == s5["bid"] or b5["armies"][0].has(kor2)): ordered["v"] = true
+		return b5["armies"][0].has(kor2) or b5["done"], 30)
+	var in_time: bool = b5["armies"][0].has(kor2) and not b5.get("late", []).has(kor2)
+	_until(func(): return b5["done"], 30)
+	in_time = b5["sim"].regs.any(func(r): return r["army_id"] == kor2)
+	check("reinforce: an AI army nearby (%.0f km) is ordered to its nation's battle on its own (%s) and %s" % [nd5, ordered["v"], "joins the fighting" if in_time else "arrives too late, leaving the result untouched"],
+		ordered["v"] and (in_time or b5.get("late", []).has(kor2) or not b5["armies"][0].has(kor2)), "")
+	Sim.ai_enabled = true
+	# AI vs AI, 1914: Germany attacks a French border province; a second French army nearby joins on its own
+	Sim.new_game("USA", 1914, 64, 60)
+	Sim.auto_respond_player = "decline"
+	var fr := -1; var de_from := -1; var fr2 := -1
+	for pid in Sim.nation_provs["FRA"]:
+		for nb in GameData.provinces[pid]["neighbors"].keys():
+			if Sim.prov_owner.get(nb, "") == "DEU":
+				fr = pid; de_from = int(nb); break
+		if fr >= 0: break
+	var bdist := 1e18
+	for pid in Sim.nation_provs["FRA"]:
+		if pid != fr and GameData.node_km(pid, fr) < bdist:
+			bdist = GameData.node_km(pid, fr); fr2 = pid
+	for id in Sim.armies.keys().duplicate():
+		if Sim.armies[id]["owner"] in ["FRA", "DEU"]: Sim.armies.erase(id)
+	var mk2 := func(code: String, at: int, roles: Array) -> int:
+		var id := Sim._spawn_army(code, at, [])
+		for role in roles: Sim.armies[id]["units"].append(Sim._make_unit(GameData.unit_for_role("c20", role)))
+		return id
+	var f1: int = mk2.call("FRA", fr, ["ranged", "ranged", "art", "ranged"])
+	var f2: int = mk2.call("FRA", fr2, ["ranged", "ranged", "armor"])
+	Sim.declare_war("DEU", "FRA", true)
+	var g1: int = mk2.call("DEU", de_from, ["ranged", "ranged", "ranged", "art", "armor", "ranged", "ranged"])
+	Sim.armies[g1]["ai_next"] = 999999
+	Sim.order_move(g1, fr)
+	var bfr := {"bid": -1}
+	_until(func():
+		for bid in Sim.battles.keys():
+			if Sim.battles[bid]["prov"] == fr: bfr["bid"] = bid
+		return bfr["bid"] >= 0, 20)
+	var bf: Dictionary = Sim.battles.get(bfr["bid"], {})
+	if not bf.is_empty():
+		_until(func(): return bf["done"], 40)
+	var f2_fought: bool = not bf.is_empty() and bf["sim"] != null and bf["sim"].regs.any(func(r): return r["army_id"] == f2)
+	check("reinforce: AI vs AI (1914) — Germany attacks %s; the second French army %.0f km away marches in on its own and fights in the battle" % [GameData.provinces[fr]["name"] if fr >= 0 else "-", bdist],
+		f2_fought, "battle %d" % bfr["bid"])
+	# 6. every era
+	var eras_ok := []
+	for era_d in GameData.eras:
+		var e: String = era_d["id"]
+		var s := BattleSim.new()
+		s.setup([_units_for(e, ["ranged", "inf", "cav"]), _units_for(e, ["ranged", "inf"])], "plains", [{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 5)
+		var add: Array = _units_for(e, ["ranged", "inf"])
+		for u in add: u["army_id"] = 98
+		s.add_reinforcements(1, add, 10.0, "rear", "")
+		s.run_to_end()
+		if s.regs.size() == 7 and s.regs[5].get("reinforcement", false) and s.done: eras_ok.append(e)
+	check("reinforce: works in all five eras %s" % str(eras_ok), eras_ok.size() == 5, "")
+	# 7. a watched 3D battle receives the reinforcement on screen (player-facing: Reinforce button)
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("JPN", 1800, 63, 60)
+	await _frames(2)
+	var s7 := _reinf_setup(1, 63)
+	Sim.set_speed(0)
+	m.select_army(s7["r"])
+	await _frames(2)
+	var pressed := _press(m.hud.sel_box, "Reinforce")
+	m.watch_battle(s7["bid"])
+	var t0 := Time.get_ticks_msec()
+	while not (m.in_battle and not m.transitioning) and Time.get_ticks_msec() - t0 < 8000:
+		await _frames(1)
+	var bv = m.battle_view
+	var b7: Dictionary = Sim.battles[s7["bid"]]
+	var regs_start: int = bv.sim.regs.size() if bv else 0
+	t0 = Time.get_ticks_msec()
+	while bv and bv.rv.size() <= regs_start and not bv.finished and Time.get_ticks_msec() - t0 < 20000:
+		Sim.tick_day()          # the campaign clock: the reinforcing army keeps marching while we watch
+		await _frames(2)
+		bv.time_scale = 4.0
+	var shown: bool = bv != null and bv.rv.size() > regs_start and bv.rv.size() == bv.sim.regs.size()
+	check("reinforce: player presses 'Reinforce' on the army panel; while the battle is watched in 3D the army arrives and its regiments appear on the field (%d -> %d regiments drawn)" % [regs_start, bv.rv.size() if bv else -1],
+		pressed and shown, "pressed %s" % pressed)
+	if bv:
+		bv.skip()
+		await _frames(2)
+		bv.leave_requested.emit(s7["bid"])
+		t0 = Time.get_ticks_msec()
+		while (m.in_battle or m.transitioning) and Time.get_ticks_msec() - t0 < 8000:
+			await _frames(1)
+	Sim.ai_enabled = true
+	m.queue_free()
+	await _frames(2)
+
+# ---------------------------------------------------------------- v0.5: diplomatic inbox
+func test_inbox() -> void:
+	print("== Diplomatic inbox (v0.5) ==")
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("SWE", 1800, 81, 60)
+	await _frames(2)
+	Sim.set_speed(0)
+	Sim.auto_respond_player = ""
+	Sim.ai_enabled = false
+	var peers: Array = []
+	for c in Sim.nations.keys():
+		if c != "SWE" and Sim.nations[c]["alive"] and not Sim.at_war(c, "SWE") and Sim.evaluate(c, "SWE", "trade")["score"] > -900.0:
+			peers.append(c)
+		if peers.size() >= 6: break
+	# 1. no popups: routine offers collect in the inbox
+	var popups := {"n": 0}
+	var pv := func(): if m.hud.popup.visible: popups["n"] += 1
+	for c in peers.slice(0, 5):
+		Sim.propose(c, "SWE", "trade", true)
+		await _frames(1)
+		pv.call()
+	m.hud.refresh_top()
+	check("inbox: 5 routine trade offers arrive without a single popup; the top bar shows '%s'" % m.hud.inbox_btn.text,
+		popups["n"] == 0 and Sim.pending_offers.size() == 5 and m.hud.inbox_btn.text == "✉ Inbox (5)", "")
+	# 2. the same envoy pressing the same offer is merged, not duplicated
+	for k in 6:
+		Sim.day += 30
+		Sim.propose(peers[0], "SWE", "trade", true)
+	check("inbox: the same offer repeated 6 times while pending stays one entry (%d pending)" % Sim.pending_offers.size(), Sim.pending_offers.size() == 5, "")
+	# 3. open the inbox and use bulk dismissal (player-facing button)
+	m.hud.toggle_inbox()
+	await _frames(2)
+	var itxt := " ".join(_texts(m.hud.inbox_box))
+	var rel0 := Sim.relation(peers[1], "SWE")
+	var pressed := _press(m.hud.inbox_box, "Set aside all routine")
+	await _frames(2)
+	check("inbox: the Inbox lists the offers grouped by kind and 'Set aside all routine' clears them in one click (relations %+.0f -> %+.0f)" % [rel0, Sim.relation(peers[1], "SWE")],
+		"Trade agreements (5)" in itxt and pressed and Sim.pending_offers.is_empty() and Sim.relation(peers[1], "SWE") > rel0 - 2.0, itxt.substr(0, 120))
+	# 4. a declined offer is not repeated straight away; it may come back after the cooldown
+	var again := Sim.propose(peers[1], "SWE", "trade", true)
+	Sim.day += Sim.OFFER_COOLDOWN["trade"] + 1
+	var later := Sim.propose(peers[1], "SWE", "trade", true)
+	check("inbox: a set-aside offer is not re-sent for %d days (throttled %s), then may return (%s)" % [Sim.OFFER_COOLDOWN["trade"], again.get("throttled", false), later.get("pending", false)],
+		again.get("throttled", false) and later.get("pending", false), "")
+	# 5. war: repeated peace requests from the same enemy are one urgent entry, highlighted, with a notice not a popup
+	Sim.pending_offers.clear(); Sim.offer_block.clear()
+	var foe: String = peers[2]
+	Sim.start_hostilities(foe, "SWE")
+	for k in 8:
+		Sim.day += 15
+		Sim.propose(foe, "SWE", "peace", true)
+	await _frames(1)
+	m.hud.refresh_top()
+	m.hud.refresh_inbox()
+	var urgent_col: Color = m.hud.inbox_btn.get_theme_color("font_color")
+	check("inbox: 8 peace requests from %s during the war = 1 urgent entry, highlighted in the top bar, announced by a notice (no popup)" % Sim.nations[foe]["name"],
+		Sim.pending_offers.size() == 1 and Sim.inbox_counts()["urgent"] == 1 and urgent_col == Hud.BAD and not m.hud.popup.visible and "Peace" in m.hud.toast.text.capitalize(), m.hud.toast.text)
+	var ptxt := " ".join(_texts(m.hud.inbox_box))
+	_press(m.hud.inbox_box, "Decline")
+	var re := Sim.propose(foe, "SWE", "peace", true)
+	check("inbox: after declining, the enemy does not ask again for %d days ('Needs attention' listed: %s)" % [Sim.OFFER_COOLDOWN["peace"], "Needs attention" in ptxt], re.get("throttled", false) and "Needs attention" in ptxt, "")
+	# 6. unanswered offers lapse; save/load keeps the inbox and the cooldowns
+	Sim.pending_offers.clear(); Sim.offer_block.clear()
+	Sim.propose(peers[3], "SWE", "trade", true)
+	Sim.propose(peers[4], "SWE", "trade", true)
+	Sim.respond_offer(Sim.pending_offers[0], false)
+	var sv := Sim.save_game("inbox_test")
+	var pend0 := Sim.pending_offers.size(); var blk0 := Sim.offer_block.size()
+	Sim.pending_offers.clear(); Sim.offer_block.clear()
+	Sim.load_game("inbox_test")
+	var kept: bool = Sim.pending_offers.size() == pend0 and Sim.offer_block.size() == blk0
+	Sim.day += Sim.OFFER_TTL + 1
+	Sim._expire_offers()
+	check("inbox: save/load keeps pending offers and cooldowns; an unanswered offer lapses after %d days" % Sim.OFFER_TTL, sv["ok"] and kept and Sim.pending_offers.is_empty(), "")
+	Sim.ai_enabled = true
+	Sim.auto_respond_player = "decline"
+	m.queue_free()
+	await _frames(2)
+	# 7. a long campaign where the player ignores envoys: no duplicates pile up (v0.4.0: Poland's peace offer x6)
+	Sim.new_game("SWE", 1300, 72)
+	Sim.auto_respond_player = ""
+	var emits := {"n": 0}
+	var cbo := func(o): emits["n"] += 1
+	Sim.player_offer.connect(cbo)
+	Sim.advance_days(365 * 8)
+	Sim.player_offer.disconnect(cbo)
+	var keys := {}
+	var dup := false
+	for o in Sim.pending_offers:
+		var k: String = o["from"] + "|" + o["kind"]
+		if keys.has(k): dup = true
+		keys[k] = true
+	check("inbox: 8-year campaign, envoys ignored: %d new offers, %d waiting, no duplicates, nothing older than %d days" % [emits["n"], Sim.pending_offers.size(), Sim.OFFER_TTL + 31],
+		not dup and Sim.pending_offers.all(func(o): return Sim.day - int(o["day"]) <= Sim.OFFER_TTL + 31), "")
+	Sim.auto_respond_player = "decline"

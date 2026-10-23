@@ -460,7 +460,8 @@ func update_markers() -> void:
 			ship.add_child(sh)
 			ship.set_meta("built", true)
 		# strategic declutter: at world zoom only show armies that matter to the player
-		n.visible = not far_view or a["owner"] == Sim.player or Sim.at_war(a["owner"], Sim.player) or a["state"] == "battle" or a["state"] == "siege"
+		n.visible = (not far_view or a["owner"] == Sim.player or Sim.at_war(a["owner"], Sim.player) or a["state"] == "battle" or a["state"] == "siege") \
+			and not Sim.hidden_from_player(a)   # v0.5: hostile armies outside our detection range are not shown
 		n.get_node("Standard").visible = true
 		var lab: Label3D = n.get_node("Label")
 		var men := Sim.army_men(a)
@@ -609,6 +610,8 @@ func army_at_screen(screen: Vector2) -> int:
 	var best := -1; var bd := 28.0
 	for aid in army_nodes.keys():
 		var n: Node3D = army_nodes[aid]
+		if not n.visible:
+			continue
 		var top := n.global_position + Vector3(0, 1.6 * n.scale.y, 0)
 		if camera.is_position_behind(top):
 			continue
