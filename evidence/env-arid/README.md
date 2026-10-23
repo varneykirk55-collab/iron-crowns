@@ -38,8 +38,8 @@ The demo battle (`--demo=battle --year=1300 --nation=SWE`) is run with `--env-pr
 
 ## Combat / sim untouched
 - `BATTLERESULT` from the video run is **byte-identical** to a legacy `--env=0` run on the same code (v0.5.0 combat): md5 `1521b887c9d353430d51b7e6ab22815c`. The old `f0921013…` reference predates v0.5.0's combat changes.
-- sim_hash is identical to `main` 644174c / e7964f8: SWE 1800 `0b3153c6f9fb7c454686cb49f19cb866`, USA 1914 `a9beef573f5922b7eb83ba8f2beb5e63`, JPN 1500 `563be302cdf34e56b4a33a873230ebf1`.
-- test_runner (205/205), test_audio (28/28) and test_env (0 failures) all pass after merging main (`tests/`).
+- After merging `main` 77306f4 (combat animations v1 on by default), sim_hash is identical to `main` 77306f4 (unchanged from 644174c / e7964f8): SWE 1800 `0b3153c6f9fb7c454686cb49f19cb866`, USA 1914 `a9beef573f5922b7eb83ba8f2beb5e63`, JPN 1500 `563be302cdf34e56b4a33a873230ebf1`.
+- test_runner (210/210), test_audio (28/28) and test_env (0 failures) all pass after merging main 77306f4 (`tests/`).
 - No morale, pathfinding, combat, soldier-model or rules files are touched. The only code changes are `biomes/arid.gd`, plus two defaulted uniforms in `battle_terrain.gdshader` whose defaults equal the old hard-coded lichen, so every other biome renders as before.
 
 ## Perf reading

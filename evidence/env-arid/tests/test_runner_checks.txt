@@ -61,7 +61,7 @@
   [PASS] other battles/events continued meanwhile (none skipped)  -- other battles resolved meanwhile: 0, log entries 42
   [PASS] save: campaign state is non-trivial at save time  -- day 241 (30 Aug 1800), wars 6, battles in progress 1, armies 206, treaties 81, sieges 1
   [PASS] save: write user://saves/test_slot.save  -- Saved "test_slot" (30 Aug 1800) size 985632 B
-  [PASS] save: metadata header readable  -- { "magic": "IRONCROWNS", "version": 1, "player": "SWE", "nation": "Sweden", "date": "30 Aug 1800", "era": "Age of Revolutions", "saved_unix": 1792788833 }
+  [PASS] save: metadata header readable  -- { "magic": "IRONCROWNS", "version": 1, "player": "SWE", "nation": "Sweden", "date": "30 Aug 1800", "era": "Age of Revolutions", "saved_unix": 1792793599 }
   [PASS] save: loaded state deep-equals saved state  -- Loaded "test_slot" (30 Aug 1800), 985396 bytes identical
   [PASS] save: in-progress battles restored as live BattleSim objects  -- 2 battles
   [PASS] save: determinism, original and loaded runs identical after 180 more days  -- both at 26 Feb 1801, 206 armies, 2 battles, 237 events
@@ -77,20 +77,25 @@
   [PASS] visuals: c19 battle gets the graphics pass at setup (look differs from legacy) [2, 1.08, 0.75, 1.45, true]  -- { "medieval": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]], "c19": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]] }
   [PASS] visuals: apply() is idempotent on a set-up c19 battle  -- { "medieval": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]], "c19": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]] }
   [PASS] visuals: medieval battle gets the era pass at setup (look differs from legacy, apply() idempotent) [2, 1.08, 0.75, 1.45, true]  -- { "medieval": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]], "c19": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]] }
+  [PASS] anim-v1: ON by default (no args, no env var, no setting)
+  [PASS] anim-v1: --no-anim-v1 / --anim-v1=off|0|false disable it [false, false, false, false]  -- [false, false, false, false]
+  [PASS] anim-v1: legacy --anim-v1 and --anim-v1=on keep it on  -- [true, true]
+  [PASS] anim-v1: env var IRONCROWNS_ANIM_V1=0 and setting false disable it; command line wins [false, false, true, false, true]  -- [false, false, true, false, true]
+  [PASS] anim-v1: BattleView.setup applies the switch (AC.on=true, expected true from this run's args/env)
   [PASS] polish: c19 grenadiers drawn with c19_grenadier, gun crews with c19_artillery (grenadier regs [4, 4], guns [1, 1], multimesh rows { "c19_grenadier": 1024, "c19_artillery": 24 })  -- [[4, 4], [1, 1], { "c19_grenadier": 1024, "c19_artillery": 24 }]
   [PASS] polish: c19 re-apply() adds no multimeshes (20 == 20)
   [PASS] polish: early-modern gun crews drawn with em_gunner (guns [1, 1], rows { "em_gunner": 24 })  -- [[0, 0], [1, 1], { "em_gunner": 24 }]
   [PASS] polish: early_modern re-apply() adds no multimeshes (14 == 14)
   [PASS] polish: depth-range fog (field < 260 m clear) on plains and tundra; tundra exposure lower, contrast higher { "plains": [1, 260.0, 1.08, 1.08], "tundra": [1, 260.0, 0.98, 1.12] }  -- { "plains": [1, 260.0, 1.08, 1.08], "tundra": [1, 260.0, 0.98, 1.12] }
   [PASS] controls: 37 InputMap actions registered, gameplay actions all have gamepad bindings  -- missing [], no-joy []
-  [PASS] controls: gamepad focus lands on title-menu buttons  -- focus @Button@2012:<Button#390959468489>, device joy
+  [PASS] controls: gamepad focus lands on title-menu buttons  -- focus @Button@2090:<Button#399733952461>, device joy
   [PASS] controls: RB cycles through own armies  -- armies [51, 209] -> 51, 209
   [PASS] controls: D-pad up/down cycles own provinces  -- 343 -> 344
   [PASS] controls: Y pauses/unpauses, D-pad right raises speed  -- Y->2, right->3, Y->0
-  [PASS] controls: Back opens diplomacy with gamepad focus inside; D-pad navigates it  -- visible true, focus @Button@2460:<Button#437734349056> -> @Button@2974:<Button#460635249731>
+  [PASS] controls: Back opens diplomacy with gamepad focus inside; D-pad navigates it  -- visible true, focus @Button@2538:<Button#446508833026> -> @Button@3052:<Button#469376179268>
   [PASS] controls: B closes the window
   [PASS] controls: L3 economy, Start game menu (focused), Start again closes  -- econ true menu true
-  [PASS] controls: left stick moves the map cursor reticle (no on-screen controller)  -- (800.0, 800.0) -> (864.765, 800.0)
+  [PASS] controls: left stick moves the map cursor reticle (no on-screen controller)  -- (800.0, 800.0) -> (869.3759, 800.0)
   [PASS] controls: A selects the army under the cursor  -- selected 51 want 51 at (800.0, 800.0001)
   [PASS] controls: X orders the selected army to the province under the cursor  -- dest 343 goal 343
   [PASS] controls: touch tap selects the army  -- selected 51
@@ -98,7 +103,7 @@
   [PASS] controls: one-finger drag pans the map (and is not a tap)  -- target moved 11.41
   [PASS] controls: pinch out zooms in, two-finger twist rotates  -- dist 30.0 -> 9.0, yaw 0.00 -> 0.79
   [PASS] controls: long-press marches the selected army to the pressed province  -- dest 343 goal 343
-  [PASS] controls: UI scale, large touch targets, F3 perf overlay and quality settings apply  -- scale true big true perf 'FPS 57   frame 166.0 ms avg / 292.9 worst (2 s)' msaa 0
+  [PASS] controls: UI scale, large touch targets, F3 perf overlay and quality settings apply  -- scale true big true perf 'FPS 112   frame 162.3 ms avg / 291.2 worst (2 s)' msaa 0
   [PASS] controls: no virtual joystick / on-screen gamepad nodes in the scene tree  -- 0 TouchScreenButton
   [PASS] controls: battle view — RB speeds up, right stick orbits (leaves cinematic), pinch zooms, Back leaves  -- speed 2x stick true pinch 170->57 leave true
   [PASS] markers: MapVisuals is hooked into the WorldMap and every army standard shows map_marker_c19 (208/208)  -- [208, 208]
@@ -203,4 +208,4 @@
   [PASS] offensive: SWE's invasion of Northeastern Greenland wins a battle on the way at Faeroe Is., then marches on and captures the objective (140 days)
   [PASS] offensive: invasion -> capture works in all five eras ["1300:Mariehamn@63d", "1500:Mariehamn@48d", "1800:Mariehamn@39d", "1914:Mariehamn@25d", "1980:Mariehamn@17d"]
   [PASS] offensive: 4-year AI run still conquers (22 captures, 0 recaptures, 33 wars, 22 nations eliminated) and leaves no landless nation without an army  -- []
-==== 205 / 205 checks passed (266.5 s) ====
+==== 210 / 210 checks passed (190.7 s) ====
