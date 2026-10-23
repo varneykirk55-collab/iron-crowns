@@ -1,4 +1,4 @@
-# Feature status: honest accounting
+# Feature status (v0.2): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -12,7 +12,9 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 |---|---|---|
 | 3D world map with real coastlines, relief and political colouring | VERIFIED | `campaign_*_world/region/close.png`. Built from Natural Earth 50m data. |
 | Selectable countries and provinces, with borders | VERIFIED | Province panel and highlight in screenshots. 641 provinces. Small countries are a single province. |
-| Camera pan / zoom / orbit, smooth fly-to | VERIFIED (scripted) | The demo uses fly-to and zoom. Mouse and keyboard input is wired up, but it was only tested by code paths, not by a human. |
+| Camera pan / zoom / orbit, smooth fly-to | VERIFIED (scripted) | Demo fly-to/zoom; `--only=controls` drives keyboard, gamepad and touch with synthesized input events. Not played by a human. |
+| Controls: kbm + gamepad + touch, rebindable InputMap, settings | VERIFIED (synthetic input) | `--only=controls` 19/19: 37 actions all with gamepad bindings, pad cursor select/move, touch tap/drag/pinch/twist/long-press, no virtual joystick nodes. No physical gamepad or touchscreen was available. |
+| F3 performance overlay, quality Low/Medium/High | VERIFIED | Overlay values come from the same probes as `--perfout`; quality toggles MSAA, battle LOD distance and sun shadows. |
 | 3 playable nations (USA, SWE, JPN), data-driven | VERIFIED | Per-nation headless playtests (19 checks each). Nations are defined in `data/nations.json`. Adding more playable nations is a data edit. |
 | Real-time clock, pause, 5 speeds | VERIFIED | Tests and the HUD clock in screenshots. |
 | Economy: funds, income, upkeep, resources, needs, administration | VERIFIED (sim) / PARTIAL (depth) | The monthly economy is tested. Domestic activity is automatic. The model is simple and not balanced in depth. |
@@ -21,8 +23,9 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Sieges and territory capture | VERIFIED | Tests (provinces change hands). |
 | AI: recruit, expand, declare war, negotiate trade/alliance/NAP, make peace | VERIFIED (sim) | Per-nation test counts (hundreds of proposals, dozens of wars). The AI is rule-based and simple, and peace is rare. |
 | Diplomacy UI (F1) and Economy/Army UI (F2) | VERIFIED | `diplomacy_SWE*.png`, `economy_SWE*.png`, `diplomacy_demo.mp4` (proposal sent, unit bought, treasury drops by unit cost). |
-| Era progression (global, calendar-driven), refit, old armies keep old kit | VERIFIED (sim) | Tests: 1913 → 1914 advance, refit, buying does not change the era. |
-| Save/load | MISSING | |
+| Era progression (global, calendar-driven), refit, old armies keep old kit | VERIFIED | Tests: 1913 → 1914 advance, refit, buying does not change the era; gameplay test sees the era change on 1 Jan 1914 in the real main scene. USA/SWE/JPN start armies use the right era's units in all 5 start years. |
+| Scripted end-to-end gameplay | VERIFIED (headless) | `--only=gameplay` 7/7: start as Sweden 1913, march, declare war, watch a battle + camera toggle, capture a province, save/load, era advance. The test grants extra funds so the invasion reliably succeeds. |
+| Save/load (F5/F9, named slots, title-menu load) | VERIFIED | `--only=save` 8/8 (deep equality, 180-day forward determinism, missing slot, list); gameplay test round trip; `shots/v02/saveload_*.png`. Watched battles load as unwatched. |
 | Sound / music | MISSING | |
 | Naval combat | MISSING | Fleets are only transport markers. |
 
@@ -33,11 +36,26 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Deterministic sim; the same sim drives the outcome and the visuals | VERIFIED | Test: watched and unwatched battles give the same outcome. |
 | Smooth map → battle transition | VERIFIED (video) | Battle MP4. |
 | 3D formations, volleys, smoke, impacts, casualties, routs, result | VERIFIED | `battle_USA_close0/close1/top/engage/melee/result.png` and the MP4. |
-| Battle length about 30–40 s | VERIFIED (balance test) / PARTIAL | Mean 36–42 s across eras in the 8-seed test. The recorded demo battle lasted about 25 s. |
+| Battle length about 30–40 s | VERIFIED (mostly) | `--only=eras`: one battle per era 30–35 s; camera test battle 36.5 s. Recorded campaign battles (table below): 1300 33.4 s, 1500 32.3 s, 1800 39.5 s, 1980 31.0 s; 1914 28.8 s with `--reinforce=1`, and only 17.8 s without it (9.7:1 mismatch, USA vs a weak Canadian force). Length depends on the armies that meet. |
+| Cinematic battle camera + overhead toggle (C) | VERIFIED | `--only=camera` 6/6 (identical outcome with 27 toggles, both blend ends reached, ≥4 event-driven cuts incl. aftermath, no NaN); `rec/camera_demo.mp4`. |
 | Strategic sim keeps running while a battle is watched | VERIFIED | Tests, plus the clock advances in the HUD during the battle. |
-| Era-specific armies (5 eras of soldier/cavalry/artillery models) | PARTIAL | All models exist and pass a VAT preview check. Only the c19 battle has been rendered end to end. |
+| Era-specific armies (5 eras of soldier/cavalry/artillery models) | VERIFIED | `--only=eras`: each era's battle uses only that era's units and model files (lod0/lod1 glb); projectile classes per era (arrow/stone shot → musket ball/round shot → rifle tracer/shell/tank round); armour matters (medieval knights vs levy, MBT vs rifles). All 5 eras recorded end to end (`videos/era_*`, table below). |
+| Melee | PARTIAL | Melee decides medieval battles (10–38 % of kills); from 1500 on it is ≤0.4 % and 0 % in c20/modern — fire dominates. That is plausible but means pike/bayonet units rarely fight hand to hand. |
 | Blender glTF assets, MultiMesh instancing, VAT animation, 2 LODs | VERIFIED | Scripts in `pipeline/blender/`. LOD switching is distance-based (75 m). |
 | Terrain/sieges as 3D battles, naval battles | MISSING | Sieges resolve on the map only. |
+
+## Recorded era battles (v0.2, 960x540, `tools/rec_eras.sh`, summaries from `tools/era_summary.py`)
+| Start | Battle | Winner | Length | Projectiles seen | Models rendered | Melee share |
+|---|---|---|---|---|---|---|
+| 1300 SWE | Denmark vs Sweden | Sweden (defender) | 33.4 s | arrow | med_archer, med_spear | 0.379 |
+| 1500 JPN | Russia vs Japan | Japan | 32.3 s | musket_ball, round_shot | em_musket, em_cuirassier, em_pike, art_cannon | 0.004 |
+| 1800 SWE | Norway vs Sweden | Sweden | 39.5 s | musket_ball, round_shot | c19_line, c19_hussar, art_cannon | 0.048 |
+| 1914 USA | USA vs Canada | USA | 17.8 s | rifle_tracer, shell, tank_round | c20_rifle, tank_c20, art_howitzer | 0 |
+| 1914 USA `--reinforce=1` | USA vs Canada | Canada | 28.8 s | rifle_tracer, shell, tank_round | c20_rifle, tank_c20, art_howitzer | 0 |
+| 1980 USA | Canada vs USA | USA | 31.0 s | rifle_tracer, shell, tank_round | mod_rifle, mbt_modern, ifv_modern, art_howitzer | 0 |
+
+Every battle used only its era's units. No script errors in any recording log. The 1300 demo army has no knights or bombards, so those models
+appear only in tests, not in this video. One weakness seen in the 1914 shots: a flank shot can frame empty ground between the lines.
 
 ## Rendered demos
 | Demo | Status |
@@ -50,10 +68,15 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 ## Builds
 | Build | Status |
 |---|---|
-| Linux x86_64 export | VERIFIED. Exported, and launched under xvfb (menu rendered, data loaded). |
-| Windows x86_64 export | PARTIAL. Exported with the official templates, but not run, because no Windows machine was available. |
+| Linux x86_64 export | see "v0.2 builds" below |
+| Windows x86_64 export | PARTIAL. Exported with the official templates; not run (no Windows machine / wine). |
+| Android | MISSING. No Android SDK or Android export templates on the build machine; touch input is implemented and tested with synthesized events. |
 
 ## Known issues / simplifications
 - The battle demo uses `--reinforce=1`, a scripted scenario that gives the defender an army on the invasion path.
-- The battle visual runs at about 2–7 fps under software rendering. A real GPU should be far faster, but this was not measured.
+- Performance (v0.2, measured): CPU frame time headless — map 9.3 ms (p95 12.7), battle 7.7 ms (p95 9.7), i.e. >100 fps worth of CPU.
+  Rendered under xvfb/llvmpipe 1280x720 the game is render-bound: ~3.5 fps battle / ~4 fps map (render_cpu ~250 ms per frame in the
+  software rasteriser). No GPU was available, so real-hardware fps is unmeasured.
+- BJORN's c19 graphics pass (handoff c19) is **not in main or in these builds**. It is merged on the `graphics` branch and integrated on `lead-dev`
+  (hook + quality forwarding, 131/131 tests, sim hashes unchanged), and held back from main until his brightness/readability revision is marked READY.
 - Unit balance and the economy are first-pass numbers.
