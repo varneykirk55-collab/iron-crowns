@@ -1,0 +1,62 @@
+{
+ "vertices": 2513,
+ "fps": 24,
+ "clips": {
+  "idle": {
+   "start": 0,
+   "count": 96,
+   "loop": true
+  },
+  "walk": {
+   "start": 96,
+   "count": 24,
+   "loop": true
+  },
+  "run": {
+   "start": 120,
+   "count": 16,
+   "loop": true
+  },
+  "fire": {
+   "start": 136,
+   "count": 48,
+   "loop": false
+  },
+  "melee": {
+   "start": 184,
+   "count": 20,
+   "loop": true
+  },
+  "die": {
+   "start": 204,
+   "count": 30,
+   "loop": false
+  },
+  "die_b": {
+   "start": 234,
+   "count": 30,
+   "loop": false
+  }
+ },
+ "frames": 264,
+ "tris": 3034,
+ "kit": "c19sr_line",
+ "lod": 0,
+ "normals": "vatn rgba8 (n*0.5+0.5), same rows/cols as .vat",
+ "near_verts": 2081,
+ "tris_stored": 3615,
+ "split": "verts [0,near_verts) = LOD0 set (drawn near), [near_verts,vertices) = LOD1 set (drawn past char_lod)",
+ "aabb": [
+  [
+   -0.7733745574951172,
+   -0.13220447301864624,
+   -1.9262362718582153
+  ],
+  [
+   1.359505295753479,
+   2.7839722633361816,
+   1.4579821825027466
+  ]
+ ],
+ "max_reach": 1.005
+}

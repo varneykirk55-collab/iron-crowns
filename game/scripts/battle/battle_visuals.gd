@@ -28,14 +28,15 @@ const ERA_ENV := {
 ## Applies to every era (MSAA / shadows / LOD / effects are cost knobs, not part of the c19 look).
 const QUALITY := [
 	{"name": "low", "msaa": Viewport.MSAA_DISABLED, "shadows": false, "shadow_dist": 260.0, "atlas": 2048,
-		"soft": RenderingServer.SHADOW_QUALITY_HARD, "lod": 45.0, "glow": false, "aniso": Viewport.ANISOTROPY_2X},
+		"soft": RenderingServer.SHADOW_QUALITY_HARD, "lod": 45.0, "char_lod": 20.0, "glow": false, "aniso": Viewport.ANISOTROPY_2X},
 	{"name": "medium", "msaa": Viewport.MSAA_2X, "shadows": true, "shadow_dist": 260.0, "atlas": 4096,
-		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 75.0, "glow": true, "aniso": Viewport.ANISOTROPY_4X},
+		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 75.0, "char_lod": 30.0, "glow": true, "aniso": Viewport.ANISOTROPY_4X},
 	{"name": "high", "msaa": Viewport.MSAA_4X, "shadows": true, "shadow_dist": 300.0, "atlas": 4096,
-		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 120.0, "glow": true, "aniso": Viewport.ANISOTROPY_8X},
+		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 120.0, "char_lod": 45.0, "glow": true, "aniso": Viewport.ANISOTROPY_8X},
 ]
 static var _quality := 1          # medium until apply_quality() is called
 static var _bv_ref: WeakRef = null # last BattleView passed to apply(); weak so a freed battle is simply skipped
+static var char_sr := true         # character refinement: semi-realistic c19 soldiers (c19sr_*); --vx-char=0 = previous blocky models
 static var polish := true          # polish pass (terrain-aware light, snow ground, grenadier / gun-crew models); false = v0.2.1 look
 static var terrain_preview := ""   # PREVIEW-ONLY (--vx-terrain=<t>, bench logger): light / ground as if b.terrain were <t>
 
@@ -51,7 +52,11 @@ static func apply(bv: Node) -> void:
 		_apply_environment(bv.get("environment"), bv.get("sun"), ERA_ENV.get(era, {}), terr if polish else "")
 		if polish:
 			_swap_models(bv, era)
+		if char_sr:
+			_swap_char(bv)
 		_apply_materials(bv, era)
+		if char_sr:
+			_char_materials(bv)
 		if polish or terrain_preview != "":
 			_apply_ground_polish(bv, terr)
 	_apply_scene_quality(bv)
@@ -89,6 +94,33 @@ static func apply_viewport(vp: Viewport) -> void:
 	RenderingServer.directional_shadow_atlas_set_size(Q["atlas"], true)
 	RenderingServer.directional_soft_shadow_filter_set_quality(Q["soft"])
 
+## LOD switch distance for the current quality level. Debug / profiling: --vx-lod=<m> overrides it.
+static var lod_override := -1.0
+static func lod_dist(_bv: Node = null) -> float:
+	if lod_override >= 0.0:
+		return lod_override
+	return float(QUALITY[_quality]["lod"])
+
+## char_lod (stage 7): the refined c19 soldiers switch to their LOD1 geometry closer than BattleView's LOD_DIST
+## (which stays 45 / 75 / 120: main's tests pin it). The LOD0 asset carries the LOD1 set too and char_vat.gdshader
+## draws one of the two per instance by camera distance (the other collapses to a degenerate point), so this needs no
+## BattleView change. Tiers keep their order (low < medium < high). Debug: --vx-charlod=<m>.
+static var char_lod_override := -1.0
+static func char_lod_dist() -> float:
+	if char_lod_override >= 0.0:
+		return char_lod_override
+	return float(QUALITY[_quality]["char_lod"])
+
+static func _char_lod_uniforms(bv: Node) -> void:
+	var mms = bv.get("mms")
+	if not (mms is Dictionary):
+		return
+	for key in mms.keys():
+		var mmi = mms[key].get("mmi") if mms[key] is Dictionary else null
+		if mmi is MultiMeshInstance3D and mmi.material_override is ShaderMaterial and str(key).ends_with("|0") \
+				and (mmi.material_override as ShaderMaterial).get_shader_parameter("near_verts") != null:
+			(mmi.material_override as ShaderMaterial).set_shader_parameter("char_lod_dist", char_lod_dist())
+
 ## Scene part of the current quality level: sun shadows + distance, LOD switch distance, glow.
 static func _apply_scene_quality(bv: Node) -> void:
 	var Q: Dictionary = QUALITY[_quality]
@@ -100,7 +132,8 @@ static func _apply_scene_quality(bv: Node) -> void:
 	if env is Environment:
 		env.glow_enabled = Q["glow"] and not ("--noglow" in OS.get_cmdline_user_args())
 	if "LOD_DIST" in bv:
-		bv.set("LOD_DIST", Q["lod"])
+		bv.set("LOD_DIST", lod_dist(bv))
+	_char_lod_uniforms(bv)
 
 ## Polish pass: per-terrain light on top of the era setup. snow = how much of the terrain-specific winter grade
 ## to apply (tundra 1, mountains partial). Only exposure / sun / sky tint / contrast; team dye is untouched.
@@ -207,6 +240,288 @@ static func _swap_models(bv: Node, era: String) -> void:
 			if ok[crew]:
 				_add_vat_mms(bv, crew, side, int(v["n"]) * 3)
 				v["crew_model"] = crew
+
+# ------------------------------------------------------------------ character refinement (c19sr_*)
+## Semi-realistic Napoleonic soldiers (pipeline/blender/char_*.py): same instance layout / clip names as the blocky
+## c19 models they replace, so BattleView animates them unchanged. Swapped per model id (all c19 line infantry,
+## grenadiers and gun crews); colours from a per-side nation palette texture (char_vat.gdshader).
+const CHAR_MODEL := {"c19_line": "c19sr_line", "c19_grenadier": "c19sr_grenadier", "c19_artillery": "c19sr_artillery"}
+## palette slots (order = pipeline/blender/char_body.SLOT_NAMES; UV.x = (slot + 0.5) / 32)
+const CHAR_SLOTS := ["coat", "lapel", "collar", "cuff", "turnback", "waist", "breeches", "gaiter", "shoe", "plume", "felt",
+	"metal", "belt", "cartbox", "knapsack", "roll", "skin", "hair", "eye", "mouth", "wood", "steel",
+	"epaulette", "fur", "stock", "button", "gold", "sash", "boot", "sponge", "scabbard", "piping"]
+## default = French line infantry 1810 (identical to char_body.PALETTE)
+const CHAR_PALETTE := {
+	"coat": "24408a", "lapel": "e9e6dc", "collar": "b5261f", "cuff": "b5261f", "turnback": "b5261f",
+	"waist": "e9e6dc", "breeches": "e4e0d4", "gaiter": "1c1c1e", "shoe": "161515", "plume": "c8302a",
+	"felt": "19191b", "metal": "b8913a", "belt": "eeede6", "cartbox": "1b1817", "knapsack": "80603e",
+	"roll": "77716a", "skin": "d8a587", "hair": "3a291d", "eye": "1a1311", "mouth": "8c4c45",
+	"wood": "5e3d24", "steel": "a2a8ae", "epaulette": "b5261f", "fur": "141313", "stock": "111111",
+	"button": "c9a54a", "gold": "d2ab45", "sash": "b5261f", "boot": "121212", "sponge": "d8cfbf",
+	"scabbard": "1f1b18", "piping": "b5261f"}
+## Nation uniforms (overrides on CHAR_PALETTE). "facing" sets collar / cuff / turnback / epaulette / sash / piping.
+## Nations not listed get a coat derived from their map colour (see _nation_palette).
+const NATION_UNIFORM := {
+	"FRA": {},
+	"USA": {"coat": "1f2a4f", "lapel": "1f2a4f", "facing": "a8242a", "turnback": "e9e6dc", "plume": "e8e6df", "metal": "c9c9c4", "button": "d0d0cc"},
+	"GBR": {"coat": "b3262a", "lapel": "b3262a", "facing": "d8b440", "turnback": "eeede6", "breeches": "8f8f8c", "plume": "eeede6", "epaulette": "eeede6"},
+	"CAN": {"coat": "a92a2a", "lapel": "a92a2a", "facing": "1f3a6b", "turnback": "eeede6", "breeches": "8f8f8c", "plume": "2f6a3a", "epaulette": "eeede6"},
+	"SWE": {"coat": "2a3d6e", "lapel": "e0b934", "facing": "e0b934", "plume": "e0b934", "metal": "c9c9c4"},
+	"JPN": {"coat": "1b1f2b", "lapel": "1b1f2b", "facing": "a32020", "turnback": "a32020", "breeches": "e4e0d4", "plume": "e8e6df", "piping": "d2ab45"},
+	"RUS": {"coat": "24452e", "lapel": "24452e", "facing": "b1302a", "plume": "141313", "breeches": "e4e0d4"},
+	"AUT": {"coat": "e6e2d6", "lapel": "e6e2d6", "facing": "9b2232", "breeches": "e4e0d4", "plume": "d2ab45", "belt": "c9c3b2"},
+	"DEU": {"coat": "1d2547", "lapel": "1d2547", "facing": "b1302a", "turnback": "b1302a", "breeches": "6f6f6c", "plume": "141313", "metal": "c9c9c4"},
+	"ESP": {"coat": "e3dccb", "lapel": "6b2a6b", "facing": "6b2a6b", "plume": "b5261f", "belt": "c9c3b2"},
+	"MEX": {"coat": "20306a", "lapel": "20306a", "facing": "a8242a", "plume": "2f7a3d"},
+	"POL": {"coat": "20305e", "lapel": "b0203a", "facing": "b0203a", "plume": "eeede6", "metal": "c9c9c4"},
+	"ITA": {"coat": "2c5a3a", "lapel": "e9e6dc", "facing": "b1302a", "plume": "e9e6dc"},
+	"NLD": {"coat": "22325e", "lapel": "e9e6dc", "facing": "e07830", "plume": "e07830"},
+	"PRT": {"coat": "1f2b55", "lapel": "1f2b55", "facing": "c0392b", "breeches": "1f2b55", "plume": "1f2b55"},
+	"TUR": {"coat": "2b3f78", "lapel": "2b3f78", "facing": "b3262a", "breeches": "2b3f78", "plume": "b3262a"},
+	# remaining majors (nations.json): period-flavoured c19 uniforms, kept apart from their neighbours' coats
+	"BRA": {"coat": "1f2b55", "lapel": "1f2b55", "facing": "e0b934", "plume": "3a8a4a", "metal": "d2ab45"},
+	"ARG": {"coat": "1f2a55", "lapel": "1f2a55", "facing": "78aee0", "plume": "e9e6dc", "turnback": "e9e6dc"},
+	"COL": {"coat": "22306a", "lapel": "22306a", "facing": "c0392b", "plume": "e0c040", "metal": "d2ab45"},
+	"PER": {"coat": "23305e", "lapel": "e9e6dc", "facing": "c0504d", "plume": "c0504d"},
+	"CHL": {"coat": "1e2a52", "lapel": "1e2a52", "facing": "b1302a", "plume": "e9e6dc", "turnback": "e9e6dc"},
+	"VEN": {"coat": "233a6a", "lapel": "233a6a", "facing": "e0b934", "plume": "c0392b"},
+	"NOR": {"coat": "3a5f95", "lapel": "3a5f95", "facing": "b1302a", "plume": "b1302a", "metal": "c9c9c4"},
+	"FIN": {"coat": "3d4a5c", "lapel": "3d4a5c", "facing": "e9e6dc", "breeches": "3d4a5c", "plume": "e9e6dc", "metal": "c9c9c4"},
+	"DNK": {"coat": "b3262a", "lapel": "b3262a", "facing": "eeede6", "breeches": "8fa0b8", "plume": "eeede6", "metal": "c9c9c4"},
+	"UKR": {"coat": "2a4a7a", "lapel": "2a4a7a", "facing": "e8d34a", "breeches": "2a4a7a", "plume": "e8d34a"},
+	"GRC": {"coat": "233a70", "lapel": "233a70", "facing": "e9e6dc", "plume": "5f8ed0", "metal": "c9c9c4"},
+	"ROU": {"coat": "22306a", "lapel": "22306a", "facing": "b1302a", "plume": "d0b040", "breeches": "8f8f8c"},
+	"CHN": {"coat": "30395c", "lapel": "b3262a", "facing": "d8b030", "breeches": "30395c", "plume": "b3262a"},
+	"IND": {"coat": "b3262a", "lapel": "b3262a", "facing": "e0b934", "breeches": "e9e6dc", "plume": "e09050", "epaulette": "eeede6"},
+	"KOR": {"coat": "2a3f6a", "lapel": "2a3f6a", "facing": "c0392b", "plume": "1c1c1e"},
+	"IDN": {"coat": "2c4a3a", "lapel": "2c4a3a", "facing": "e9e6dc", "breeches": "2c4a3a", "plume": "b05050"},
+	"IRN": {"coat": "2a4a7a", "lapel": "2a4a7a", "facing": "c0392b", "breeches": "e9e6dc", "plume": "4a9a6a", "felt": "3a2a22"},
+	"SAU": {"coat": "e3ddc8", "lapel": "e3ddc8", "facing": "2e7d32", "breeches": "e3ddc8", "plume": "2e7d32", "belt": "b49a6a"},
+	"PAK": {"coat": "2a5a3a", "lapel": "2a5a3a", "facing": "e9e6dc", "plume": "e9e6dc", "metal": "c9c9c4"},
+	"THA": {"coat": "2a3a7a", "lapel": "e9e6dc", "facing": "e9e6dc", "breeches": "e9e6dc", "plume": "6a5acd"},
+	"VNM": {"coat": "a8302a", "lapel": "a8302a", "facing": "1c1c1e", "breeches": "1c1c1e", "plume": "e0b934", "turnback": "e0b934"},
+	"PHL": {"coat": "e3dccb", "lapel": "2a4a8a", "facing": "2a4a8a", "plume": "5a7ab8", "belt": "c9c3b2"},
+	"KAZ": {"coat": "2f6f88", "lapel": "2f6f88", "facing": "d0b040", "breeches": "3a2f28", "plume": "d0b040", "felt": "3a2f28"},
+	"EGY": {"coat": "e3dccb", "lapel": "e3dccb", "facing": "a8242a", "breeches": "e3dccb", "felt": "a8242a", "plume": "1c1c1e", "belt": "b49a6a"},
+	"NGA": {"coat": "2a5a3a", "lapel": "2a5a3a", "facing": "e0b934", "breeches": "e9e6dc", "plume": "e0b934"},
+	"ZAF": {"coat": "8a7a55", "lapel": "8a7a55", "facing": "3a2f28", "breeches": "8a7a55", "plume": "2e5a2e", "belt": "6a4a2e", "felt": "4a3a28"},
+	"ETH": {"coat": "e3dccb", "lapel": "e3dccb", "facing": "7aa040", "breeches": "e3dccb", "plume": "e0b934", "belt": "8a6a42"},
+	"DZA": {"coat": "23305e", "lapel": "23305e", "facing": "b1302a", "breeches": "b1302a", "plume": "4a8a50"},
+	"MAR": {"coat": "8a2a2a", "lapel": "8a2a2a", "facing": "2e6a3a", "breeches": "e3dccb", "felt": "8a2a2a", "plume": "2e6a3a"},
+	"AUS": {"coat": "b3262a", "lapel": "b3262a", "facing": "1f2b55", "breeches": "1f2b55", "plume": "e9e6dc", "epaulette": "eeede6"},
+	"NZL": {"coat": "1e2638", "lapel": "1e2638", "facing": "b3262a", "breeches": "1e2638", "plume": "e9e6dc"},
+}
+static var _pal_cache := {}
+
+static func _hex(h: String) -> Color:
+	return Color.html("#" + h)
+
+static func _nation_palette(code: String, map_col: Color) -> Dictionary:
+	var p := {}
+	for k in CHAR_PALETTE: p[k] = _hex(CHAR_PALETTE[k])
+	var u: Dictionary = {}
+	if NATION_UNIFORM.has(code):
+		u = NATION_UNIFORM[code]
+	else:   # derived uniform: coat = darkened map colour, contrasting white / red facings
+		var c := map_col
+		var coat := Color.from_hsv(c.h, minf(c.s, 0.75), clampf(c.v * 0.62, 0.12, 0.6))
+		if c.s < 0.15: coat = Color(0.88, 0.86, 0.8) if c.v > 0.7 else Color(0.25, 0.26, 0.28)
+		u = {"coat": coat.to_html(false), "lapel": coat.to_html(false),
+			"facing": ("e9e6dc" if coat.get_luminance() < 0.35 else "8a2222"), "plume": c.to_html(false)}
+	for k in u:
+		if k == "facing":
+			for f in ["collar", "cuff", "turnback", "epaulette", "sash", "piping"]:
+				if not u.has(f): p[f] = _hex(u[k])
+		else:
+			p[k] = _hex(u[k])
+	return p
+
+static func _palette_tex(p: Dictionary) -> ImageTexture:
+	var img := Image.create(32, 1, false, Image.FORMAT_RGBA8)
+	for i in CHAR_SLOTS.size():
+		img.set_pixel(i, 0, p.get(CHAR_SLOTS[i], Color.MAGENTA))
+	return ImageTexture.create_from_image(img)
+
+## per-side palettes; when the two coats would read alike (mirror match, blue vs blue) side 1 wears its
+## BattleView side colour (already contrast-adjusted against side 0) as the coat.
+static func _side_palettes(bv: Node) -> Array:
+	var b = bv.get("b"); var sc = bv.get("side_col")
+	var codes := ["FRA", "GBR"]
+	if b is Dictionary and b.has("codes"): codes = [str(b["codes"][0]), str(b["codes"][1])]
+	var cols := [Color(0.3, 0.4, 0.8), Color(0.8, 0.3, 0.3)]
+	if sc is Array and sc.size() >= 2: cols = [sc[0], sc[1]]
+	var p0 := _nation_palette(codes[0], cols[0]); var p1 := _nation_palette(codes[1], cols[1])
+	var a: Color = p0["coat"]; var c: Color = p1["coat"]
+	if Vector3(a.r - c.r, a.g - c.g, a.b - c.b).length() < 0.22:
+		var t: Color = cols[1]
+		p1["coat"] = Color.from_hsv(t.h, minf(t.s, 0.8), clampf(t.v * 0.7, 0.15, 0.75)) if t.s > 0.15 else (Color(0.86, 0.85, 0.8) if t.v > 0.5 else Color(0.2, 0.2, 0.22))
+		if NATION_UNIFORM.get(codes[1], {}).get("lapel", "") == NATION_UNIFORM.get(codes[1], {}).get("coat", "-"): p1["lapel"] = p1["coat"]
+	return [p0, p1]
+
+## In-place swap: the regiments keep their model ids (c19_line / c19_grenadier / c19_artillery, as units.json and
+## BattleView.CREW_MODEL name them) and their multimeshes; only the VAT data behind the id (bv.vat[id]: mesh, position
+## texture, clip table) and the multimesh meshes are replaced by the c19sr_* bake. No new multimeshes, no instance or
+## gameplay state touched. vat[id]["sr"] marks a swapped id (idempotent).
+static func _swap_char(bv: Node) -> void:
+	var vat = bv.get("vat"); var mms = bv.get("mms")
+	if not (vat is Dictionary) or not (mms is Dictionary):
+		return
+	for orig in CHAR_MODEL:
+		if not vat.has(orig) or vat[orig].has("sr"):
+			continue
+		var sr: String = CHAR_MODEL[orig]
+		if not _has_vat(sr):
+			continue
+		var d := {"mesh": [], "tex": [], "json": [], "sr": sr}
+		for lod in 2:
+			d["mesh"].append(_sr_mesh("res://assets/models/soldier_%s_lod%d.glb" % [sr, lod]))
+			var j: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/vat/%s_lod%d.json" % [sr, lod]))
+			var bytes := FileAccess.get_file_as_bytes("res://assets/vat/%s_lod%d.vat" % [sr, lod])
+			d["tex"].append(ImageTexture.create_from_image(Image.create_from_data(int(j["vertices"]), int(j["frames"]), false, Image.FORMAT_RGBF, bytes)))
+			d["json"].append(j)
+		if d["mesh"][0] == null or d["mesh"][1] == null:
+			continue
+		var ok := true
+		for c in vat[orig]["json"][0]["clips"]:   # BattleView only asks for clips the old model had
+			if not d["json"][0]["clips"].has(c): ok = false
+		if not ok:
+			continue
+		vat[orig] = d
+		for key in mms.keys():
+			var parts := str(key).split("|")
+			if parts.size() == 3 and parts[0] == orig:
+				(mms[key]["mm"] as MultiMesh).mesh = d["mesh"][int(parts[2])]
+
+static var _sr_meshes := {}
+static func _sr_mesh(path: String) -> Mesh:
+	if _sr_meshes.has(path):
+		return _sr_meshes[path]
+	var m: Mesh = null
+	var ps = load(path)
+	if ps is PackedScene:
+		var n: Node = (ps as PackedScene).instantiate()
+		var st: Array = [n]
+		while not st.is_empty() and m == null:
+			var x: Node = st.pop_back()
+			if x is MeshInstance3D: m = (x as MeshInstance3D).mesh
+			st.append_array(x.get_children())
+		n.free()
+	_sr_meshes[path] = m
+	return m
+
+## Stage 7: LOD0 = char_vat.gdshader (full), LOD1 = char_vat_lod1.gdshader (cheap compile-time variant, see
+## char_vat.gdshaderinc). Debug / profiling only: --vx-charlite<lod>=NRM1,NOXF,... builds the variant from those defines.
+static var char_lite_override := ["", ""]   # per-LOD define list from --vx-charlite0= / --vx-charlite1= ("" = shipped file)
+static var _char_shaders := {}
+static func _char_shader(lod: int) -> Shader:
+	var ov: String = char_lite_override[lod]
+	var k := "%d|%s" % [lod, ov]
+	if _char_shaders.has(k):
+		return _char_shaders[k]
+	var sh: Shader
+	if ov == "":
+		sh = load("res://shaders/char_vat.gdshader" if lod == 0 else "res://shaders/char_vat_lod1.gdshader")
+	else:
+		var code := "shader_type spatial;\nrender_mode cull_disabled;\n"
+		for d in ov.split(",", false):
+			if d != "none": code += "#define CHAR_%s\n" % d.strip_edges().to_upper()
+		sh = Shader.new()
+		sh.code = code + "#include \"res://shaders/char_vat.gdshaderinc\"\n"
+	_char_shaders[k] = sh
+	return sh
+
+static func _char_materials(bv: Node) -> void:
+	var mms: Dictionary = bv.get("mms"); var vat: Dictionary = bv.get("vat")
+	if mms == null or vat == null:
+		return
+	var pals := _side_palettes(bv)
+	var ptex := [_palette_tex(pals[0]), _palette_tex(pals[1])]
+	var sc = bv.get("side_col")
+	var shaders := [_char_shader(0), _char_shader(1)]
+	for key in mms.keys():
+		var parts := str(key).split("|")
+		if parts.size() != 3 or not vat.has(parts[0]) or not vat[parts[0]].has("sr"):
+			continue
+		var mmi: MultiMeshInstance3D = mms[key]["mmi"]
+		var name := parts[0]; var side := int(parts[1]); var lod := int(parts[2])
+		var shader: Shader = shaders[clampi(lod, 0, 1)]
+		if mmi.material_override is ShaderMaterial and (mmi.material_override as ShaderMaterial).shader == shader:
+			continue   # idempotent
+		var d: Dictionary = vat[name]
+		var j: Dictionary = d["json"][lod]
+		var m := ShaderMaterial.new()
+		m.shader = shader
+		m.set_shader_parameter("vat_tex", d["tex"][lod])
+		m.set_shader_parameter("vat_verts", int(j["vertices"]))
+		m.set_shader_parameter("vat_fps", float(j["fps"]))
+		m.set_shader_parameter("palette", ptex[side])
+		if sc is Array and side < sc.size(): m.set_shader_parameter("team_color", sc[side])
+		var nt := _vatn_tex(str(d["sr"]), lod, int(j["vertices"]), int(j["frames"]))
+		m.set_shader_parameter("has_normals", 1.0 if nt != null else 0.0)
+		if nt != null: m.set_shader_parameter("vat_nrm", nt)
+		var cl: Dictionary = j["clips"]
+		if lod == 0 and j.has("near_verts"):   # stage 7: near / far geometry sets in one LOD0 mesh
+			m.set_shader_parameter("near_verts", int(j["near_verts"]))
+			m.set_shader_parameter("char_lod_dist", char_lod_dist())
+		if cl.has("die") and cl.has("die_b"):
+			m.set_shader_parameter("die_row", float(cl["die"]["start"]))
+			m.set_shader_parameter("die_b_row", float(cl["die_b"]["start"]))
+		mmi.material_override = m
+
+## Clip crossfade for the c19sr_* shader (char_vat.gdshader reads instance COLOR = prev clip + weight). Call once per
+## drawn soldier with the clip BattleView is about to draw (cur: 0-4 = idle/walk/run/fire/melee, 5 = dead) and use the
+## returned Color as the instance colour; (1,1,1,1) = no blend. Per-soldier state lives in v["xf_*"]. Needs a one-line
+## BattleView hook (see INTEGRATION.md Requests); without it the shader simply never blends.
+const XFADE := 0.25   # s
+static var xfade_on := true   # debug / profiling: --vx-xfade=0 disables the crossfade bookkeeping
+static func xfade(v: Dictionary, k: int, cur: int, c: Vector2, ct: float, spd: float, vt: float, fps: float = 24.0) -> Color:
+	if not xfade_on:
+		return Color(1, 1, 1, 1)
+	if not v.has("xf_id"):
+		var n: int = int(v.get("n", 0))
+		var ids := PackedInt32Array(); ids.resize(n); ids.fill(-1)
+		var tt := PackedFloat32Array(); tt.resize(n); tt.fill(-100.0)
+		var la := PackedFloat32Array(); la.resize(n * 4)
+		var pr := PackedFloat32Array(); pr.resize(n * 4)
+		v["xf_id"] = ids; v["xf_t"] = tt; v["xf_last"] = la; v["xf_prev"] = pr
+	if k < 0 or k >= (v["xf_id"] as PackedInt32Array).size():
+		return Color(1, 1, 1, 1)
+	var ids2: PackedInt32Array = v["xf_id"]; var t2: PackedFloat32Array = v["xf_t"]
+	var last: PackedFloat32Array = v["xf_last"]; var prev: PackedFloat32Array = v["xf_prev"]
+	var j := k * 4
+	var changed := ids2[k] != cur or absf(last[j + 2] - ct) > 0.02   # new clip, or the same one-shot clip restarted
+	if changed:
+		if ids2[k] >= 0:
+			for q in 4: prev[j + q] = last[j + q]
+			t2[k] = vt
+		ids2[k] = cur
+	last[j] = c.x; last[j + 1] = c.y; last[j + 2] = ct; last[j + 3] = spd
+	if changed:
+		v["xf_id"] = ids2; v["xf_t"] = t2; v["xf_prev"] = prev
+	v["xf_last"] = last
+	var w := clampf((vt - t2[k]) / XFADE, 0.0, 1.0)
+	if w >= 1.0:
+		return Color(1, 1, 1, 1)
+	var e := maxf(vt - prev[j + 2], 0.0) * prev[j + 3]
+	if prev[j + 1] > 0.0:
+		e = fmod(e, prev[j + 1] / fps)
+	else:
+		e = minf(e, (absf(prev[j + 1]) - 1.0) / fps)
+	return Color(prev[j], prev[j + 1], e, w)
+
+static var _vatn := {}
+static func _vatn_tex(name: String, lod: int, verts: int, frames: int) -> ImageTexture:
+	var k := "%s_%d" % [name, lod]
+	if _vatn.has(k):
+		return _vatn[k]
+	var path := "res://assets/vat/%s_lod%d.vatn" % [name, lod]
+	var t: ImageTexture = null
+	if FileAccess.file_exists(path):
+		var bytes := FileAccess.get_file_as_bytes(path)
+		if bytes.size() == verts * frames * 4:
+			t = ImageTexture.create_from_image(Image.create_from_data(verts, frames, false, Image.FORMAT_RGBA8, bytes))
+	_vatn[k] = t
+	return t
 
 static func _apply_environment_v021(env: Environment, sun: DirectionalLight3D, e: Dictionary = {}) -> void:
 	if env != null:
@@ -351,6 +666,11 @@ func _ready() -> void:
 	# polish pass toggles (debug / before-after only): --vx-polish=0 = v0.2.1 look from the same build;
 	# --vx-terrain=tundra|mountains = PREVIEW-ONLY winter ground + light on the demo battle (see PREVIEW_TERRAIN)
 	polish = args.get("vx-polish", "1") != "0"
+	char_sr = args.get("vx-char", "1") != "0"
+	char_lite_override = [args.get("vx-charlite0", ""), args.get("vx-charlite1", "")]
+	xfade_on = args.get("vx-xfade", "1") != "0"
+	lod_override = float(args.get("vx-lod", "-1"))
+	char_lod_override = float(args.get("vx-charlod", "-1"))
 	terrain_preview = args.get("vx-terrain", "")
 	# preview of the overworld markers (the real wiring is the one-line Request in out/INTEGRATION.md)
 	if args.get("vispass", "0") == "1" and get_parent() != null and "map" in get_parent() and get_parent().map != null \
@@ -424,6 +744,12 @@ func _process(_delta: float) -> void:
 	var draws := vp.get_render_info(Viewport.RENDER_INFO_TYPE_VISIBLE, Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME)
 	var objs := vp.get_render_info(Viewport.RENDER_INFO_TYPE_VISIBLE, Viewport.RENDER_INFO_OBJECTS_IN_FRAME)
 	var sim = bv.get("sim")
+	if args.has("vx-closeshots"):
+		_closeshot_tick(bv, sim)
+	if args.has("vx-closecam"):
+		_closecam_tick(bv, sim)
+	elif args.has("vx-widecam"):
+		_widecam_tick(bv, sim)
 	if bench_on:
 		_bench_tick(bv, sim, ms, prims, draws, objs)
 	else:
@@ -467,6 +793,74 @@ func _bench_tick(bv: Node, sim, ms: float, prims: int, draws: int, objs: int) ->
 			return
 	else:
 		_hold(bv, bench_view)
+
+## Debug-only character close-ups: --vx-closeshots=<dir> saves fixed close / mid framings of the first infantry
+## regiment of each side at a few battle times (idle / advance / volley / melee). Camera only; no sim access.
+const CLOSE_SHOTS := [[1.0, 0, 6.0, -0.10, 0.5, "a_idle_close"], [1.0, 1, 6.0, -0.10, 2.6, "d_idle_close"],
+	[1.0, 0, 16.0, -0.2, 0.9, "a_idle_mid"], [6.0, 0, 7.0, -0.12, 0.35, "a_t6_close"], [6.0, 1, 7.0, -0.12, 2.8, "d_t6_close"],
+	[12.0, 0, 7.0, -0.12, 0.6, "a_t12_close"], [12.0, 1, 7.0, -0.12, 2.7, "d_t12_close"], [12.0, 0, 18.0, -0.2, 1.0, "a_t12_mid"],
+	[12.0, 0, 34.0, -0.24, 1.0, "a_t12_lod1"],
+	[18.0, 0, 7.0, -0.12, 0.4, "a_t18_close"], [18.0, 1, 8.0, -0.12, 2.9, "d_t18_close"],
+	[24.0, 0, 8.0, -0.14, 0.5, "a_t24_close"], [24.0, 1, 8.0, -0.14, 2.6, "d_t24_close"], [30.0, 0, 9.0, -0.16, 0.7, "a_t30_close"]]
+var cs_i := 0
+var cs_wait := -1
+func _closeshot_tick(bv: Node, sim) -> void:
+	if cs_i >= CLOSE_SHOTS.size():
+		return
+	var c: Array = CLOSE_SHOTS[cs_i]
+	if cs_wait < 0:
+		if float(sim.t) < float(c[0]):
+			return
+		cs_wait = 0
+	bv.call("snap_cam", bv.call("first_reg", int(c[1])), float(c[2]), float(c[3]), float(c[4]))
+	cs_wait += 1
+	if cs_wait >= 3:
+		var img := get_viewport().get_texture().get_image()
+		img.save_png(str(args["vx-closeshots"]).path_join("%s.png" % c[5]))
+		cs_i += 1; cs_wait = -1
+		if cs_i >= CLOSE_SHOTS.size():
+			bv.set("cam_auto", true)
+
+## Debug-only (--vx-closecam): slow close orbit around the first infantry regiment, cutting between the sides every
+## 7 s of battle time, for the character MP4 (tools/rec.sh). Camera only.
+var cc_seg := -1
+func _closecam_tick(bv: Node, sim) -> void:
+	var t := float(sim.t)
+	var seg := int(t / 7.0)
+	var side := seg % 2
+	var reg: int = bv.call("first_reg", side)
+	if reg < 0:
+		return
+	var dist := 8.5 + 2.5 * sin(t * 0.35)
+	var yaw := (0.55 if side == 0 else 2.75) + 0.3 * sin(t * 0.22)
+	if seg != cc_seg:
+		cc_seg = seg
+		bv.call("snap_cam", reg, dist, -0.12, yaw)
+		return
+	var c: Vector2 = sim.regs[reg]["pos"]
+	bv.set("cam_target", Vector3(c.x, 0, c.y)); bv.set("cam_dist", dist); bv.set("cam_pitch", -0.12)
+	bv.set("cam_yaw", (0.0 if int(bv.get("player_side")) == 0 else PI) + yaw)
+
+## Debug-only (--vx-widecam[=dist]): elevated slow orbit around the first infantry regiment of each side (cut every
+## 9 s of battle time) at ~40 m, so several regiments fighting are in frame, for the wide MP4.
+func _widecam_tick(bv: Node, sim) -> void:
+	var t := float(sim.t)
+	var dist := float(args.get("vx-widecam", "1"))
+	if dist <= 1.0:
+		dist = 40.0
+	var seg := int(t / 9.0)
+	var side := seg % 2
+	var reg: int = bv.call("first_reg", side)
+	if reg < 0:
+		return
+	var yaw := (0.35 if side == 0 else 2.8) + 0.25 * sin(t * 0.15)
+	if seg != cc_seg:
+		cc_seg = seg
+		bv.call("snap_cam", reg, dist, -0.3, yaw)
+		return
+	var c: Vector2 = sim.regs[reg]["pos"]
+	bv.set("cam_target", Vector3(c.x, 0, c.y)); bv.set("cam_dist", dist); bv.set("cam_pitch", -0.3)
+	bv.set("cam_yaw", (0.0 if int(bv.get("player_side")) == 0 else PI) + yaw)
 
 func _snap(bv: Node, vi: int) -> void:
 	var v: Array = VIEWS[vi]
