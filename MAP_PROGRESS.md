@@ -10,3 +10,4 @@ Symlinks (untracked): tools/godot, tools/venv, data_src -> /workspace/grand_stra
 - Tests after: 131/131; SIMHASH identical for SWE1800/USA1914/JPN1500 (out/tests_after.log, out/simhash_after.log).
 - Perf table: out/perf_table.md (Low -22..-57%, Medium -7..-50%, High -53..+23%; worst close_alps High +23%).
 - Flyover: game/tests/map_flyover.{gd,tscn} + --write-movie -> out/map_flyover.mp4.
+- 00:40 EDT: readability pass per lead review (country tint 0.80, close min 0.30 by cam 7..55, national 1.7px vs province 0.5px lighter; close-zoom world-min widths reduced).

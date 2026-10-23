@@ -75,3 +75,23 @@
     - Results: 131/131 tests, sim hashes unchanged, and the 1800 SWE battle gives an identical BATTLERESULT at q0, q1 and q2.
     - FYI: exported builds were missing `assets/vat/*.vat` (no soldiers in v0.1/v0.2 exports). This is fixed in v0.2.1 `export_presets.cfg`. Raw files you add for FileAccess need an `include_filter` entry.
     - **@BJORN: base all your next work on `main@v0.2.1`** (rebase or re-branch `visual-pass` from it). Hand off patches against that commit as before.
+
+## MAP READY: overworld visual refinement (Rob, branch `graphics-map`, 2026-10-23 ~01:10 EDT)
+Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style geographic map: terrain relief from normal and cavity maps, a biome albedo, snow on peaks, depth-shaded oceans with shallows, waves, foam and fresnel, haze, and smooth antialiased coasts. Borders are crisp and scale with zoom (signed distance field), and the political tint is adaptive: strong at world and region zoom, with terrain taking over close up. There are no new cities, fleets or gameplay.
+- **Changed files:**
+  - `game/shaders/map.gdshader` (rewritten)
+  - `game/scripts/map/world_map.gd`: loads 5 terrain textures; 16x8 chunked terrain with 3 LODs and skirts; `_apply_map_quality` on `Controls.settings_changed`. Low hides LOD0 and uses the simple shader path. Picking, LUT, markers and labels are untouched.
+  - `game/assets/map_terrain/*` (5 textures + .import)
+  - `pipeline/build_map_visuals.py` (regenerates the textures)
+  - `game/tests/map_shots.{gd,tscn}` (screenshot/perf/pick/interact harness)
+  - `game/tests/map_flyover.{gd,tscn}` (movie capture)
+  - `MAP_PROGRESS.md`
+  - Untouched: `map_visuals.gd`, the battle files, `update_markers`, sim/data, and `main.gd`.
+- **Verified:**
+  - Tests: 131/131.
+  - SIMHASH identical (SWE 1800, USA 1914, JPN 1500).
+  - Picking: 12/12 views return the same ids as the baseline.
+  - Selection highlight, conquest recolour (Oslo→SWE, re-pick 328) and zoom extremes 4/230 all OK.
+- **Perf, pck and outputs:**
+  - Perf (llvmpipe): `out/perf_table.md`.
+  - Outputs: `out/compare/`, `out/before|after/`, `out/map_flyover.mp4`.

@@ -25,7 +25,7 @@ func _ready() -> void:
 	if main.hud_layer:
 		main.hud_layer.visible = false
 	for i in 10:
-		_set(KEYS[0][0], KEYS[0][1], KEYS[0][2], KEYS[0][3])
+		_place(KEYS[0][0], KEYS[0][1], KEYS[0][2], KEYS[0][3])
 		await get_tree().process_frame
 	var fps := 30.0
 	for k in KEYS.size() - 1:
@@ -34,13 +34,13 @@ func _ready() -> void:
 		for f in n:
 			var t := float(f) / n
 			t = t * t * (3.0 - 2.0 * t)
-			_set(lerpf(a[0], b[0], t), lerpf(a[1], b[1], t), exp(lerpf(log(a[2]), log(b[2]), t)), lerpf(a[3], b[3], t))
+			_place(lerpf(a[0], b[0], t), lerpf(a[1], b[1], t), exp(lerpf(log(a[2]), log(b[2]), t)), lerpf(a[3], b[3], t))
 			await get_tree().process_frame
 	for i in 20:
 		await get_tree().process_frame
 	get_tree().quit()
 
-func _set(lon: float, lat: float, dist: float, yaw: float) -> void:
+func _place(lon: float, lat: float, dist: float, yaw: float) -> void:
 	var cam: MapCamera = main.cam
 	cam.fly_t = -1.0
 	var w: Vector2 = GameData.lonlat_to_world(lon, lat)
