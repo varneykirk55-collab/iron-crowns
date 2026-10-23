@@ -24,7 +24,7 @@ const BattleEnvironment := preload("res://scripts/battle/battle_environment.gd")
 var biome := {}          # data-driven battlefield biome (BattleEnvironment.biome_for); {} = legacy ground/scenery
 var env := {}            # BattleEnvironment layout / plan / nodes (render only: no collision, sim never reads it)
 var _scatter_dry := false
-const AC := preload("res://scripts/battle/anim_combat.gd")   # combat animation v1 (Rob), off unless --anim-v1
+const AC := preload("res://scripts/battle/anim_combat.gd")   # combat animation v1 (Rob), ON by default; --no-anim-v1 disables (AC.resolve_on)
 const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_gunner", "c19": "c19_artillery", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
@@ -77,9 +77,9 @@ var player_side := 0
 
 # ======================================================================== setup
 func setup(battle_id: int) -> void:
+	AC.on = AC.resolve_from_runtime()   # default ON; --no-anim-v1 / --anim-v1=off / IRONCROWNS_ANIM_V1=0 turn it off
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--lod-dist="): LOD_DIST = float(a.substr(11)); _lod_forced = true; _lod_forced_dist = LOD_DIST
-		if a == "--anim-v1": AC.on = true
 	add_to_group("battle_view")
 	bid = battle_id
 	b = Sim.battles[bid]

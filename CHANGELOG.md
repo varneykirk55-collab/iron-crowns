@@ -1,5 +1,9 @@
 # Changelog
 
+## Combat animations v1 ON by default (main 2026-10-23, Kirk approved)
+- The combat animation layer (`anim_combat.gd`: spear melee, all-at-once retreat, musket march/aim/fire/reload, bow release, horse gaits, cavalry death) is now enabled by default. It was previously off unless `--anim-v1`.
+- Troubleshooting switch: `--no-anim-v1` / `--anim-v1=off`, env var `IRONCROWNS_ANIM_V1=0`, or project setting `iron_crowns/battle/anim_v1=false` (override.cfg). `--anim-v1` is still accepted. Presentation only: SIMHASH and BATTLERESULT are identical on and off. New test_runner checks cover the default and the switches.
+
 ## Battlefield environment: biome framework + regions (merged to main 2026-10-23, Kirk approved)
 - The battlefield environment engine is now biome-driven. Every province maps to one of nine biome profiles (boreal, tundra, temperate, east_asia, tropical, savanna, arid, mediterranean, steppe) from its terrain and lat / lon. Each profile lives in its own file, `game/scripts/battle/biomes/<id>.gd`, and supplies species, rocks, ground cover, palette, water and light. A biome without a file keeps the legacy ground. This branch ships only `boreal.gd`, which reproduces the merged Scandinavian look and now also covers the taiga of Russia and Canada. Other biomes land on their own `env/<biome>` branches.
 - The environment is now enabled in every era, not only medieval, so modern battles in North America and elsewhere get it too.

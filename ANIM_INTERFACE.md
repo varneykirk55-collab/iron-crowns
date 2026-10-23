@@ -4,9 +4,14 @@ This is the contract between the combat animation layer (Rob) and the character 
 It is presentation only. Nothing here changes BattleSim, stats, rng order or outcomes.
 
 ## 1. Runtime switch
-- `game/scripts/battle/anim_combat.gd` (`AC`) is preloaded by `battle_view.gd` and is **off by default**. Turn it on with the command-line user arg `--anim-v1` (`AC.on = true`).
-- Flag off, the legacy code path runs unchanged. AC is never called.
-- Flag on, there are only 2 hooks:
+- `game/scripts/battle/anim_combat.gd` (`AC`) is preloaded by `battle_view.gd` and is **ON by default** (since 2026-10-23, Kirk approved). `BattleView.setup()` sets `AC.on = AC.resolve_from_runtime()`.
+- Disable it for troubleshooting (precedence: command line > env var > project setting > default ON):
+  - command-line user arg `--no-anim-v1` or `--anim-v1=off` (also `=0` / `=false`), e.g. `IronCrowns.exe -- --no-anim-v1`;
+  - environment variable `IRONCROWNS_ANIM_V1=0` (or `off` / `false`);
+  - project setting `iron_crowns/battle/anim_v1 = false` (e.g. in an `override.cfg` next to the executable: `[iron_crowns]` / `battle/anim_v1=false`).
+  - The old `--anim-v1` flag is still accepted (it just means on). `--anim-v1=on` / `IRONCROWNS_ANIM_V1=1` force it on.
+- Disabled, the legacy code path runs unchanged. AC is never called. Outcomes are identical either way.
+- Enabled, there are only 2 hooks:
   1. `_update_units`: `AC.update_soldiers()` replaces the per-soldier VAT loop for regiments whose model has the new clips (`ac_kind` 1 = spear, 2 = musket).
      - It draws **no rng**. The legacy per-soldier loop draws none either, so the rng order is preserved.
      - Any other regiment returns `false` and stays on the legacy loop.
