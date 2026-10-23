@@ -634,6 +634,54 @@ func _start_demo(kind: String) -> void:
 				[-100.4, func(): hud.open_diplomacy(demo_state["tgt"])],
 				[-101.2, func(): shot("invade_07_%s_diplomacy" % code); print("INVASION DEMO %s captured %s from %s on %s; undeclared=%s" % [code, GameData.provinces[demo_state["tp"]]["name"], demo_state["tgt"], Sim.date_string(), Sim.is_undeclared(code, demo_state["tgt"])])],
 				[-100.5, func(): get_tree().quit()]]
+		"reinforce":
+			# v0.5: a defensive battle in 1800 Japan; a second army is ordered in from the army panel and arrives mid-battle
+			code = "JPN"
+			_start_game(code, 1800, int(args.get("seed", "63")), 60)
+			Sim.set_speed(0)
+			var st := _demo_reinforce_setup()
+			demo_state["r"] = st["r"]; demo_state["bid"] = st["bid"]; demo_state["p"] = st["p"]
+			demo_steps = [
+				[0.1, func(): cam.fly_t = -1.0; cam.look_at_world(GameData.node_world(demo_state["p"]), 34.0, true); select_army(demo_state["r"])],
+				[1.5, func(): shot("reinf_01_army_panel")],
+				[2.0, func(): hud._reinforce(demo_state["r"], demo_state["bid"], "direct")],
+				[2.8, func(): shot("reinf_02_ordered")],
+				[3.2, func(): watch_battle(demo_state["bid"])],
+				[-1.0, func(): return in_battle and not transitioning],
+				[-101.0, func(): battle_view.time_scale = 2.0; demo_state["regs0"] = battle_view.rv.size(); shot("reinf_03_battle")],
+				[-1.0, func(): return battle_view != null and (battle_view.rv.size() > int(demo_state["regs0"]) or battle_view.finished)],
+				[-101.5, func(): shot("reinf_04_reinforcements_arrive")],
+				[-104.0, func(): shot("reinf_05_reinforcements_fighting")],
+				[-1.0, func(): return battle_view != null and battle_view.result_shown],
+				[-100.6, func(): shot("reinf_06_result"); print("REINFORCE DEMO regs %d reinforced %s winner %d" % [battle_view.sim.regs.size(), str(battle_view.sim.regs.any(func(r): return r.get("reinforcement", false))), battle_view.sim.winner])],
+				[-103.0, func(): battle_view.leave_requested.emit(battle_view.bid)],
+				[-1.0, func(): return not in_battle and not transitioning],
+				[-101.0, func(): get_tree().quit()]]
+		"alerts":
+			# v0.5: an approaching force is spotted (warning) and envoys' offers wait in the Inbox
+			_start_game("SWE", 1800, int(args.get("seed", "81")), 60)
+			Sim.set_speed(0)
+			Sim.ai_enabled = false
+			var fid := Sim._spawn_army("FIN", Sim.nations["FIN"]["capital"], [])
+			for k in 6:
+				Sim.armies[fid]["units"].append(Sim._make_unit(GameData.unit_for_role("c19", ["inf", "ranged"][k % 2])))
+			var tg := -1
+			for pid in Sim.nation_provs["SWE"]:
+				if Sim.order_invade(fid, pid, true)["ok"]: tg = pid; break
+			Sim.order_invade(fid, tg)
+			var peers := 0
+			for c in Sim.nations.keys():
+				if peers < 4 and c != "SWE" and c != "FIN" and Sim.nations[c]["alive"] and Sim.evaluate(c, "SWE", "trade")["score"] > -900.0:
+					Sim.propose(c, "SWE", ["trade", "trade", "nap", "trade"][peers], true); peers += 1
+			demo_state["fid"] = fid
+			demo_steps = [
+				[0.1, func(): cam.fly_t = -1.0; cam.look_at_world(GameData.node_world(Sim.nations["SWE"]["capital"]), 60.0, true); Sim.set_speed(2)],
+				[-1.0, func(): return Sim.spotted.has(demo_state["fid"])],
+				[-100.3, func(): Sim.set_speed(0); cam.fly_to(GameData.node_world(Sim.armies[demo_state["fid"]]["node"]), 40.0, 0.6)],
+				[-101.2, func(): shot("alert_01_warning")],
+				[-100.5, func(): Sim.start_hostilities("FIN", "SWE"); Sim.propose("FIN", "SWE", "peace", true); hud.toggle_inbox()],
+				[-101.2, func(): shot("alert_02_inbox")],
+				[-100.5, func(): get_tree().quit()]]
 		"battle":
 			_start_game(code, year, int(args.get("seed", "7")))
 			Sim.set_speed(0)
@@ -791,6 +839,31 @@ func _demo_war(code: String) -> String:
 					print("DEMO reinforced ", tgt, " at ", pid, " staged at ", stage)
 					break
 	return tgt
+
+## Demo staging for --demo=reinforce (same setup as the reinforcement regression test): 7k Japanese defenders
+## attacked by ~11k, a 5k Japanese army in the nearest Japanese province.
+func _demo_reinforce_setup() -> Dictionary:
+	Sim.ai_enabled = false
+	Sim.auto_deploy = true
+	var p := -1; var nb_best := -1; var best_km := 1e18
+	for pid in Sim.nation_provs["JPN"]:
+		for nb in GameData.provinces[pid]["neighbors"].keys():
+			if Sim.prov_owner.get(nb, "") == "JPN" and GameData.node_km(pid, nb) < best_km:
+				best_km = GameData.node_km(pid, nb); p = pid; nb_best = int(nb)
+	for id in Sim.armies.keys().duplicate():
+		if Sim.armies[id]["owner"] == "JPN": Sim.armies.erase(id)
+	var mk := func(c: String, at: int, roles: Array) -> int:
+		var id := Sim._spawn_army(c, at, [])
+		for role in roles: Sim.armies[id]["units"].append(Sim._make_unit(GameData.unit_for_role("c19", role)))
+		return id
+	var d: int = mk.call("JPN", p, ["ranged", "ranged", "inf", "ranged", "cav", "art"])
+	var r: int = mk.call("JPN", nb_best, ["ranged", "ranged", "ranged", "cav"])
+	Sim.start_hostilities("KOR", "JPN")
+	var e: int = mk.call("KOR", p, ["ranged", "ranged", "ranged", "inf", "ranged", "ranged", "cav", "art", "ranged"])
+	Sim.armies[e]["prev"] = nb_best
+	var bid := Sim._start_battle(p, [e], [d])
+	Sim.auto_deploy = false
+	return {"p": p, "r": r, "bid": bid}
 
 func _demo_deploy_offscreen() -> void:
 	var bid: int = hud.deploy_bid

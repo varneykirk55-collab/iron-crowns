@@ -84,6 +84,8 @@ appear only in tests, not in this video. One weakness seen in the 1914 shots: a 
 | Battle | VERIFIED (PNG + MP4, `battle_USA_full.mp4`, 44 s: deploy → transition → battle → result panel → back to campaign) |
 | Diplomacy/economy | VERIFIED (PNG + MP4, `diplomacy_demo.mp4`, 12 s) |
 | Era change | VERIFIED (PNG + MP4, `era_demo.mp4`, 8.5 s: 1913 → 1914 Age of Mechanised War popup → refit panel). The demo runs the clock at ×365 to reach the date. |
+| Reinforcement (v0.5) | `--demo=reinforce`: 1800 Japan, Battle of Sapporo watched in 3D; the 2nd Army is ordered in from the army panel and its regiments arrive on the field mid-battle (`deliverables/videos/reinforce_JPN_demo.mp4`, `deliverables/screenshots/reinf_*`). Recorded at 960×540 under llvmpipe. |
+| Warning + Inbox (v0.5) | `--demo=alerts`: a Finnish force is spotted heading for Sweden; the Inbox with routine and urgent proposals (`deliverables/screenshots/alert_*`). |
 | Invasion (v0.4) | VERIFIED (PNG + MP4, `invasion_SWE_demo.mp4` and `invasion_JPN_demo.mp4`: army selected → Invade dialog → march → border crossed → deployment → capture → diplomacy shows UNDECLARED WAR). The demo stages a one-regiment garrison on the objective so a battle is fought. |
 
 ## Builds
