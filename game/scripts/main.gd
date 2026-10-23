@@ -54,6 +54,7 @@ func _ready() -> void:
 	Controls.device_changed.connect(_on_device_changed)
 	apply_quality()
 	Sim.battle_started.connect(_on_battle_started)
+	Sim.player_defeated.connect(_on_player_defeated)
 	Sim.era_changed.connect(func(_e): map.apply_era(); map.lut_dirty = true)
 	Sim.ownership_changed.connect(func(_p, _o, _n): map.lut_dirty = true; map.labels_dirty = true)
 	# debug-only (BJORN R2): BattleVisuals perf logger / bench / close-up shots. Inert in normal play (no flag = no node).
@@ -306,9 +307,41 @@ func world_command(pos: Vector2) -> void:
 		return
 	var pid2 := map.province_at_screen(pos)
 	if pid2 > 0:
-		var r := Sim.order_move(map.selected_army, pid2)
-		hud.show_toast(("Marching to %s (~%d days)" % [GameData.provinces[pid2]["name"], int(r.get("days", 0))]) if r["ok"] else r["msg"], 2.5)
-		hud.select_army(map.selected_army)
+		command_army(map.selected_army, pid2)
+
+## The player's "go there" order (right-click, gamepad X, touch long-press, panel buttons).
+## Own or allied land: march. Enemy land: attack. Land of a nation we are at peace with: ask whether
+## to invade without a declaration or to declare war first (hud.confirm_invade).
+func command_army(aid: int, pid: int) -> Dictionary:
+	if Sim.defeated or not Sim.armies.has(aid) or Sim.armies[aid]["owner"] != Sim.player:
+		return {"ok": false}
+	var o: String = Sim.prov_owner.get(pid, "")
+	var r: Dictionary
+	if o != "" and o != Sim.player and not Sim.has_treaty(Sim.player, o, "alliance"):
+		if not Sim.at_war(Sim.player, o):
+			return hud.confirm_invade(aid, pid)
+		r = Sim.order_invade(aid, pid)
+		hud.show_toast(("Advancing on %s (~%d days)" % [GameData.provinces[pid]["name"], int(r.get("days", 0))]) if r["ok"] else r["msg"], 3.0)
+	else:
+		r = Sim.order_move(aid, pid)
+		hud.show_toast(("Marching to %s (~%d days)" % [GameData.provinces[pid]["name"], int(r.get("days", 0))]) if r["ok"] else r["msg"], 3.0)
+	hud.select_army(aid)
+	return r
+
+func _on_player_defeated(by: String) -> void:
+	Sim.set_speed(0)
+	if hud:
+		hud.show_defeat(by)
+
+func return_to_title() -> void:
+	Sim.running = false
+	Sim.set_speed(0)
+	if hud_layer:
+		hud_layer.queue_free()
+		hud_layer = null; hud = null
+	map.selected_army = -1; map.path_army = -1
+	map.set_selected_province(-1)
+	_build_menu()
 
 func _on_touch_tap(pos: Vector2) -> void:
 	if in_battle or transitioning or menu_layer != null or hud == null or hud.is_point_over_ui(pos):
@@ -557,6 +590,43 @@ func _start_demo(kind: String) -> void:
 				[4.0, func(): _demo_key(KEY_F9)],
 				[5.0, func(): shot("saveload_%s_loaded" % code); print("SAVELOAD saved=%s later=%s after_load=%s ok=%s" % [demo_state["saved_date"], demo_state["later_date"], Sim.date_string(), str(Sim.date_string() == demo_state["saved_date"])])],
 				[5.5, func(): get_tree().quit()]]
+		"invasion":
+			# player-facing invasion: select army -> order on foreign land -> confirm -> march -> battle -> capture
+			Sim.auto_respond_player = "decline"
+			_start_game(code, year, int(args.get("seed", "11")), 60)
+			Sim.set_speed(0)
+			var ia := _demo_main_army(code)
+			var tp := -1; var tbd := 1e18
+			for pid in Sim.prov_owner.keys():
+				var o: String = Sim.prov_owner[pid]
+				if o != code and not Sim.has_treaty(code, o, "alliance") and GameData.node_km(ia["node"], pid) < tbd and Sim.order_invade(ia["id"], pid, true)["ok"]:
+					tbd = GameData.node_km(ia["node"], pid); tp = pid
+			demo_state["aid"] = ia["id"]; demo_state["tp"] = tp; demo_state["tgt"] = Sim.prov_owner[tp]
+			# demo staging: a small garrison army on the objective so the invasion has to fight
+			var gid := Sim._spawn_army(demo_state["tgt"], tp, [Sim._make_unit(GameData.unit_for_role(GameData.eras[Sim.era]["id"], "inf"))])
+			Sim.armies[gid]["ai_next"] = 999999
+			var mid := (GameData.node_world(ia["node"]) + GameData.node_world(tp)) * 0.5
+			demo_steps = [
+				[0.1, func(): cam.fly_t = -1.0; cam.look_at_world(GameData.node_world(ia["node"]), 26.0, true)],
+				[1.2, func(): select_army(demo_state["aid"])],
+				[2.0, func(): shot("invade_01_%s_army_selected" % code)],
+				[2.2, func(): cam.fly_to(mid, clampf(tbd / 40.0, 26.0, 70.0), 1.5)],
+				[4.0, func(): command_army(demo_state["aid"], demo_state["tp"])],
+				[4.8, func(): shot("invade_02_%s_confirm" % code)],
+				[5.2, func(): hud.popup.visible = false; hud._do_invade(demo_state["aid"], demo_state["tp"], false); Sim.set_speed(1)],
+				[6.0, func(): shot("invade_03_%s_ordered" % code); Sim.set_speed(2)],
+				[-1.0, func(): return Sim.at_war(code, demo_state["tgt"]) or hud.deploy_win.visible],
+				[-100.2, func(): shot("invade_04_%s_border_crossed" % code)],
+				[-1.0, func(): return hud.deploy_win.visible or Sim.prov_owner[demo_state["tp"]] == code],
+				[-100.6, func(): Sim.set_speed(0); shot("invade_05_%s_deploy" % code)],
+				[-100.4, func(): if hud.deploy_win.visible: _demo_deploy_offscreen()],
+				[-100.2, func(): Sim.set_speed(3)],
+				[-1.0, func(): return Sim.prov_owner[demo_state["tp"]] == code],
+				[-100.3, func(): Sim.set_speed(0); select_province(demo_state["tp"]); cam.fly_to(GameData.node_world(demo_state["tp"]), 24.0, 1.0)],
+				[-101.6, func(): shot("invade_06_%s_captured" % code)],
+				[-100.4, func(): hud.open_diplomacy(demo_state["tgt"])],
+				[-101.2, func(): shot("invade_07_%s_diplomacy" % code); print("INVASION DEMO %s captured %s from %s on %s; undeclared=%s" % [code, GameData.provinces[demo_state["tp"]]["name"], demo_state["tgt"], Sim.date_string(), Sim.is_undeclared(code, demo_state["tgt"])])],
+				[-100.5, func(): get_tree().quit()]]
 		"battle":
 			_start_game(code, year, int(args.get("seed", "7")))
 			Sim.set_speed(0)
@@ -714,6 +784,13 @@ func _demo_war(code: String) -> String:
 					print("DEMO reinforced ", tgt, " at ", pid, " staged at ", stage)
 					break
 	return tgt
+
+func _demo_deploy_offscreen() -> void:
+	var bid: int = hud.deploy_bid
+	var o: Dictionary = Sim.battles[bid]["orders"][Sim.battles[bid]["player_side"]].duplicate()
+	o["objective"] = args.get("objective", "assault"); o["formation"] = args.get("formation", "deep")
+	hud.deploy_win.visible = false
+	_on_deploy_chosen(bid, o, false)
 
 func _demo_deploy() -> void:
 	var bid: int = hud.deploy_bid

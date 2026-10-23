@@ -50,6 +50,8 @@ func _run() -> void:
 		test_era_battles()
 	if only == "" or only == "gameplay":
 		await test_gameplay_script()
+	if only == "" or only == "offensive":
+		await test_offensive()
 	if only == "bench":
 		await bench_cpu()
 	var summary := {"passed": results.size() - fails, "failed": fails, "total": results.size(), "seconds": (Time.get_ticks_msec() - t0) / 1000.0,
@@ -1220,3 +1222,369 @@ func bench_cpu() -> void:
 	print("BENCH hud._process(province) ms ", _us(func(): hud._refresh_t = 0.0; hud._process(0.016), 10) / 1000.0)
 	m.queue_free()
 	await _frames(2)
+
+# ---------------------------------------------------------------- offensive warfare & conquest (v0.4)
+## Find a Button under `n` whose text contains `needle` (visible or not) and press it like a player would.
+func _press(n: Node, needle: String) -> bool:
+	for c in n.get_children():
+		if c is Button and needle in c.text and not c.disabled:
+			c.pressed.emit()
+			return true
+		if _press(c, needle):
+			return true
+	return false
+
+func _texts(n: Node, out: Array = []) -> Array:
+	for c in n.get_children():
+		if c is Label or c is Button:
+			out.append(c.text)
+		_texts(c, out)
+	return out
+
+func _nearest_foreign(code: String, from_node: int, avoid_allies := true) -> int:
+	var best := -1; var bd := 1e18
+	for pid in Sim.prov_owner.keys():
+		var o: String = Sim.prov_owner[pid]
+		if o == code or not Sim.nations[o]["alive"] or (avoid_allies and Sim.has_treaty(code, o, "alliance")):
+			continue
+		var d := GameData.node_km(from_node, pid)
+		if d < bd and Sim.order_invade(_main_army(code)["id"], pid, true)["ok"]:
+			bd = d; best = pid
+	return best
+
+func _main_army(code: String) -> Dictionary:
+	var best := {}
+	for a in Sim.armies.values():
+		if a["owner"] == code and (best.is_empty() or Sim.army_men(a) > Sim.army_men(best)):
+			best = a
+	return best
+
+## Run days until `cond` holds (or `limit` days); returns the number of days run, -1 on timeout.
+func _until(cond: Callable, limit: int) -> int:
+	for d in limit:
+		if cond.call():
+			return d
+		Sim.tick_day()
+	return 0 if cond.call() else -1
+
+func test_offensive() -> void:
+	print("== Offensive warfare & territorial conquest ==")
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	# ------------------------------------------------ 1. Sweden: select army -> right-click -> invade (undeclared)
+	Sim.auto_deploy = false
+	m._start_game("SWE", 1800, 11, 60)
+	await _frames(3)
+	Sim.set_speed(0)
+	Controls.last_device = "kbm"
+	var army: Dictionary = _main_army("SWE")
+	var aid: int = army["id"]
+	m.cam.look_at_world(GameData.node_world(int(army["node"])), 30.0, true)
+	await _frames(4)
+	m.select_province(-1)
+	await _mouse_click(_army_screen(m, aid), MOUSE_BUTTON_LEFT)
+	var sel_ok: bool = m.map.selected_army == aid
+	var tp := _nearest_foreign("SWE", army["node"])
+	var tgt: String = Sim.prov_owner[tp]
+	var tname: String = GameData.provinces[tp]["name"]
+	m.cam.look_at_world(GameData.node_world(tp), 30.0, true)
+	await _frames(4)
+	var sp: Vector2 = m.map.camera.unproject_position(GameData.node_world(tp))
+	await _mouse_click(sp, MOUSE_BUTTON_RIGHT)
+	var asked: bool = m.hud.popup.visible and m.hud.popup_box.get_child(0).text.begins_with("Invade") and army["path"].is_empty()
+	var war_before: bool = Sim.at_war("SWE", tgt)
+	# a small defending force sits on the target so the invasion has to fight for it
+	var def_uid := GameData.unit_for_role(GameData.eras[Sim.era]["id"], "inf")
+	var def_id: int = Sim._spawn_army(tgt, tp, [Sim._make_unit(def_uid)])
+	Sim.armies[def_id]["ai_next"] = 999999
+	var pressed := _press(m.hud.popup_box, "Invade (undeclared)")
+	await _frames(2)
+	check("offensive: player selects an army by click, right-clicks %s (%s) and confirms 'Invade' — no declaration required" % [tname, tgt],
+		sel_ok and asked and pressed and not war_before and army["goal"] == tp and not army["path"].is_empty() and army["invade"] == tgt,
+		"selected %s asked %s pressed %s path %s" % [sel_ok, asked, pressed, str(army["path"])])
+	# ------------------------------------------------ 2. the march: gradual movement, no teleport
+	var men0 := Sim.army_men(army)
+	var maxes0: Array = army["units"].map(func(u): return u["max"])
+	var positions: Array = [Sim.army_pos_lonlat(army)]
+	var max_step := 0.0
+	var hostile_day := -1; var battle_id := -1
+	for d in 120:
+		Sim.tick_day()
+		var p := Sim.army_pos_lonlat(army)
+		max_step = maxf(max_step, GameData.km_between(positions[-1], p))
+		positions.append(p)
+		if hostile_day < 0 and Sim.at_war("SWE", tgt): hostile_day = d
+		for bid in Sim.battles.keys():
+			if Sim.battles[bid]["player_side"] == 0 and Sim.battles[bid]["armies"][0].has(aid):
+				battle_id = bid
+		if battle_id >= 0: break
+	var spd := Sim.army_speed(army) * 2.2
+	check("offensive: the army marches on the map day by day (%d days, max %.0f km/day, speed cap %.0f) and never teleports" % [positions.size() - 1, max_step, spd],
+		positions.size() > 2 and max_step <= spd + 1.0 and army["node"] == tp, "node %d" % army["node"])
+	check("offensive: crossing the border starts an UNDECLARED conflict; %s's allies are not called in" % tgt,
+		hostile_day >= 0 and Sim.is_undeclared("SWE", tgt) and Sim.allies_of(tgt).all(func(x): return not Sim.at_war("SWE", x)),
+		"allies %s enemies %s" % [str(Sim.allies_of(tgt)), str(Sim.enemies_of("SWE"))])
+	# ------------------------------------------------ 3. defenders engage; deployment window; formation applies
+	var b: Dictionary = Sim.battles.get(battle_id, {})
+	check("offensive: defenders at %s engage the invader — battle starts with Sweden as attacker and the deployment window opens" % tname,
+		not b.is_empty() and b["codes"] == ["SWE", tgt] and b["awaiting"] and m.hud.deploy_win.visible, str(b.get("codes", [])))
+	var pf := _press(m.hud.deploy_box, "Deep"); await _frames(1)
+	var po := _press(m.hud.deploy_box, "Flank"); await _frames(1)
+	_press(m.hud.deploy_box, "Deploy and continue")
+	await _frames(2)
+	var sim_orders: Array = b["sim"].orders if b.get("sim") != null else []
+	check("offensive: player's formation/objective (deep + flank) are used by the battle simulation",
+		pf and po and not sim_orders.is_empty() and sim_orders[0]["formation"] == "deep" and sim_orders[0]["objective"] == "flank", str(sim_orders))
+	var won := false
+	_until(func(): return b["done"], 30)
+	won = b.has("result") and b["result"]["winner"] == 0
+	var men1 := Sim.army_men(army) if Sim.armies.has(aid) else 0.0
+	var maxes1: Array = army["units"].map(func(u): return u["max"])
+	check("offensive: Sweden wins; casualties are permanent (%d -> %d men), unit sizes unchanged, no armies duplicated" % [int(men0), int(men1)],
+		won and men1 < men0 and maxes1 == maxes0.slice(0, maxes1.size()) and Sim.armies.values().filter(func(x): return x["owner"] == "SWE" and x["node"] == tp).size() == 1,
+		"winner %s" % str(b.get("result", {}).get("winner")))
+	# ------------------------------------------------ 4. siege and capture; economy updates
+	var pop0 := Sim._pop_total("SWE"); var provs0: int = Sim.nation_provs["SWE"].size()
+	var res0 := Sim._resources_of("SWE").size()
+	var tax0: float = Sim.nations["SWE"]["income"].get("Taxes", 0.0)
+	var dcap := _until(func(): return Sim.prov_owner[tp] == "SWE", 200)
+	var tax1: float = Sim.nations["SWE"]["income"].get("Taxes", 0.0)
+	var men2 := Sim.army_men(army)
+	check("offensive: the army resumes its march after the battle, besieges and captures %s (%d days)" % [tname, dcap],
+		dcap >= 0 and Sim.prov_owner[tp] == "SWE" and Sim.nation_provs["SWE"].has(tp) and not Sim.nation_provs[tgt].has(tp), "")
+	check("offensive: captured population and taxes join Sweden at once (pop %.2fM -> %.2fM, taxes %.1f -> %.1f, provinces %d -> %d)" % [pop0 / 1e6, Sim._pop_total("SWE") / 1e6, tax0, tax1, provs0, Sim.nation_provs["SWE"].size()],
+		Sim._pop_total("SWE") > pop0 and tax1 > tax0 and Sim.nation_provs["SWE"].size() == provs0 + 1 and Sim._resources_of("SWE").size() >= res0 and m.map.lut_dirty == true or Sim.prov_owner[tp] == "SWE", "")
+	check("offensive: casualties persist after the battle (no free replacements: %d men after the siege, %d before the battle)" % [int(men2), int(men0)],
+		men2 <= men1 + 0.01 and men2 < men0, "")
+	m.select_province(tp)
+	await _frames(2)
+	var ptxt := " ".join(_texts(m.hud.sel_box))
+	check("offensive: the province panel now shows %s as Swedish with recruitment available" % tname,
+		"Owner: Sweden" in ptxt and "Raise regiments here" in ptxt, ptxt.substr(0, 160))
+	# ------------------------------------------------ 5. AI counterattack and player defence
+	Sim.auto_deploy = true
+	var tn: Dictionary = Sim.nations[tgt]
+	tn["funds"] += 60000.0; tn["manpower"] += 60000.0
+	var cap: int = tn["capital"]
+	for k in 2:
+		for uid in GameData.units_by_era[GameData.eras[Sim.era]["id"]]:
+			Sim.buy_unit(tgt, uid, cap)
+	var counter := {"sent": false, "battle": false}
+	var dcount := _until(func():
+		for a2 in Sim.armies.values():
+			if a2["owner"] == tgt and a2["goal"] == tp: counter["sent"] = true
+		for bb in Sim.battles.values():
+			if bb["prov"] == tp and bb["codes"][0] == tgt: counter["battle"] = true
+		return counter["battle"] or Sim.prov_owner[tp] != "SWE", 400)
+	check("offensive: AI %s counterattacks to win back %s (army dispatched %s, battle at the province %s, %d days)" % [tgt, tname, counter["sent"], counter["battle"], dcount],
+		counter["sent"] and (counter["battle"] or Sim.prov_owner[tp] == tgt), "")
+	# ------------------------------------------------ 6. recapture of a lost province via the province panel
+	# fresh campaign: the counterattack above may have left Sweden without a field army
+	Sim.auto_deploy = true
+	m._start_game("SWE", 1800, 16, 60)
+	await _frames(2)
+	Sim.set_speed(0)
+	Sim.start_hostilities("FIN", "SWE")
+	for a2 in Sim.armies.values():
+		if a2["owner"] == "FIN": a2["ai_next"] = 999999
+	tgt = "FIN"
+	var lost: int = -1
+	for pid in Sim.cores_of("SWE"):
+		if Sim.prov_owner[pid] == "SWE" and pid != Sim.nations["SWE"]["capital"] and Sim.armies_in(pid).is_empty():
+			lost = pid; break
+	Sim.transfer_province(lost, tgt)      # an enemy has taken one of our provinces
+	for a2 in Sim.armies_in(lost): a2["ai_next"] = 999999
+	m.select_province(lost)
+	await _frames(2)
+	var rtxt := " ".join(_texts(m.hud.sel_box))
+	var rp := _press(m.hud.sel_box, "Retake")
+	var rgoal: bool = Sim.armies.values().any(func(x): return x["owner"] == "SWE" and x["goal"] == lost)
+	var drec := _until(func(): return Sim.prov_owner[lost] == "SWE", 300)
+	check("offensive: player retakes lost %s with the province panel's 'Retake' button (%d days)" % [GameData.provinces[lost]["name"], drec],
+		"Retake" in rtxt and rp and rgoal and drec >= 0 and Sim.stats["recaptures"] >= 1, "pressed %s goal %s armies %s | %s" % [rp, rgoal, str(Sim.armies.values().filter(func(x): return x["owner"] == "SWE").map(func(x): return "%d@%d:%s" % [x["id"], x["node"], x["state"]])), rtxt.substr(0, 300)])
+	# ------------------------------------------------ 7. a failed invasion transfers nothing
+	Sim.auto_deploy = true
+	var weak: int = Sim._spawn_army("SWE", Sim.nations["SWE"]["capital"], [Sim._make_unit(GameData.unit_for_role(GameData.eras[Sim.era]["id"], "ranged"))])
+	var wt := -1
+	for pid in Sim.nation_provs[tgt]:
+		if Sim.order_invade(weak, pid, true)["ok"]:
+			wt = pid; break
+	var strong := Sim._spawn_army(tgt, wt, [])
+	for k in 8:
+		Sim.armies[strong]["units"].append(Sim._make_unit(GameData.unit_for_role(GameData.eras[Sim.era]["id"], "inf")))
+	Sim.armies[strong]["ai_next"] = 999999
+	var wo := Sim.order_invade(weak, wt)
+	var dfail := _until(func(): return not Sim.armies.has(weak) or Sim.armies[weak]["node"] != wt and Sim.battles.values().any(func(x): return x["done"] and x["armies"][0].has(weak)), 200)
+	_until(func(): return false, 20)
+	check("offensive: a failed invasion (1 regiment vs 8) loses the battle and %s stays with %s" % [GameData.provinces[wt]["name"], tgt],
+		wo["ok"] and dfail >= 0 and Sim.prov_owner[wt] == tgt, "weak alive %s" % Sim.armies.has(weak))
+	m.queue_free()
+	await _frames(2)
+	# ------------------------------------------------ 8. formal declaration upgrades an undeclared conflict
+	Sim.new_game("SWE", 1800, 12, 60)
+	var a8: Dictionary = _main_army("SWE")
+	var t8 := _nearest_foreign("SWE", a8["node"])
+	if t8 >= 0:
+		Sim._apply_treaty(Sim.prov_owner[t8], "NOR" if Sim.prov_owner[t8] != "NOR" else "DNK", "alliance", true)
+		var c8: String = Sim.prov_owner[t8]
+		Sim.start_hostilities("SWE", c8)
+		var allies_quiet: bool = Sim.allies_of(c8).all(func(x): return not Sim.at_war("SWE", x))
+		var up := Sim.declare_war("SWE", c8)
+		var allies_in: bool = Sim.allies_of(c8).any(func(x): return Sim.at_war("SWE", x) or Sim.has_treaty(x, "SWE", "alliance"))
+		check("offensive: undeclared conflict with %s keeps its allies out; a formal declaration then calls them in" % c8,
+			allies_quiet and up and not Sim.is_undeclared("SWE", c8) and allies_in, str(Sim.enemies_of("SWE")))
+	else:
+		check("offensive: undeclared vs declared war (no allied neighbour found)", false, "")
+	# ------------------------------------------------ 9. save / load keeps orders, ownership and conflict state
+	Sim.new_game("SWE", 1800, 13, 60)
+	Sim.auto_deploy = true
+	var a9: Dictionary = _main_army("SWE")
+	var t9 := _nearest_foreign("SWE", a9["node"])
+	var c9: String = Sim.prov_owner[t9]
+	Sim.order_invade(a9["id"], t9)
+	_until(func(): return Sim.at_war("SWE", c9), 60)
+	Sim.advance_days(1)
+	var snap := {"path": a9["path"].duplicate(), "goal": a9["goal"], "inv": a9["invade"], "und": Sim.is_undeclared("SWE", c9), "own": Sim.prov_owner.duplicate()}
+	var sv := Sim.save_game("offensive_test")
+	Sim.advance_days(40)
+	var h_a := JSON.stringify(Sim.serialize_state()).md5_text()
+	var ld := Sim.load_game("offensive_test")
+	var a9b: Dictionary = Sim.armies[a9["id"]]
+	var same: bool = a9b["path"] == snap["path"] and a9b["goal"] == snap["goal"] and a9b["invade"] == snap["inv"] and Sim.is_undeclared("SWE", c9) == snap["und"] and Sim.prov_owner == snap["own"]
+	Sim.advance_days(40)
+	var h_b := JSON.stringify(Sim.serialize_state()).md5_text()
+	check("offensive: save/load keeps the army's invasion orders, the undeclared war and ownership; the campaign replays identically (40 days)",
+		sv["ok"] and ld["ok"] and same and h_a == h_b, "same %s hash %s" % [same, h_a == h_b])
+	# ------------------------------------------------ 10. overseas invasion (Japan) through the province panel
+	var m2: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m2)
+	await _frames(3)
+	Sim.auto_deploy = true
+	m2._start_game("JPN", 1800, 14, 60)
+	await _frames(3)
+	Sim.set_speed(0)
+	var aj: Dictionary = _main_army("JPN")
+	var tj := -1; var bj := 1e18
+	for pid in Sim.prov_owner.keys():
+		var oj: String = Sim.prov_owner[pid]
+		if oj == "JPN" or GameData.provinces[pid].get("continent", "") == "": pass
+		if oj != "JPN" and Sim.nations[oj]["alive"] and not Sim.has_treaty("JPN", oj, "alliance"):
+			var dj := GameData.node_km(aj["node"], pid)
+			if dj < bj and Sim.order_invade(aj["id"], pid, true)["ok"]:
+				bj = dj; tj = pid
+	var cj: String = Sim.prov_owner[tj]
+	m2.select_province(tj)
+	await _frames(2)
+	var pj := _press(m2.hud.sel_box, "Invade with %s" % aj["name"])
+	await _frames(1)
+	var pj2 := _press(m2.hud.popup_box, "Invade (undeclared)")
+	var sea_nodes: Array = aj["path"].filter(func(n): return n >= GameData.SEA_NODE)
+	var sea := {"went": false}
+	var dj2 := _until(func():
+		if Sim.armies.has(aj["id"]) and (aj["node"] >= GameData.SEA_NODE or (not aj["path"].is_empty() and aj["path"][0] >= GameData.SEA_NODE and aj["progress"] > 0.0)): sea["went"] = true
+		return Sim.prov_owner[tj] == "JPN", 300)
+	check("offensive: Japan invades %s (%s) overseas from the province panel: embarks, crosses %d sea zones, lands and captures it (%d days)" % [GameData.provinces[tj]["name"], cj, sea_nodes.size(), dj2],
+		pj and pj2 and sea_nodes.size() > 0 and sea["went"] and dj2 >= 0, "panel %s popup %s went_sea %s" % [pj, pj2, sea["went"]])
+	# ------------------------------------------------ 11. all-out defeat and the landless rule
+	var mine_provs: Array = Sim.nation_provs["JPN"].duplicate()
+	var en: String = cj
+	for pid in mine_provs:
+		Sim.transfer_province(pid, en)
+	var alive_landless: bool = Sim.nations["JPN"]["alive"] and Sim.nation_provs["JPN"].is_empty() and Sim._has_viable_army("JPN")
+	# a landless army can still win land back
+	var la: Dictionary = _main_army("JPN")
+	var home := -1
+	for pid in Sim.cores_of("JPN"):
+		if Sim.order_invade(la["id"], pid, true)["ok"] and Sim.armies_in(pid).is_empty():
+			home = pid; break
+	for a3 in Sim.armies.values():
+		if a3["owner"] == en: a3["ai_next"] = 999999
+	Sim.ai_enabled = false
+	if home >= 0: Sim.order_invade(la["id"], home)
+	var dh := _until(func(): return home >= 0 and Sim.prov_owner[home] == "JPN", 300)
+	Sim.ai_enabled = true
+	check("offensive: a nation that loses all its land keeps fighting with its army and can retake a province (%d days)" % dh,
+		alive_landless and dh >= 0 and Sim.nations["JPN"]["capital"] == home, "")
+	for pid in Sim.nation_provs["JPN"].duplicate():
+		Sim.transfer_province(pid, en)
+	for id in Sim.armies.keys().duplicate():
+		if Sim.armies[id]["owner"] == "JPN": Sim.armies.erase(id)
+	Sim._check_landless()
+	await _frames(2)
+	check("offensive: no land and no army = clear DEFEAT screen; the campaign clock stops",
+		Sim.defeated and not Sim.running and not Sim.nations["JPN"]["alive"] and m2.hud.popup.visible and m2.hud.popup_box.get_child(0).text == "DEFEAT", "")
+	var rt := _press(m2.hud.popup_box, "Return to title")
+	await _frames(3)
+	check("offensive: the defeat screen's 'Return to title' brings back the start menu", rt and m2.menu_layer != null and m2.hud == null, "")
+	m2.queue_free()
+	await _frames(2)
+	# ------------------------------------------------ 12. AI interception of an invader (controlled)
+	Sim.new_game("SWE", 1800, 15, 60)
+	Sim.auto_deploy = true
+	var a12: Dictionary = _main_army("SWE")
+	var t12 := _nearest_foreign("SWE", a12["node"])
+	var c12: String = Sim.prov_owner[t12]
+	Sim.order_invade(a12["id"], t12)
+	_until(func(): return Sim.at_war("SWE", c12), 60)
+	var near := -1
+	for nb in GameData.provinces[t12]["neighbors"].keys():
+		if Sim.prov_owner.get(nb, "") == c12: near = nb; break
+	if near < 0: near = Sim.nations[c12]["capital"]
+	var ia := Sim._spawn_army(c12, near, [])
+	for u in a12["units"]:
+		Sim.armies[ia]["units"].append(Sim._make_unit(u["type"]))
+	Sim.armies[ia]["ai_next"] = Sim.day
+	var inter := _until(func(): return Sim.battles.values().any(func(x): return x["codes"].has(c12) and x["codes"].has("SWE")), 120)
+	check("offensive: AI %s responds to the undeclared invasion by marching an army to intercept it (battle after %d days)" % [c12, inter],
+		inter >= 0, "")
+	# ------------------------------------------------ 12b. an invasion interrupted by a battle on the way presses on
+	var deep := {}
+	for cfg in [["SWE", 1800], ["USA", 1800], ["SWE", 1914]]:
+		Sim.new_game(cfg[0], cfg[1], 17, 60)
+		Sim.ai_enabled = false
+		var ad: Dictionary = _main_army(cfg[0])
+		for pid in Sim.prov_owner.keys():
+			var od: String = Sim.prov_owner[pid]
+			if od == cfg[0] or Sim.has_treaty(cfg[0], od, "alliance"): continue
+			var rd := Sim.order_invade(ad["id"], pid, true)
+			if not rd["ok"]: continue
+			var land: Array = rd["path"].filter(func(n): return n < GameData.SEA_NODE and Sim.prov_owner.get(n, "") == od)
+			var clear: bool = rd["path"].all(func(n): return n >= GameData.SEA_NODE or Sim.armies_in(n).all(func(x): return x["owner"] == cfg[0]))
+			if land.size() >= 2 and rd["days"] < 120 and clear:
+				deep = {"code": cfg[0], "goal": pid, "mid": land[0], "army": ad["id"], "tgt": od}
+				break
+		if not deep.is_empty(): break
+	if not deep.is_empty():
+		var dd_id := Sim._spawn_army(deep["tgt"], deep["mid"], [Sim._make_unit(GameData.unit_for_role(GameData.eras[Sim.era]["id"], "ranged"))])
+		Sim.order_invade(deep["army"], deep["goal"])
+		var mid_battle := {"won": false}
+		var cbm := func(bid, res):
+			var bb: Dictionary = Sim.battles[bid]
+			if bb["prov"] == deep["mid"] and bb["armies"][0].has(deep["army"]) and res["winner"] == 0: mid_battle["won"] = true
+		Sim.battle_resolved.connect(cbm)
+		var dgo := _until(func(): return Sim.prov_owner[deep["goal"]] == deep["code"], 300)
+		Sim.battle_resolved.disconnect(cbm)
+		check("offensive: %s's invasion of %s wins a battle on the way at %s, then marches on and captures the objective (%d days)" % [deep["code"], GameData.provinces[deep["goal"]]["name"], GameData.provinces[deep["mid"]]["name"], dgo],
+			mid_battle["won"] and dgo >= 0, "")
+	else:
+		check("offensive: interrupted invasion resumes (no multi-province route found)", false, "")
+	Sim.ai_enabled = true
+	# ------------------------------------------------ 13. every era: invade + capture with the same rules
+	var eras_ok: Array = []
+	for yr in [1300, 1500, 1800, 1914, 1980]:
+		Sim.new_game("SWE", yr, 21, 60)
+		var ae: Dictionary = _main_army("SWE")
+		var te := _nearest_foreign("SWE", ae["node"])
+		var oe := Sim.order_invade(ae["id"], te)
+		var de := _until(func(): return Sim.prov_owner[te] == "SWE", 365)
+		if oe["ok"] and de >= 0:
+			eras_ok.append("%d:%s@%dd" % [yr, GameData.provinces[te]["name"], de])
+	check("offensive: invasion -> capture works in all five eras %s" % str(eras_ok), eras_ok.size() == 5, "")
+	# ------------------------------------------------ 14. AI wars still produce conquests and recaptures
+	Sim.new_game("USA", 1800, 22, 0)
+	Sim.advance_days(365 * 4)
+	var zombies: Array = Sim.nations.keys().filter(func(c): return Sim.nations[c]["alive"] and Sim.nation_provs[c].is_empty() and not Sim._has_viable_army(c))
+	check("offensive: 4-year AI run still conquers (%d captures, %d recaptures, %d wars, %d nations eliminated) and leaves no landless nation without an army" % [Sim.stats["captures"], Sim.stats["recaptures"], Sim.stats["wars_declared"], Sim.stats["eliminated"]],
+		Sim.stats["captures"] > 0 and zombies.is_empty(), str(zombies))
+	Sim.auto_deploy = false

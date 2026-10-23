@@ -1,4 +1,4 @@
-# Feature status (v0.3.3): honest accounting
+# Feature status (v0.4.0): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -21,10 +21,17 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Instant procurement, current-era units only, no build waits | VERIFIED | Tests: "buy units", "older-era equipment cannot be procured". |
 | Army movement, path-finding, naval transport | VERIFIED | Tests (JPN route uses naval transport) and `campaign_USA_march.png`. |
 | Sieges and territory capture | VERIFIED | Tests (provinces change hands). |
+| **Player invasions (v0.4)**: select army → Invade/Attack/Retake on any foreign province, no declaration needed | VERIFIED (real click path + recorded demo) | `--only=offensive` 22/22. The test clicks the army marker, right-clicks the target, confirms "Invade (undeclared)" in the dialog, and presses the province panel's Retake / Invade buttons. Demos: `--demo=invasion --nation=SWE` and `--nation=JPN` (`rec/invasion_*_demo.mp4`, `shots/invasion_*`). |
+| Undeclared conflict vs formal war | VERIFIED | Crossing the border starts hostilities: the defender fights back at once, but its allies are only called in by a formal declaration (which can still be made later from F1). Relations with the victim −55 and −4 with every great power; breaking a NAP costs stability. Alliances and peace truces still block an invasion. |
+| Interrupted invasions press on | VERIFIED | An invasion order that wins a battle on the way re-paths to its objective (tested with a two-province route). Plain march orders keep the old behaviour (stop where the battle was). |
+| Recapture of lost provinces (player and AI) | VERIFIED | Player: province panel "Retake" (test). AI: majors and minors now send armies to win back provinces they held at the start (test: Finland counterattacks Mariehamn). |
+| Landless nations fight on; clear defeat | VERIFIED | A nation that loses its last province survives while it has an army of ≥150 men and can retake land (test). No land and no army → DEFEAT screen (Load quicksave / Return to title / Quit) and the clock stops. |
+| Overseas invasion | VERIFIED | Japan → Busan via the existing embark / sea-zone / landing path (test + demo). Uses the era's naval range; there is still no naval combat. |
+| Invalid routes explained | VERIFIED | Orders that cannot be carried out say why (ally, truce, neutral land in the way plus naval range, halted mid-march by a closed border). |
 | AI: recruit, expand, declare war, negotiate trade/alliance/NAP, make peace | VERIFIED (sim) | Per-nation test counts (hundreds of proposals, dozens of wars). The AI is rule-based and simple, and peace is rare. |
 | Diplomacy UI (F1) and Economy/Army UI (F2) | VERIFIED | `diplomacy_SWE*.png`, `economy_SWE*.png`, `diplomacy_demo.mp4` (proposal sent, unit bought, treasury drops by unit cost). |
 | Era progression (global, calendar-driven), refit, old armies keep old kit | VERIFIED | Tests: 1913 → 1914 advance, refit, buying does not change the era; gameplay test sees the era change on 1 Jan 1914 in the real main scene. USA/SWE/JPN start armies use the right era's units in all 5 start years. |
-| Scripted end-to-end gameplay | VERIFIED (headless) | `--only=gameplay` 7/7: start as Sweden 1913, march, declare war, watch a battle + camera toggle, capture a province, save/load, era advance. The test grants extra funds so the invasion reliably succeeds. |
+| Scripted end-to-end gameplay | VERIFIED (headless) | `--only=gameplay` 7/7: start as Sweden 1913, march, declare war, watch a battle + camera toggle, capture a province, save/load, era advance. The test grants extra funds so the invasion reliably succeeds. Note: this test drives the sim through a demo helper, not the player controls; the v0.4 `--only=offensive` suite covers the real controls. |
 | Save/load (F5/F9, named slots, title-menu load) | VERIFIED | `--only=save` 8/8 (deep equality, 180-day forward determinism, missing slot, list); gameplay test round trip; `shots/v02/saveload_*.png`. Watched battles load as unwatched. |
 | Music (campaign / tension / battle + 4 stings), instrumental, original | VERIFIED (playback, mixing, transitions) / not listened to by a human | `res://tests/test_audio.tscn` 28/28. These checks confirm that music plays through the mixer (Master capture is non-silent), the crossfade is equal-power and completes, campaign resumes, loops wrap, stings duck the music, and the battle mood comes back to campaign afterwards. `pipeline/audio/analyze_audio.py` checks loop seams and decoded peaks. The battle demo recording (`--write-movie`) carries the real mixed output: peak -2.0 dBFS and no clipped samples over 62 s. Musical quality is not verified, because no subjective listening was possible. |
 | Battle & UI sound effects (era-correct weapons, cannon, explosions, impacts, crowds, hooves, melee, signals, ambience beds, UI) | VERIFIED (triggering, voice limits, no clipping) | test_audio: a watched c19 battle triggers volleys, cannon, impacts, crowd and signals; era→weapon mapping has no rifles before c20 and no automatic fire; musket voices are capped at 6 with 900 requests; global cap 24; mass gunfire (900 requests) peaks at -3.4 dBFS on Master and does not clip. Mix balance: in a watched battle at default volumes, SFX-only p90 is -18.4 dBFS against a battle-music median of -31.3 dBFS (the test requires a margin of at least 6 dB). Outcome is identical with `--audio=off`. Sound quality and realism are not verified by ear. |
@@ -72,6 +79,7 @@ appear only in tests, not in this video. One weakness seen in the 1914 shots: a 
 | Battle | VERIFIED (PNG + MP4, `battle_USA_full.mp4`, 44 s: deploy → transition → battle → result panel → back to campaign) |
 | Diplomacy/economy | VERIFIED (PNG + MP4, `diplomacy_demo.mp4`, 12 s) |
 | Era change | VERIFIED (PNG + MP4, `era_demo.mp4`, 8.5 s: 1913 → 1914 Age of Mechanised War popup → refit panel). The demo runs the clock at ×365 to reach the date. |
+| Invasion (v0.4) | VERIFIED (PNG + MP4, `invasion_SWE_demo.mp4` and `invasion_JPN_demo.mp4`: army selected → Invade dialog → march → border crossed → deployment → capture → diplomacy shows UNDECLARED WAR). The demo stages a one-regiment garrison on the objective so a battle is fought. |
 
 ## Builds
 | Build | Status |

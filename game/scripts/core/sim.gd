@@ -13,6 +13,8 @@ signal era_changed(era_idx: int)
 signal armies_changed
 signal player_offer(offer: Dictionary)
 signal speed_changed(idx: int)
+signal player_defeated(by: String)
+signal hostilities_started(a: String, b: String, declared: bool)
 
 const SPEEDS := [0.0, 2.0, 8.0, 30.0, 120.0, 365.0]
 const SPEED_NAMES := ["Paused", "Slow", "Normal", "Fast", "Very fast", "Year/sec"]
@@ -54,6 +56,9 @@ var ai_enabled := true
 var _port_reach := {}             # era -> {pid: [{to, cost, path}]}
 var _neighbors_cache := {}
 var _path_cache := {}
+var defeated := false             # the player's campaign is over (no land and no viable army)
+var _cores := {}                  # code -> [pid] provinces the nation held at the start (recapture targets; derived, not saved)
+const VIABLE_ARMY_MEN := 150.0    # a landless nation fights on while it has an army at least this large
 
 # ======================= setup =======================
 func new_game(player_code: String, year: int, seed: int = 1, doy: int = 0) -> void:
@@ -68,9 +73,10 @@ func new_game(player_code: String, year: int, seed: int = 1, doy: int = 0) -> vo
 	relations.clear(); treaties.clear(); wars.clear(); event_log.clear(); pending_offers.clear()
 	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear()
 	next_army_id = 1; next_battle_id = 1; watching_battle = -1; accum = 0.0
+	defeated = false; _cores.clear()
 	stats = {"wars_declared": 0, "ai_wars": 0, "peace": 0, "ai_peace": 0, "alliances": 0, "ai_alliances": 0, "trades": 0,
 		"ai_trades": 0, "naps": 0, "ai_naps": 0, "gifts": 0, "captures": 0, "battles": 0, "eliminated": 0, "era_changes": 0,
-		"ai_units_bought": 0, "ai_proposals": 0, "ai_rejections": 0}
+		"ai_units_bought": 0, "ai_proposals": 0, "ai_rejections": 0, "invasions": 0, "undeclared": 0, "recaptures": 0}
 	for code in GameData.countries.keys():
 		var c: Dictionary = GameData.countries[code]
 		var major := GameData.majors.has(code)
@@ -154,7 +160,7 @@ func _spawn_army(code: String, pid: int, units: Array) -> int:
 	var id := next_army_id
 	next_army_id += 1
 	armies[id] = {"id": id, "owner": code, "node": pid, "path": [], "progress": 0.0, "units": units, "state": "idle",
-		"battle": -1, "ai_next": day + rng.randi_range(0, 6), "goal": -1, "name": _army_name(code)}
+		"battle": -1, "ai_next": day + rng.randi_range(0, 6), "goal": -1, "invade": "", "resume": false, "name": _army_name(code)}
 	armies_changed.emit()
 	return id
 
@@ -600,10 +606,17 @@ func allies_of(code: String) -> Array:
 func is_friendly(a: String, b: String) -> bool:
 	return a == b or has_treaty(a, b, "alliance")
 
+## Hostilities exist between a and b but nobody has formally declared war (an undeclared invasion).
+func is_undeclared(a: String, b: String) -> bool:
+	var w: Dictionary = wars.get(_key(a, b), {})
+	return not w.is_empty() and not w.get("declared", true)
+
 func can_declare_war(a: String, b: String) -> Dictionary:
 	if a == b or not nations.has(b) or not nations[b]["alive"]:
 		return {"ok": false, "msg": "Invalid target"}
 	if at_war(a, b):
+		if is_undeclared(a, b):
+			return {"ok": true, "msg": "", "upgrade": true}
 		return {"ok": false, "msg": "Already at war"}
 	if has_treaty(a, b, "alliance"):
 		return {"ok": false, "msg": "You are allied; cancel the alliance first"}
@@ -615,8 +628,20 @@ func declare_war(a: String, b: String, by_ai: bool = false) -> bool:
 	var chk := can_declare_war(a, b)
 	if not chk["ok"]:
 		return false
+	if chk.get("upgrade", false):
+		# an undeclared conflict becomes a formal war: the target's allies are now called to arms
+		wars[_key(a, b)]["declared"] = true
+		stats["wars_declared"] += 1
+		if by_ai:
+			stats["ai_wars"] += 1
+		add_relation(a, b, -10.0)
+		log_event("%s formally declares war on %s!" % [nations[a]["name"], nations[b]["name"]], "war", [a, b], by_ai)
+		_call_allies(a, b)
+		_neighbors_cache.clear(); _path_cache.clear()
+		hostilities_started.emit(a, b, true)
+		return true
 	var broke_nap := has_treaty(a, b, "nap")
-	_start_war(a, b)
+	_start_war(a, b, true)
 	stats["wars_declared"] += 1
 	if by_ai:
 		stats["ai_wars"] += 1
@@ -629,17 +654,58 @@ func declare_war(a: String, b: String, by_ai: bool = false) -> bool:
 			if c != a and nations[c]["major"]:
 				add_relation(a, c, -6.0)
 	log_event("%s declares war on %s!%s" % [nations[a]["name"], nations[b]["name"], " (breaking a non-aggression pact)" if broke_nap else ""], "war", [a, b], by_ai)
-	# defensive alliances: the target's allies are called to arms
-	for c in allies_of(b):
-		if c != a and not at_war(c, a) and not has_treaty(c, a, "alliance") and nations[c]["alive"]:
-			_start_war(c, a)
-			add_relation(c, a, -30.0)
-			log_event("%s honours its alliance with %s and joins the war against %s." % [nations[c]["name"], nations[b]["name"], nations[a]["name"]], "war", [c, a, b], c != player)
+	_call_allies(a, b)
 	_neighbors_cache.clear(); _path_cache.clear()
+	hostilities_started.emit(a, b, true)
 	return true
 
-func _start_war(a: String, b: String) -> void:
-	wars[_key(a, b)] = {"start": day, "attacker": a, "score": {a: 0.0, b: 0.0}}
+## Defensive alliances: the target's allies are called to arms (formal declarations only).
+func _call_allies(a: String, b: String) -> void:
+	for c in allies_of(b):
+		if c != a and not at_war(c, a) and not has_treaty(c, a, "alliance") and nations[c]["alive"]:
+			_start_war(c, a, true)
+			add_relation(c, a, -30.0)
+			log_event("%s honours its alliance with %s and joins the war against %s." % [nations[c]["name"], nations[b]["name"], nations[a]["name"]], "war", [c, a, b], c != player)
+
+func _start_war(a: String, b: String, declared: bool = true) -> void:
+	wars[_key(a, b)] = {"start": day, "attacker": a, "score": {a: 0.0, b: 0.0}, "declared": declared}
+
+## Whether `a` may attack `b` without a declaration. Alliances and peace truces still bind.
+func can_invade(a: String, b: String) -> Dictionary:
+	if a == b or not nations.has(b) or not nations[b]["alive"]:
+		return {"ok": false, "msg": "Invalid target"}
+	if at_war(a, b):
+		return {"ok": true, "msg": "", "hostile": true}
+	if has_treaty(a, b, "alliance"):
+		return {"ok": false, "msg": "%s is our ally; cancel the alliance first" % nations[b]["name"]}
+	if has_treaty(a, b, "truce"):
+		return {"ok": false, "msg": "A peace truce with %s is in force" % nations[b]["name"]}
+	return {"ok": true, "msg": "", "hostile": false}
+
+## Undeclared conflict: fighting starts when an army crosses the border, without a declaration.
+## The victim can fight back at once (it is a war in every military sense), but its allies are not
+## called in. Consequences: heavy relation loss with the victim, a smaller one with every major power,
+## and breaking a non-aggression pact costs stability as a declaration would.
+func start_hostilities(a: String, b: String, by_ai: bool = false) -> bool:
+	if at_war(a, b):
+		return true
+	if not can_invade(a, b)["ok"]:
+		return false
+	var broke_nap := has_treaty(a, b, "nap")
+	_start_war(a, b, false)
+	stats["undeclared"] += 1
+	add_relation(a, b, -55.0)
+	_set_treaty(a, b, "trade", false)
+	_set_treaty(a, b, "nap", -1)
+	if broke_nap:
+		nations[a]["stability"] = maxf(nations[a]["stability"] - 0.12, 0.05)
+	for c in nations.keys():
+		if c != a and c != b and nations[c]["major"] and nations[c]["alive"]:
+			add_relation(a, c, -4.0)
+	log_event("%s invades %s without a declaration of war!%s" % [nations[a]["name"], nations[b]["name"], " (breaking a non-aggression pact)" if broke_nap else ""], "war", [a, b], by_ai)
+	_neighbors_cache.clear(); _path_cache.clear()
+	hostilities_started.emit(a, b, false)
+	return true
 
 func make_peace(a: String, b: String, by_ai: bool = false) -> void:
 	var k := _key(a, b)
@@ -902,17 +968,19 @@ func _ports() -> Dictionary:
 	_port_reach[era] = reach
 	return reach
 
-func passable(code: String, pid: int) -> bool:
+## Land an army of `code` may enter: own, allied, enemy (any hostilities), or `invading` (the nation an
+## invasion order is aimed at; hostilities start when the army crosses into it). Neutral land stays closed.
+func passable(code: String, pid: int, invading: String = "") -> bool:
 	var o: String = prov_owner.get(pid, "")
 	if o == "":
 		return false
-	return o == code or has_treaty(code, o, "alliance") or at_war(code, o)
+	return o == code or (invading != "" and o == invading) or has_treaty(code, o, "alliance") or at_war(code, o)
 
 ## Dijkstra over provinces (+ sea crossings). Returns node list excluding start, or [] if unreachable.
-func find_path(code: String, from_node: int, to_pid: int) -> Array:
+func find_path(code: String, from_node: int, to_pid: int, invading: String = "") -> Array:
 	if from_node == to_pid:
 		return []
-	if not GameData.provinces.has(to_pid) or not passable(code, to_pid):
+	if not GameData.provinces.has(to_pid) or not passable(code, to_pid, invading):
 		return []
 	var start := from_node
 	var extra_head: Array = []
@@ -922,7 +990,7 @@ func find_path(code: String, from_node: int, to_pid: int) -> Array:
 		var best := -1; var bd := 1e9
 		for port in z["ports"]:
 			var d := GameData.node_km(from_node, port)
-			if d < bd and passable(code, port):
+			if d < bd and passable(code, port, invading):
 				bd = d; best = port
 		if best < 0:
 			return []
@@ -942,7 +1010,7 @@ func find_path(code: String, from_node: int, to_pid: int) -> Array:
 			break
 		var p: Dictionary = GameData.provinces[u]
 		for nb in p["neighbors"].keys():
-			if not passable(code, nb):
+			if not passable(code, nb, invading):
 				continue
 			var nd: float = dist[u] + GameData.node_km(u, nb)
 			if nd < dist.get(nb, 1e18):
@@ -950,7 +1018,7 @@ func find_path(code: String, from_node: int, to_pid: int) -> Array:
 				_heap_push(heap, [nd, nb])
 		for r in reach.get(u, []):
 			var v: int = r["to"]
-			if not passable(code, v):
+			if not passable(code, v, invading):
 				continue
 			var nd2: float = dist[u] + r["cost"]
 			if nd2 < dist.get(v, 1e18):
@@ -1013,15 +1081,93 @@ func order_move(aid: int, to_pid: int) -> Dictionary:
 	var path := find_path(a["owner"], a["node"], to_pid)
 	if path.is_empty():
 		var o: String = prov_owner.get(to_pid, "")
-		var why := "No route" if o == "" or passable(a["owner"], to_pid) else "Cannot enter %s territory without war or alliance" % nations[o]["name"]
-		return {"ok": false, "msg": why}
+		if o != "" and not passable(a["owner"], to_pid):
+			var inv := can_invade(a["owner"], o)
+			if inv["ok"]:
+				return {"ok": false, "needs_invade": true, "target": o,
+					"msg": "%s is not at war with us. Use Invade to attack without a declaration, or declare war." % nations[o]["name"]}
+			return {"ok": false, "msg": "Cannot enter %s territory: %s" % [nations[o]["name"], inv["msg"]]}
+		return {"ok": false, "msg": _no_route_msg(a, to_pid, "")}
 	a["path"] = path
 	a["progress"] = 0.0
 	a["goal"] = to_pid
+	a["invade"] = ""
+	a["resume"] = false
 	if a["state"] == "siege":
 		a["state"] = "idle"
 	armies_changed.emit()
-	return {"ok": true, "path": path, "days": int(ceil(path_km(a["owner"], a["node"], path) / army_speed(a)))}
+	return {"ok": true, "path": path, "days": est_days(a, path)}
+
+## Travel-time estimate for a path (a leg that starts at sea moves 2.2x faster, as in _move_armies).
+func est_days(a: Dictionary, path: Array) -> int:
+	var land := 0.0; var sea := 0.0
+	var last: int = a["node"]
+	for n in path:
+		var km := GameData.node_km(last, n)
+		if last >= GameData.SEA_NODE:
+			sea += km
+		else:
+			land += km
+		last = n
+	var sp := army_speed(a)
+	return maxi(1, int(ceil((land + sea / 2.2) / sp)))
+
+func _no_route_msg(a: Dictionary, to_pid: int, invading: String) -> String:
+	var name: String = GameData.provinces[to_pid]["name"] if GameData.provinces.has(to_pid) else "there"
+	var blockers := {}
+	for nb in GameData.provinces[to_pid]["neighbors"].keys():
+		var o: String = prov_owner.get(nb, "")
+		if o != "" and not passable(a["owner"], nb, invading):
+			blockers[nations[o]["name"]] = true
+	var txt := "No route to %s: neutral territory blocks the land route and no port is within this era's naval range (%d sea zones)." % [name, int(GameData.eras[era]["naval_range"])]
+	if not blockers.is_empty():
+		txt += " Neutral neighbours in the way: %s." % ", ".join(blockers.keys().slice(0, 3))
+	return txt
+
+## Player/AI invasion order: march on `to_pid` (an enemy province, or one held by a nation we are at
+## peace with). Starts at once along the existing land/sea path-finding; nothing is teleported.
+## No declaration is needed: hostilities begin when the army crosses the target's border. Passing
+## through third-party neutral land is still forbidden (alliance or war needed). With dry_run the
+## route and ETA are reported without giving the order.
+func order_invade(aid: int, to_pid: int, dry_run: bool = false) -> Dictionary:
+	if not armies.has(aid):
+		return {"ok": false, "msg": "No army"}
+	var a: Dictionary = armies[aid]
+	if a["state"] == "battle":
+		return {"ok": false, "msg": "Army is fighting"}
+	if not GameData.provinces.has(to_pid):
+		return {"ok": false, "msg": "Not a land province"}
+	var code: String = a["owner"]
+	var o: String = prov_owner.get(to_pid, "")
+	if o == "":
+		return {"ok": false, "msg": "Nobody holds that land"}
+	if o == code:
+		return {"ok": false, "msg": "%s is already ours" % GameData.provinces[to_pid]["name"]}
+	var inv := can_invade(code, o)
+	if not inv["ok"]:
+		return {"ok": false, "msg": inv["msg"]}
+	var hostile: bool = inv["hostile"]
+	var tgt := "" if hostile else o
+	var path := find_path(code, a["node"], to_pid, tgt) if a["node"] != to_pid else []
+	if path.is_empty() and a["node"] != to_pid:
+		return {"ok": false, "msg": _no_route_msg(a, to_pid, tgt)}
+	var days := est_days(a, path) if not path.is_empty() else 0
+	if dry_run:
+		return {"ok": true, "path": path, "days": days, "undeclared": not hostile, "target": o}
+	a["path"] = path
+	a["progress"] = 0.0
+	a["goal"] = to_pid
+	a["invade"] = tgt
+	a["resume"] = true      # an invasion presses on to its objective after winning a battle on the way
+	if a["state"] == "siege":
+		a["state"] = "idle"
+	stats["invasions"] += 1
+	if not hostile and a["node"] < GameData.SEA_NODE and prov_owner.get(a["node"], "") == o:
+		start_hostilities(code, o, code != player)    # already standing on their soil
+	if code == player:
+		log_event("%s ordered to %s %s (~%d days)." % [a["name"], "attack" if hostile else "invade", GameData.provinces[to_pid]["name"], days], "battle", [code, o])
+	armies_changed.emit()
+	return {"ok": true, "path": path, "days": days, "undeclared": not hostile, "target": o}
 
 func army_speed(a: Dictionary) -> float:
 	var base := float(GameData.eras[era]["move_km_day"])
@@ -1057,17 +1203,25 @@ func _move_armies() -> void:
 			var d := GameData.node_km(a["node"], nxt)
 			if a["progress"] < d:
 				break
-			if nxt < GameData.SEA_NODE and not passable(a["owner"], nxt):
-				a["path"] = []; a["progress"] = 0.0
+			var inv: String = a.get("invade", "")
+			if nxt < GameData.SEA_NODE and not passable(a["owner"], nxt, inv):
+				if a["owner"] == player:
+					var bo: String = prov_owner.get(nxt, "")
+					log_event("%s halts: the way into %s is closed (%s territory)." % [a["name"], GameData.provinces[nxt]["name"], nations[bo]["name"] if nations.has(bo) else "foreign"], "battle", [a["owner"]])
+				a["path"] = []; a["progress"] = 0.0; a["goal"] = -1
 				break
+			if nxt < GameData.SEA_NODE and inv != "" and prov_owner.get(nxt, "") == inv and not at_war(a["owner"], inv):
+				if not start_hostilities(a["owner"], inv, a["owner"] != player):
+					a["path"] = []; a["progress"] = 0.0; a["goal"] = -1; a["invade"] = ""
+					break
 			a["progress"] -= d
 			a["node"] = nxt
 			a["path"].pop_front()
 			if a["path"].is_empty():
 				a["progress"] = 0.0
+				if a["goal"] == nxt:
+					a["goal"] = -1
 			if nxt < GameData.SEA_NODE:
-				if sieges.has(nxt) and sieges[nxt]["army"] == aid:
-					pass
 				if _check_battle(aid, nxt):
 					break
 
@@ -1235,7 +1389,24 @@ func _resolve_battle(b: Dictionary) -> void:
 			log_event("%s is cut off and destroyed after the battle." % ar["name"], "battle", [ar["owner"]])
 			armies.erase(id)
 		else:
-			ar["path"] = [dest]; ar["progress"] = 0.0
+			ar["path"] = [dest]; ar["progress"] = 0.0; ar["goal"] = -1; ar["invade"] = ""; ar["resume"] = false
+			if ar["owner"] == player:
+				log_event("%s retreats to %s." % [ar["name"], GameData.provinces[dest]["name"]], "battle", [ar["owner"]])
+	# winners on an invasion order (interrupted by defenders on the way) carry on to their objective
+	for id in winners:
+		if not armies.has(id):
+			continue
+		var ar: Dictionary = armies[id]
+		var goal: int = ar.get("goal", -1)
+		if ar.get("resume", false) and goal >= 0 and goal != ar["node"] and ar["path"].is_empty():
+			var inv: String = ar.get("invade", "")
+			if inv != "" and at_war(ar["owner"], inv):
+				inv = ""
+			var np := find_path(ar["owner"], ar["node"], goal, inv)
+			if not np.is_empty():
+				ar["path"] = np; ar["progress"] = 0.0
+			else:
+				ar["goal"] = -1
 	var losses: Array = res["losses"]
 	_add_war_score(wc, lc, 6.0 + losses[1 - w] / 300.0)
 	for c in [wc, lc]:
@@ -1248,6 +1419,7 @@ func _resolve_battle(b: Dictionary) -> void:
 	armies_changed.emit()
 	battle_resolved.emit(b["id"], res)
 	var bid: int = b["id"]
+	_check_landless()
 	# keep finished battles briefly for UI/tests; prune old ones
 	for k in battles.keys():
 		if battles[k]["done"] and day - int(battles[k]["start_day"]) > 30 and k != bid:
@@ -1319,10 +1491,16 @@ func transfer_province(pid: int, new_owner: String) -> void:
 	nation_provs[old].erase(pid)
 	nation_provs[new_owner].append(pid)
 	stats["captures"] += 1
+	var recapture: bool = cores_of(new_owner).has(pid)
+	if recapture:
+		stats["recaptures"] += 1
 	_add_war_score(new_owner, old, 15.0 if nations[old]["capital"] == pid else 8.0)
 	_neighbors_cache.clear(); _path_cache.clear()
-	log_event("%s captures %s from %s." % [nations[new_owner]["name"], GameData.provinces[pid]["name"], nations[old]["name"]], "capture", [new_owner, old], new_owner != player)
-	ownership_changed.emit(pid, old, new_owner)
+	log_event("%s %s %s from %s." % [nations[new_owner]["name"], "recaptures" if recapture else "captures", GameData.provinces[pid]["name"], nations[old]["name"]], "capture", [new_owner, old], new_owner != player)
+	# a nation that had lost all its land gets a seat of government back
+	if not nation_provs[new_owner].has(nations[new_owner]["capital"]):
+		nations[new_owner]["capital"] = pid
+		log_event("%s re-establishes its government in %s." % [nations[new_owner]["name"], GameData.provinces[pid]["name"]], "info", [new_owner])
 	if nations[old]["capital"] == pid and not nation_provs[old].is_empty():
 		var best: int = nation_provs[old][0]
 		for p in nation_provs[old]:
@@ -1330,8 +1508,40 @@ func transfer_province(pid: int, new_owner: String) -> void:
 				best = p
 		nations[old]["capital"] = best
 		log_event("%s moves its capital to %s." % [nations[old]["name"], GameData.provinces[best]["name"]], "info", [old])
+	# the province's population, taxes and resource now count for the new owner; refresh both ledgers now
+	_economy_month(new_owner, true)
+	if not nation_provs[old].is_empty():
+		_economy_month(old, true)
+	ownership_changed.emit(pid, old, new_owner)
 	if nation_provs[old].is_empty():
-		_eliminate(old, new_owner)
+		nations[old]["conquered_by"] = new_owner
+		if _has_viable_army(old):
+			log_event("%s has lost all its land, but its armies fight on." % nations[old]["name"], "capture", [old, new_owner], old != player)
+		else:
+			_eliminate(old, new_owner)
+
+## Provinces a nation held when the campaign began: what it will try to win back.
+func cores_of(code: String) -> Array:
+	if _cores.is_empty():
+		for pid in GameData.province_ids:
+			var o: String = GameData.provinces[pid]["owner"]
+			if not _cores.has(o):
+				_cores[o] = []
+			_cores[o].append(pid)
+	return _cores.get(code, [])
+
+func _has_viable_army(code: String) -> bool:
+	for a in armies.values():
+		if a["owner"] == code and army_men(a) >= VIABLE_ARMY_MEN:
+			return true
+	return false
+
+## Landless nations survive only while they still field a viable army.
+func _check_landless() -> void:
+	for code in nations.keys():
+		var n: Dictionary = nations[code]
+		if n["alive"] and nation_provs[code].is_empty() and not _has_viable_army(code):
+			_eliminate(code, n.get("conquered_by", ""))
 
 func _eliminate(code: String, by: String) -> void:
 	nations[code]["alive"] = false
@@ -1341,11 +1551,20 @@ func _eliminate(code: String, by: String) -> void:
 			armies.erase(aid)
 	for e in enemies_of(code):
 		wars.erase(_key(code, e))
-	log_event("%s has been conquered by %s and ceases to exist." % [nations[code]["name"], nations[by]["name"]], "capture", [code, by])
+	for pid in sieges.keys().duplicate():
+		if sieges[pid]["by"] == code:
+			sieges.erase(pid)
+	var by_name: String = nations[by]["name"] if nations.has(by) else "its enemies"
+	log_event("%s has been conquered by %s and ceases to exist." % [nations[code]["name"], by_name], "capture", [code, by] if nations.has(by) else [code])
 	armies_changed.emit()
+	if code == player and not defeated:
+		defeated = true
+		running = false
+		player_defeated.emit(by)
 
 # ======================= monthly =======================
 func _month() -> void:
+	_check_landless()
 	var ctx := _economy_ctx()
 	for code in nations.keys():
 		if nations[code]["alive"]:
@@ -1488,6 +1707,19 @@ func _ai_military_daily() -> void:
 			if o["id"] != aid and o["owner"] == code and o["state"] != "battle" and o["path"].is_empty() and a["path"].is_empty():
 				merge_armies(aid, o["id"])
 				my_s = army_strength(a)
+		if enemies.is_empty() and nation_provs[code].is_empty() and a["path"].is_empty():
+			# landless and at peace: the same invasion rules as the player, aimed at the lost homeland
+			var home := -1; var hd := 1e18
+			for pid in cores_of(code):
+				var po: String = prov_owner.get(pid, "")
+				if po == "" or po == code or not can_invade(code, po)["ok"]:
+					continue
+				var dh := GameData.node_km(a["node"], pid)
+				if dh < hd:
+					hd = dh; home = pid
+			if home >= 0:
+				order_invade(aid, home)
+			continue
 		if enemies.is_empty():
 			if a["state"] == "idle" and a["path"].is_empty() and a["node"] >= GameData.SEA_NODE:
 				order_move(aid, n["capital"])
@@ -1505,6 +1737,21 @@ func _ai_military_daily() -> void:
 				var d := GameData.node_km(a["node"], o["node"])
 				if d < best:
 					best = d; target = o["node"]
+		if target < 0:
+			# counterattack: win back our own provinces held by an enemy (majors and minors alike)
+			for pid in cores_of(code):
+				var po: String = prov_owner.get(pid, "")
+				if po == code or po == "" or not at_war(code, po):
+					continue
+				var danger := 0.0
+				for o in armies_in(pid):
+					if at_war(code, o["owner"]):
+						danger += army_strength(o)
+				if danger > my_s * 1.1:
+					continue
+				var d := GameData.node_km(a["node"], pid) * 0.6
+				if d < best:
+					best = d; target = pid
 		if target < 0 and n["major"]:
 			# attack: nearest enemy province that is not defended by a much stronger army
 			for e in enemies:
@@ -1546,7 +1793,7 @@ const SAVE_VERSION := 1
 const SAVE_DIR := "user://saves"
 const SAVE_FIELDS := ["speed_idx", "day", "start_year", "start_doy", "era", "player", "nations", "prov_owner", "nation_provs",
 	"sieges", "armies", "next_army_id", "battles", "next_battle_id", "relations", "treaties", "wars", "event_log", "accum",
-	"stats", "pending_offers", "ai_enabled", "slow_during_watch"]
+	"stats", "pending_offers", "ai_enabled", "slow_during_watch", "defeated"]
 signal game_loaded
 
 ## Full campaign state as plain Variants (no objects). Battle sims are converted with BattleSim.to_dict().
@@ -1573,6 +1820,7 @@ func serialize_state() -> Dictionary:
 
 func apply_state(d: Dictionary) -> void:
 	GameData.load_all()
+	defeated = false; _cores.clear()
 	for f in SAVE_FIELDS:
 		if f == "battles" or not d.has(f):
 			continue
@@ -1594,7 +1842,19 @@ func apply_state(d: Dictionary) -> void:
 			b["watched"] = false
 			if b["sim"] != null:
 				b["sim"].record_events = false
-	running = true
+	# saves from before v0.4 have no invasion fields: every war in them was formally declared
+	for a in armies.values():
+		if not a.has("invade"):
+			a["invade"] = ""
+		if not a.has("resume"):
+			a["resume"] = false
+	for w in wars.values():
+		if not w.has("declared"):
+			w["declared"] = true
+	for k in ["invasions", "undeclared", "recaptures"]:
+		if not stats.has(k):
+			stats[k] = 0
+	running = not defeated
 	game_loaded.emit()
 
 static func save_path(slot: String) -> String:

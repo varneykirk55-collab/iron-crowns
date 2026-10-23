@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.4.0 — 2026-10-23 (offensive warfare and territorial conquest)
+### Why
+The player could declare war but could not really go on the offensive. Reproduced on v0.3.3 with the real right-click path in all five eras: `Sim.passable()` only allowed entry into land of nations already at war or allied, so every order into foreign land failed with "Cannot enter … without war or alliance"; there was no Invade control; a formal declaration was the only way in and immediately brought in the target's allies; an army whose march was interrupted by a battle never resumed; and a nation was deleted the moment it lost its last province, so lost land could not be won back. The passing `gameplay` test drove the sim through a demo helper with a cash grant, not through the player controls.
+### Added
+- **Invade order** (`Sim.order_invade`): any army can be sent against any foreign province. Right-click / gamepad X / long-press on foreign land, or the new province-panel buttons (**Invade / Attack / Retake with <army> · ~N days**). The march starts at once on the existing path-finding and naval transport; nothing teleports.
+- **Undeclared conflicts**: for a nation we are at peace with, a dialog offers *Invade (undeclared)* or *Declare war & invade*. Hostilities start when the army crosses the border (`Sim.start_hostilities`); the victim defends and counterattacks at once, but its allies are not called in. A later formal declaration (F1, "Formally declare war") upgrades the conflict and calls the allies. Wars now carry `declared`; the HUD shows UNDECLARED WAR.
+- **Recapture**: AI majors *and minors* send armies to win back provinces they held at the start; the player gets a Retake button. Captures of your own former land log as "recaptures".
+- **Landless nations and defeat**: a nation with no provinces survives while it fields an army of ≥150 men, can retake land (its government returns to the first province it wins back), and is eliminated otherwise. A landless AI at peace invades its old homeland under the same rules. The player gets a DEFEAT screen (Load quicksave / Return to title / Quit) and the clock stops.
+- Invasion demo `--demo=invasion --nation=SWE|JPN|USA [--year=…]`, and `test_offensive` (`--only=offensive`, 22 checks).
+### Changed
+- Winners of a battle on an **invasion** order re-path to their objective; plain march orders behave as before.
+- Captured provinces update both nations' income/expense ledgers immediately (the province's population, taxes and resource count for the new owner at once).
+- Travel estimates count sea legs at sea speed (they were too short for overseas moves).
+- Clearer order feedback: ally/truce refusals, "no route" with the blocking neutral neighbours and the era's naval range, and a dispatch when a march is halted by a closed border.
+- Army panel status shows invading / attacking / besieging (with siege %).
+- Saves: new fields `defeated`, per-army `invade`/`resume`, per-war `declared`. Older saves load with every war treated as declared.
+### Verified
+- Full suite 161/161 (139 existing + 22 new), test_audio 28/28.
+- Sim hashes change (the AI now goes after lost provinces), which is expected; determinism is unchanged (save/load and 40-day replay identical).
+### Not done / limitations
+- No naval combat (fleets are still transport only). Passing through third-party neutral land still requires war or an alliance (no military-access treaty yet).
+- The AI still opens wars with formal declarations; it uses undeclared invasion only to retake its homeland when landless and at peace.
+- The Windows build was exported but not run on Windows.
+
 ## v0.3.3 — 2026-10-23 (team readability for the 1800s soldiers, officers, music and audio)
 ### Added
 - **Team readability at distance** (BJORN `character-refinement-2` 667e980, applied as 2a7c5ae). This is render-only. The coat area, marked by the UV2.y mask, is tinted toward the side colour as the camera moves away: up to 0.85 at 25–90 m and up to 0.95 at 90–200 m. When both sides would read the same, the clash pick recolours one of them; in 1800, Norway now reads red against Sweden's blue, matching the HUD and banners. The Swedish coat changes from 2a3d6e to 3a5a9a, so it is no longer near-black in the close defender view.

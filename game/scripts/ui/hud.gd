@@ -220,9 +220,9 @@ func _center_win(p: Control) -> void:
 
 # ------------------------------------------------------------------ input helpers (gamepad focus, touch hit-tests, settings)
 const HINTS := {
-	"kbm": "LMB select · drag pan · wheel zoom · MMB/Q/E orbit · RMB move army · Tab cycle armies · [ ] provinces · Space pause · 1-5 speed · F1 diplomacy · F2 economy · F3 perf · F5/F9 save/load · Esc menu",
+	"kbm": "LMB select · drag pan · wheel zoom · MMB/Q/E orbit · RMB move/attack/invade · Tab cycle armies · [ ] provinces · Space pause · 1-5 speed · F1 diplomacy · F2 economy · F3 perf · F5/F9 save/load · Esc menu",
 	"joy": "L-stick cursor · A select · X move here · R-stick orbit/zoom · LB/RB armies · D-pad ↑↓ provinces ←→ speed · Y pause · Back diplomacy · L3 economy · R3 panels · Start menu · B back",
-	"touch": "Tap select · drag pan · pinch zoom · twist to rotate · long-press to march the selected army · ☰ Menu for save/load/settings"}
+	"touch": "Tap select · drag pan · pinch zoom · twist to rotate · long-press to march/invade with the selected army · ☰ Menu for save/load/settings"}
 var pad_cursor: Control
 var _pad_focus_win: Control = null
 
@@ -412,7 +412,10 @@ func selection_signature() -> String:
 		var o: String = Sim.prov_owner.get(sel_pid, "")
 		parts.append_array([o, money(Sim.prov_pop(sel_pid)), int(Sim.garrison(sel_pid))])
 		if o != "" and o != Sim.player:
-			parts.append_array([int(Sim.relation(Sim.player, o)), Sim.at_war(Sim.player, o)])
+			parts.append_array([int(Sim.relation(Sim.player, o)), Sim.at_war(Sim.player, o), Sim.is_undeclared(Sim.player, o)])
+			for a3 in Sim.armies.values():
+				if a3["owner"] == Sim.player:
+					parts.append_array([a3["id"], a3["node"], a3["state"]])
 		if Sim.sieges.has(sel_pid):
 			var sg: Dictionary = Sim.sieges[sel_pid]
 			parts.append_array([sg["by"], snappedf(float(sg.get("progress", 0.0)) / maxf(Sim.siege_days_needed(sel_pid), 1.0), 0.003)])
@@ -442,7 +445,7 @@ func _province_panel(pid: int) -> void:
 	var f := FlagRect.new(); f.custom_minimum_size = Vector2(36, 24); f.set_nation(o)
 	sel_box.add_child(row([f, title(p["name"])]))
 	if o != "":
-		var rel := "" if o == Sim.player else "  (relation %+d%s)" % [int(Sim.relation(Sim.player, o)), ", AT WAR" if Sim.at_war(Sim.player, o) else ""]
+		var rel := "" if o == Sim.player else "  (relation %+d%s)" % [int(Sim.relation(Sim.player, o)), (", UNDECLARED WAR" if Sim.is_undeclared(Sim.player, o) else ", AT WAR") if Sim.at_war(Sim.player, o) else ""]
 		sel_box.add_child(L("Owner: %s%s" % [Sim.nations[o]["name"], rel], 14, BAD if Sim.at_war(Sim.player, o) else PARCH))
 	sel_box.add_child(L("Terrain: %s · Resource: %s" % [p["terrain"].capitalize(), p["resource"].capitalize()], 14, DIM))
 	sel_box.add_child(L("Population: %s · Garrison: %d" % [money(Sim.prov_pop(pid)), int(Sim.garrison(pid))], 14, DIM))
@@ -463,7 +466,83 @@ func _province_panel(pid: int) -> void:
 		sel_box.add_child(L("Raise regiments here:", 14, GOLD))
 		_procure_buttons(sel_box, pid)
 	elif o != "":
+		_invade_buttons(pid, o)
 		sel_box.add_child(B("Diplomacy with %s" % Sim.nations[o]["name"], func(): open_diplomacy(o)))
+
+## Offensive orders from a foreign province's panel: one button per available army (nearest first).
+func _invade_buttons(pid: int, o: String) -> void:
+	if Sim.has_treaty(Sim.player, o, "alliance") or Sim.defeated:
+		return
+	var mine: Array = Sim.armies.values().filter(func(x): return x["owner"] == Sim.player and x["state"] != "battle")
+	if mine.is_empty():
+		return
+	mine.sort_custom(func(x, y): return GameData.node_km(x["node"], pid) < GameData.node_km(y["node"], pid))
+	sel_box.add_child(HSeparator.new())
+	var hostile := Sim.at_war(Sim.player, o)
+	var verb := "Retake" if Sim.cores_of(Sim.player).has(pid) else ("Attack" if hostile else "Invade")
+	sel_box.add_child(L("%s %s:" % [verb, GameData.provinces[pid]["name"]] + ("" if hostile else "  (no declaration needed)"), 14, GOLD))
+	for a in mine.slice(0, 3):
+		var aid: int = a["id"]
+		var r := Sim.order_invade(aid, pid, true)
+		var txt := "⚔ %s with %s (%s men)" % [verb, a["name"], money(Sim.army_men(a))]
+		if r["ok"]:
+			txt += " · ~%d days" % int(r["days"])
+		var b := B(txt, func(): main.command_army(aid, pid), not r["ok"], "" if r["ok"] else r["msg"])
+		b.add_theme_color_override("font_color", BAD)
+		sel_box.add_child(b)
+		if not r["ok"]:
+			sel_box.add_child(L("   " + r["msg"], 12, DIM))
+
+## Ask before an undeclared invasion (from right-click, long-press or the panel). Returns the dry-run result.
+func confirm_invade(aid: int, pid: int) -> Dictionary:
+	var r := Sim.order_invade(aid, pid, true)
+	if not r["ok"]:
+		show_toast(r["msg"], 4.0)
+		return r
+	var a: Dictionary = Sim.armies[aid]
+	var o: String = r["target"]
+	var nm: String = Sim.nations[o]["name"]
+	var body := "[b]%s[/b] (%s men) will march on [b]%s[/b], about %d days away.\n\n" % [a["name"], money(Sim.army_men(a)), GameData.provinces[pid]["name"], int(r["days"])]
+	body += "[b]Invade without declaring war:[/b] fighting starts when we cross the border. %s will defend itself, but its allies are not called in. Relations with %s collapse and other great powers will trust us less." % [nm, nm]
+	if Sim.has_treaty(Sim.player, o, "nap"):
+		body += " [color=#f07060]This breaks our non-aggression pact (stability −12%).[/color]"
+	var allies := Sim.allies_of(o)
+	if not allies.is_empty():
+		var names: Array = []
+		for x in allies:
+			names.append(Sim.nations[x]["name"])
+		body += "\n\n[b]Declare war and invade:[/b] a formal war — %s's allies (%s) will join against us." % [nm, ", ".join(names)]
+	else:
+		body += "\n\n[b]Declare war and invade:[/b] a formal war; %s has no allies to call." % nm
+	var chk := Sim.can_declare_war(Sim.player, o)
+	var buttons: Array = [["Cancel", func(): pass]]
+	if chk["ok"]:
+		buttons.append(["Declare war & invade", func(): _do_invade(aid, pid, true)])
+	buttons.append(["⚔ Invade (undeclared)", func(): _do_invade(aid, pid, false)])
+	show_popup("Invade %s?" % nm, body, buttons)
+	return r
+
+func _do_invade(aid: int, pid: int, declare: bool) -> void:
+	var o: String = Sim.prov_owner.get(pid, "")
+	if declare and o != "":
+		if Sim.declare_war(Sim.player, o):
+			main.map.lut_dirty = true
+	var r := Sim.order_invade(aid, pid)
+	show_toast(("Invading %s: %s marches on %s (~%d days)" % [Sim.nations[o]["name"], Sim.armies[aid]["name"], GameData.provinces[pid]["name"], int(r["days"])]) if r["ok"] else r["msg"], 4.0)
+	main.select_army(aid)
+
+## Campaign lost: no land and no army left. Offers a reload or a new campaign instead of a dead map.
+func show_defeat(by: String) -> void:
+	for w in [diplo_win, econ_win, menu_win, deploy_win]:
+		if w: w.visible = false
+	var who: String = Sim.nations[by]["name"] if Sim.nations.has(by) else "our enemies"
+	var body := "%s has lost its last province and its last army. The realm has fallen to %s on %s.\n\nThe campaign is over." % [Sim.nations[Sim.player]["name"], who, Sim.date_string()]
+	var buttons: Array = []
+	if FileAccess.file_exists(Sim.save_path("quicksave")):
+		buttons.append(["Load quicksave", func(): main.load_slot("quicksave")])
+	buttons.append(["Return to title", func(): main.return_to_title()])
+	buttons.append(["Quit", func(): get_tree().quit()])
+	show_popup("DEFEAT", body, buttons)
 
 func _procure_buttons(box: Container, pid: int) -> void:
 	var era_id: String = GameData.eras[Sim.era]["id"]
@@ -500,7 +579,15 @@ func _army_panel(a: Dictionary) -> void:
 	var st: String = a["state"]
 	if a["path"].size() > 0:
 		var dest: int = a["path"][-1]
-		st = "marching to %s (%d stops)" % [GameData.provinces[dest]["name"] if GameData.provinces.has(dest) else "sea", a["path"].size()]
+		var verb := "marching to"
+		var dest_o: String = Sim.prov_owner.get(dest, "")
+		if a.get("invade", "") != "" and not Sim.at_war(a["owner"], a["invade"]):
+			verb = "invading"
+		elif dest_o != "" and Sim.at_war(a["owner"], dest_o):
+			verb = "attacking"
+		st = "%s %s (%d stops, ~%d days)" % [verb, GameData.provinces[dest]["name"] if GameData.provinces.has(dest) else "sea", a["path"].size(), Sim.est_days(a, a["path"])]
+	elif a["state"] == "siege" and Sim.sieges.has(a["node"]):
+		st = "besieging %s (%d%%)" % [GameData.provinces[a["node"]]["name"], int(minf(float(Sim.sieges[a["node"]]["progress"]), 1.0) * 100)]
 	sel_box.add_child(L("Status: %s" % st, 14, GOLD if a["state"] == "idle" else BAD))
 	var era_id: String = GameData.eras[Sim.era]["id"]
 	var mine: bool = a["owner"] == Sim.player
@@ -529,7 +616,7 @@ func _army_panel(a: Dictionary) -> void:
 			if o["id"] != a["id"] and o["owner"] == Sim.player and o["state"] != "battle":
 				var oid: int = o["id"]
 				sel_box.add_child(B("Merge %s into this army" % o["name"], func(): Sim.merge_armies(aid2, oid); refresh_selection()))
-		sel_box.add_child(L("Right-click a province to march there.", 13, DIM))
+		sel_box.add_child(L("Right-click a province to march there. Right-click foreign land to attack or invade — no declaration needed.", 13, DIM))
 	if a["state"] == "battle" and Sim.battles.has(a["battle"]):
 		var bid: int = a["battle"]
 		sel_box.add_child(B("Watch this battle", func(): main.watch_battle(bid)))
@@ -674,7 +761,7 @@ func _diplo_candidates() -> Array:
 func _status_tags(c: String) -> String:
 	var me := Sim.player
 	var t: Array = []
-	if Sim.at_war(me, c): t.append("WAR")
+	if Sim.at_war(me, c): t.append("UNDECLARED WAR" if Sim.is_undeclared(me, c) else "WAR")
 	if Sim.has_treaty(me, c, "alliance"): t.append("Ally")
 	if Sim.has_treaty(me, c, "trade"): t.append("Trade")
 	if Sim.has_treaty(me, c, "nap"): t.append("NAP")
@@ -763,12 +850,13 @@ func _diplo_detail() -> void:
 	var inc: float = maxf(Sim.nations[me]["income"].get("total", 50.0), 10.0)
 	var amt := snappedf(inc * 0.5, 10.0)
 	diplo_detail.add_child(B("Send a gift of %d (improves relations)" % int(amt), func(): if Sim.gift(me, c, amt): refresh_diplo(), Sim.nations[me]["funds"] < amt))
-	if not Sim.at_war(me, c):
+	if not Sim.at_war(me, c) or Sim.is_undeclared(me, c):
 		var chk := Sim.can_declare_war(me, c)
 		var warn := ""
 		if Sim.has_treaty(me, c, "nap"):
 			warn = " — breaks our pact (stability −12%)"
-		var wb := B("⚔ Declare war%s" % warn, func(): _declare(c), not chk["ok"], chk["msg"])
+		var label := "⚔ Formally declare war (their allies join)" if Sim.is_undeclared(me, c) else "⚔ Declare war%s" % warn
+		var wb := B(label, func(): _declare(c), not chk["ok"], chk["msg"])
 		wb.add_theme_color_override("font_color", BAD)
 		diplo_detail.add_child(wb)
 		if not chk["ok"]:
