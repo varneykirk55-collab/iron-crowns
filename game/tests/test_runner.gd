@@ -58,6 +58,8 @@ func _run() -> void:
 		await test_detection()
 	if only == "" or only == "reinforce":
 		await test_reinforcements()
+	if only == "" or only == "inbox":
+		await test_inbox()
 	if only == "" or only == "offensive":
 		await test_offensive()
 	if only == "bench":
@@ -2160,3 +2162,101 @@ func test_reinforcements() -> void:
 	Sim.ai_enabled = true
 	m.queue_free()
 	await _frames(2)
+
+# ---------------------------------------------------------------- v0.5: diplomatic inbox
+func test_inbox() -> void:
+	print("== Diplomatic inbox (v0.5) ==")
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("SWE", 1800, 81, 60)
+	await _frames(2)
+	Sim.set_speed(0)
+	Sim.auto_respond_player = ""
+	Sim.ai_enabled = false
+	var peers: Array = []
+	for c in Sim.nations.keys():
+		if c != "SWE" and Sim.nations[c]["alive"] and not Sim.at_war(c, "SWE") and Sim.evaluate(c, "SWE", "trade")["score"] > -900.0:
+			peers.append(c)
+		if peers.size() >= 6: break
+	# 1. no popups: routine offers collect in the inbox
+	var popups := {"n": 0}
+	var pv := func(): if m.hud.popup.visible: popups["n"] += 1
+	for c in peers.slice(0, 5):
+		Sim.propose(c, "SWE", "trade", true)
+		await _frames(1)
+		pv.call()
+	m.hud.refresh_top()
+	check("inbox: 5 routine trade offers arrive without a single popup; the top bar shows '%s'" % m.hud.inbox_btn.text,
+		popups["n"] == 0 and Sim.pending_offers.size() == 5 and "(5)" in m.hud.inbox_btn.text, "")
+	# 2. the same envoy pressing the same offer is merged, not duplicated
+	for k in 6:
+		Sim.day += 30
+		Sim.propose(peers[0], "SWE", "trade", true)
+	check("inbox: the same offer repeated 6 times while pending stays one entry (%d pending)" % Sim.pending_offers.size(), Sim.pending_offers.size() == 5, "")
+	# 3. open the inbox and use bulk dismissal (player-facing button)
+	m.hud.toggle_inbox()
+	await _frames(2)
+	var itxt := " ".join(_texts(m.hud.inbox_box))
+	var rel0 := Sim.relation(peers[1], "SWE")
+	var pressed := _press(m.hud.inbox_box, "Set aside all routine")
+	await _frames(2)
+	check("inbox: the Inbox lists the offers grouped by kind and 'Set aside all routine' clears them in one click (relations %+.0f -> %+.0f)" % [rel0, Sim.relation(peers[1], "SWE")],
+		"Trade agreements (5)" in itxt and pressed and Sim.pending_offers.is_empty() and Sim.relation(peers[1], "SWE") > rel0 - 2.0, itxt.substr(0, 120))
+	# 4. a declined offer is not repeated straight away; it may come back after the cooldown
+	var again := Sim.propose(peers[1], "SWE", "trade", true)
+	Sim.day += Sim.OFFER_COOLDOWN["trade"] + 1
+	var later := Sim.propose(peers[1], "SWE", "trade", true)
+	check("inbox: a set-aside offer is not re-sent for %d days (throttled %s), then may return (%s)" % [Sim.OFFER_COOLDOWN["trade"], again.get("throttled", false), later.get("pending", false)],
+		again.get("throttled", false) and later.get("pending", false), "")
+	# 5. war: repeated peace requests from the same enemy are one urgent entry, highlighted, with a notice not a popup
+	Sim.pending_offers.clear(); Sim.offer_block.clear()
+	var foe: String = peers[2]
+	Sim.start_hostilities(foe, "SWE")
+	for k in 8:
+		Sim.day += 15
+		Sim.propose(foe, "SWE", "peace", true)
+	await _frames(1)
+	m.hud.refresh_top()
+	m.hud.refresh_inbox()
+	var urgent_col: Color = m.hud.inbox_btn.get_theme_color("font_color")
+	check("inbox: 8 peace requests from %s during the war = 1 urgent entry, highlighted in the top bar, announced by a notice (no popup)" % Sim.nations[foe]["name"],
+		Sim.pending_offers.size() == 1 and Sim.inbox_counts()["urgent"] == 1 and urgent_col == Hud.BAD and not m.hud.popup.visible and "Peace" in m.hud.toast.text.capitalize(), m.hud.toast.text)
+	var ptxt := " ".join(_texts(m.hud.inbox_box))
+	_press(m.hud.inbox_box, "Decline")
+	var re := Sim.propose(foe, "SWE", "peace", true)
+	check("inbox: after declining, the enemy does not ask again for %d days ('Needs attention' listed: %s)" % [Sim.OFFER_COOLDOWN["peace"], "Needs attention" in ptxt], re.get("throttled", false) and "Needs attention" in ptxt, "")
+	# 6. unanswered offers lapse; save/load keeps the inbox and the cooldowns
+	Sim.pending_offers.clear(); Sim.offer_block.clear()
+	Sim.propose(peers[3], "SWE", "trade", true)
+	Sim.propose(peers[4], "SWE", "trade", true)
+	Sim.respond_offer(Sim.pending_offers[0], false)
+	var sv := Sim.save_game("inbox_test")
+	var pend0 := Sim.pending_offers.size(); var blk0 := Sim.offer_block.size()
+	Sim.pending_offers.clear(); Sim.offer_block.clear()
+	Sim.load_game("inbox_test")
+	var kept: bool = Sim.pending_offers.size() == pend0 and Sim.offer_block.size() == blk0
+	Sim.day += Sim.OFFER_TTL + 1
+	Sim._expire_offers()
+	check("inbox: save/load keeps pending offers and cooldowns; an unanswered offer lapses after %d days" % Sim.OFFER_TTL, sv["ok"] and kept and Sim.pending_offers.is_empty(), "")
+	Sim.ai_enabled = true
+	Sim.auto_respond_player = "decline"
+	m.queue_free()
+	await _frames(2)
+	# 7. a long campaign where the player ignores envoys: no duplicates pile up (v0.4.0: Poland's peace offer x6)
+	Sim.new_game("SWE", 1300, 72)
+	Sim.auto_respond_player = ""
+	var emits := {"n": 0}
+	var cbo := func(o): emits["n"] += 1
+	Sim.player_offer.connect(cbo)
+	Sim.advance_days(365 * 8)
+	Sim.player_offer.disconnect(cbo)
+	var keys := {}
+	var dup := false
+	for o in Sim.pending_offers:
+		var k: String = o["from"] + "|" + o["kind"]
+		if keys.has(k): dup = true
+		keys[k] = true
+	check("inbox: 8-year campaign, envoys ignored: %d new offers, %d waiting, no duplicates, nothing older than %d days" % [emits["n"], Sim.pending_offers.size(), Sim.OFFER_TTL + 31],
+		not dup and Sim.pending_offers.all(func(o): return Sim.day - int(o["day"]) <= Sim.OFFER_TTL + 31), "")
+	Sim.auto_respond_player = "decline"

@@ -16,6 +16,7 @@ signal speed_changed(idx: int)
 signal player_defeated(by: String)
 signal hostilities_started(a: String, b: String, declared: bool)
 signal invasion_warning(w: Dictionary)
+signal inbox_changed
 
 const SPEEDS := [0.0, 2.0, 8.0, 30.0, 120.0, 365.0]
 const SPEED_NAMES := ["Paused", "Slow", "Normal", "Fast", "Very fast", "Year/sec"]
@@ -59,6 +60,7 @@ var _neighbors_cache := {}
 var _path_cache := {}
 var defeated := false             # the player's campaign is over (no land and no viable army)
 var spotted := {}                 # army id -> province it was reported heading for (player warnings; saved)
+var offer_block := {}             # "FROM|kind" -> day until which that nation will not repeat the offer (saved)
 var _seen_by_player := {}         # army id -> detected today (derived each day; not saved)
 var _cores := {}                  # code -> [pid] provinces the nation held at the start (recapture targets; derived, not saved)
 const VIABLE_ARMY_MEN := 150.0    # a landless nation fights on while it has an army at least this large
@@ -76,7 +78,7 @@ func new_game(player_code: String, year: int, seed: int = 1, doy: int = 0) -> vo
 	relations.clear(); treaties.clear(); wars.clear(); event_log.clear(); pending_offers.clear()
 	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear(); _reach_cache.clear()
 	next_army_id = 1; next_battle_id = 1; watching_battle = -1; accum = 0.0
-	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear()
+	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear(); offer_block.clear()
 	stats = {"wars_declared": 0, "ai_wars": 0, "peace": 0, "ai_peace": 0, "alliances": 0, "ai_alliances": 0, "trades": 0,
 		"ai_trades": 0, "naps": 0, "ai_naps": 0, "gifts": 0, "captures": 0, "battles": 0, "eliminated": 0, "era_changes": 0,
 		"ai_units_bought": 0, "ai_proposals": 0, "ai_rejections": 0, "invasions": 0, "undeclared": 0, "recaptures": 0, "reinforcements": 0}
@@ -838,8 +840,19 @@ func propose(a: String, b: String, kind: String, by_ai: bool = false) -> Diction
 		elif auto_respond_player == "decline":
 			add_relation(a, b, -3.0)
 			return {"accepted": false, "eval": ev}
+		# v0.5 diplomatic inbox: one offer per nation and kind; a declined (or lapsed) offer is not repeated for a while
+		var bk := a + "|" + kind
+		if int(offer_block.get(bk, -1)) > day:
+			return {"accepted": false, "throttled": true, "eval": ev}
+		for o in pending_offers:
+			if o["from"] == a and o["kind"] == kind:
+				o["day"] = day; o["eval"] = ev      # the envoy simply presses the same offer again
+				inbox_changed.emit()
+				return {"accepted": false, "pending": true, "eval": ev, "merged": true}
+		offer["urgent"] = is_urgent_offer(offer)
 		pending_offers.append(offer)
 		player_offer.emit(offer)
+		inbox_changed.emit()
 		return {"accepted": false, "pending": true, "eval": ev}
 	var accepted: bool = ev["score"] > 0.0
 	if accepted:
@@ -852,13 +865,63 @@ func propose(a: String, b: String, kind: String, by_ai: bool = false) -> Diction
 			log_event("%s rejects our %s proposal." % [nations[b]["name"], _kind_name(kind)], "diplo", [a, b])
 	return {"accepted": accepted, "eval": ev}
 
-func respond_offer(offer: Dictionary, accept: bool) -> void:
+const OFFER_COOLDOWN := {"trade": 240, "nap": 300, "alliance": 300, "peace": 120}   # days after a refusal
+const OFFER_TTL := 90                                                                # days an unanswered offer stays open
+
+## Peace offers while we are at war, and alliance offers while we are at war, need attention; the rest is routine.
+func is_urgent_offer(o: Dictionary) -> bool:
+	return o["kind"] == "peace" or (o["kind"] == "alliance" and at_war_any(player))
+
+func inbox_counts() -> Dictionary:
+	var u := 0
+	for o in pending_offers:
+		if o.get("urgent", is_urgent_offer(o)):
+			u += 1
+	return {"total": pending_offers.size(), "urgent": u}
+
+func respond_offer(offer: Dictionary, accept: bool, quiet: bool = false) -> void:
 	pending_offers.erase(offer)
+	var a: String = offer["from"]; var b: String = offer["to"]; var kind: String = offer["kind"]
 	if accept:
-		_apply_treaty(offer["from"], offer["to"], offer["kind"], true)
+		# the situation may have changed since the envoy arrived
+		if not nations[a]["alive"] or evaluate(a, b, kind)["score"] <= -900.0:
+			log_event("The %s offered by %s no longer applies." % [_kind_name(kind), nations[a]["name"]], "diplo", [a, b])
+		else:
+			_apply_treaty(a, b, kind, true)
 	else:
-		add_relation(offer["from"], offer["to"], -4.0)
-		log_event("We declined the %s offered by %s." % [_kind_name(offer["kind"]), nations[offer["from"]]["name"]], "diplo", [offer["from"], offer["to"]])
+		add_relation(a, b, -1.0 if quiet else -4.0)
+		offer_block[a + "|" + kind] = day + int(OFFER_COOLDOWN.get(kind, 180))
+		if not quiet:
+			log_event("We declined the %s offered by %s." % [_kind_name(kind), nations[a]["name"]], "diplo", [a, b])
+	inbox_changed.emit()
+
+## Bulk answers from the inbox. `kind` "" = every routine (non-urgent) offer. Dismissing is a polite "not now":
+## a smaller relations cost than declining one by one, and the same cooldown.
+func respond_all(kind: String, accept: bool) -> int:
+	var n := 0
+	for o in pending_offers.duplicate():
+		if (kind == "" and not o.get("urgent", is_urgent_offer(o))) or o["kind"] == kind:
+			respond_offer(o, accept, not accept)
+			n += 1
+	if n > 0 and not accept:
+		log_event("We set aside %d diplomatic proposal%s." % [n, "" if n == 1 else "s"], "diplo", [player])
+	return n
+
+## Monthly: unanswered offers lapse after OFFER_TTL days (and are not repeated straight away).
+func _expire_offers() -> void:
+	var changed := false
+	for o in pending_offers.duplicate():
+		var stale: bool = day - int(o["day"]) > OFFER_TTL or not nations[o["from"]]["alive"] \
+			or evaluate(o["from"], o["to"], o["kind"])["score"] <= -900.0
+		if stale:
+			pending_offers.erase(o)
+			offer_block[o["from"] + "|" + o["kind"]] = day + 60
+			changed = true
+	for k in offer_block.keys():
+		if int(offer_block[k]) <= day:
+			offer_block.erase(k)
+	if changed:
+		inbox_changed.emit()
 
 func _kind_name(kind: String) -> String:
 	return {"trade": "trade agreement", "alliance": "defensive alliance", "nap": "non-aggression pact", "peace": "peace"}.get(kind, kind)
@@ -1710,6 +1773,7 @@ func _eliminate(code: String, by: String) -> void:
 # ======================= monthly =======================
 func _month() -> void:
 	_check_landless()
+	_expire_offers()
 	var ctx := _economy_ctx()
 	for code in nations.keys():
 		if nations[code]["alive"]:
@@ -2318,7 +2382,7 @@ const SAVE_VERSION := 1
 const SAVE_DIR := "user://saves"
 const SAVE_FIELDS := ["speed_idx", "day", "start_year", "start_doy", "era", "player", "nations", "prov_owner", "nation_provs",
 	"sieges", "armies", "next_army_id", "battles", "next_battle_id", "relations", "treaties", "wars", "event_log", "accum",
-	"stats", "pending_offers", "ai_enabled", "slow_during_watch", "defeated", "spotted"]
+	"stats", "pending_offers", "ai_enabled", "slow_during_watch", "defeated", "spotted", "offer_block"]
 signal game_loaded
 
 ## Full campaign state as plain Variants (no objects). Battle sims are converted with BattleSim.to_dict().
@@ -2345,7 +2409,7 @@ func serialize_state() -> Dictionary:
 
 func apply_state(d: Dictionary) -> void:
 	GameData.load_all()
-	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear()
+	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear(); offer_block.clear()
 	for f in SAVE_FIELDS:
 		if f == "battles" or not d.has(f):
 			continue
@@ -2383,6 +2447,15 @@ func apply_state(d: Dictionary) -> void:
 			stats[k] = 0
 	if not d.has("spotted"):
 		spotted = {}
+	if not d.has("offer_block"):
+		offer_block = {}
+	# older saves could hold the same offer several times: keep one per nation and kind
+	var uniq := {}; var kept: Array = []
+	for o in pending_offers:
+		var k: String = o["from"] + "|" + o["kind"]
+		if not uniq.has(k):
+			uniq[k] = true; kept.append(o)
+	pending_offers = kept
 	_seen_by_player.clear()
 	running = not defeated
 	game_loaded.emit()
