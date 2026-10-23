@@ -503,8 +503,8 @@ def shako(hi=False):
     base = V(0, 0.004, SHAKO_Z0)
     def T(p): return base + tilt @ (p - base)
     secs = []
-    ts = [i / 48 for i in range(49)] if hi else [0.0, 0.06, 0.5, 0.94, 1.0]
-    if hi: nu = 72
+    ts = [i / 160 for i in range(161)] if hi else [0.0, 0.06, 0.5, 0.94, 1.0]
+    if hi: nu = 240   # fine enough that the plate outline in the id bake is smooth, not stepped
     for t in ts:
         z = lerp(SHAKO_Z0, SHAKO_Z1, t)
         rx = lerp(0.094, 0.113, t); ry = lerp(0.104, 0.122, t)
