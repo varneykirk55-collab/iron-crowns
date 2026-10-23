@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.5.0 — 2026-10-23 (gameplay & AI refinement)
+### Medieval combat: no more panic routs just before contact
+- **Diagnosis** (Sweden vs Norway 1300, real starting armies, 40 seeds): 15 of 80 spear regiments routed without ever reaching melee, and attackers won 40/40. The battle model has **no obstacles**; rocks are scenery only. The real causes were that a melee-only regiment on "hold" had no response to being shot, morale never recovered under the 4-second arrow cadence, and the 28-second "decisive phase" doubled arrow casualties right as the lines met. The Norwegian spearmen routed at a 4 m gap, wherever a rock happened to be.
+- **Counter-charge:** holding melee regiments under missile fire counter-charge within 75 m, or within 150 m once fire has cost them 60% of their morale. A regiment that leaves its line loses the "hold" defence bonus.
+- **Élan:** regiments running in to close take missile morale shock at ×0.7.
+- **Rocks:** battlefield rocks are placed outside the fighting area. This is a placement rule only; the assets are unchanged.
+- **Result:** 0/80 pre-contact routs, missiles still 83% of kills, mirror-army attacker wins 23/40 (unchanged), and a lone charge into massed archers can still be shot apart. c19/c20/modern battles are numerically unchanged.
+### Strategic AI targeting
+- **Diagnosis:** the median AI attack target was 3,600 km away in 1800, 2,200 km in 1300 and 11,600 km in 1914 (Egypt → Barbados, Saudi Arabia → Tokyo). In 75–94% of attack orders the attacker left under 10% of its strength at home.
+- **War declarations:** need geographic reach. Border wars are preferred; an overseas war needs a crossing of about 45 days at most and a 2.5× strength edge; nothing beyond about 100 days' travel.
+- **Army orders:** priorities are, in order:
+  1. Reinforce a battle in progress nearby.
+  2. Beat enemy armies inside our land.
+  3. Guard home when an enemy army threatens it.
+  4. Rest armies below 50% strength.
+  5. Otherwise campaign against the best-value target in reach, weighing travel time, sea crossings, defenders within 350 km, capital/population/lost-province/border value and a penalty for far fronts.
+- **Result:** median attack distance is about 1,150 km (1800) and 1,390 km (1300). Saudi Arabia at war with Japan sends no one to Tokyo; Britain still crosses to France; a strong AI still attacks a weak player.
+### Invasion detection and warnings
+- **Detection ranges** around your provinces and armies: 60 km (medieval scouts and watch posts), 110 km (pike & shot), 180 km (pickets and coastal observers), 350 km (1914 reconnaissance), 900 km (modern radar). At sea the range is smaller before coastal observation and larger with radar.
+- **Hidden forces:** hostile armies, and armies on an undeclared invasion order against you, are hidden on the map and in province panels until detected. Other armies show as before.
+- **Warnings:** one warning per approaching army and objective, naming the threatened province, approximate strength (rounded more coarsely in early eras), ETA, whether war was declared and whether you are outnumbered nearby. It goes to the toast and the dispatch log, and a fast clock drops to Normal so you have time to respond.
+### Mid-battle reinforcements
+- **Orders:** armies can be sent to a battle in progress (army panel: Reinforce / Flank / Support, or right-click the battle). They march by the normal rules and join if they arrive before it ends, entering from the direction they marched in from. Support forms up behind its own line and holds.
+- **AI:** AI armies use the same order and re-plan as soon as a nearby battle starts.
+- **Battle-time scheduling:** joins happen at the battle time matching the arrival day, so watched, off-screen and saved/loaded battles resolve identically. Late arrivals never count toward the result; if enemies remain they start a fresh engagement. Same units and casualty bookkeeping: nothing is duplicated and losses persist.
+- **Pacing change:** battles now advance 5 battle-seconds per campaign day (was 15), so a battle spans about a week on the map and a neighbouring army can arrive. Outcomes are unchanged because the simulation runs the same seconds.
+- **3D view:** builds visuals for regiments that arrive mid-battle, with the same graphics pass.
+### Diplomatic inbox
+- **Diagnosis:** every envoy opened a blocking popup, unanswered offers stacked duplicates (Poland's peace offer queued 6 times) and a declined offer could come straight back.
+- **Inbox:** offers collect in an Inbox (button on the Dispatches panel, with count; red when urgent) instead of popping up.
+- **Throttling:** one pending offer per nation and kind; declined offers are not repeated for 120–300 days; unanswered ones lapse after 90 days.
+- **Urgent offers** (peace or alliance while at war) get a one-line notice and a "Needs attention" section. Routine offers are grouped with Accept all / Decline all / Set aside all routine. Recent warnings are listed in the Inbox too.
+### Verified
+- Full suite (see `test_results.txt`) including new suites `--only=medieval|aistrategy|detection|reinforce|inbox`; test_audio 28/28.
+- **Saves:** new fields `spotted`, `offer_block`, per-army `prev`/`reinforce`/`rmode`, battle `axis`/`late`, BattleSim `pending`. Older saves load.
+- **Sim hashes change** as expected, because the AI and battle pacing changed. Determinism is unchanged.
+### Not done / limitations
+- AI nations tend to campaign with one merged army, so AI reinforcement of AI battles is rare in practice (it works when a second army is near: tested with Germany vs France 1914).
+- The AI's own threat assessment still sees every enemy army; detection limits what the player sees.
+- The Windows build is exported but not run on Windows.
+
 ## v0.4.0 — 2026-10-23 (offensive warfare and territorial conquest)
 ### Why
 The player could declare war but could not really go on the offensive. Reproduced on v0.3.3 with the real right-click path in all five eras: `Sim.passable()` only allowed entry into land of nations already at war or allied, so every order into foreign land failed with "Cannot enter … without war or alliance"; there was no Invade control; a formal declaration was the only way in and immediately brought in the target's allies; an army whose march was interrupted by a battle never resumed; and a nation was deleted the moment it lost its last province, so lost land could not be won back. The passing `gameplay` test drove the sim through a demo helper with a cash grant, not through the player controls.

@@ -339,8 +339,6 @@ func _build_top_bar() -> void:
 	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(sp)
 	h.add_child(B("☰ Menu", func(): toggle_game_menu(), false, "Save, load, settings (Esc)"))
 	h.add_child(B("Diplomacy (F1)", func(): toggle_diplomacy()))
-	inbox_btn = B("✉ Inbox", func(): toggle_inbox(), false, "Diplomatic proposals and warnings waiting for you")
-	h.add_child(inbox_btn)
 	h.add_child(B("Economy & Army (F2)", func(): toggle_economy()))
 	lbl_era = L("", 16, GOLD); h.add_child(lbl_era)
 	lbl_date = L("", 18); lbl_date.custom_minimum_size = Vector2(120, 0); h.add_child(lbl_date)
@@ -674,7 +672,9 @@ func _build_log() -> void:
 	log_panel.offset_left = -400; log_panel.offset_right = -12; log_panel.offset_top = 58; log_panel.offset_bottom = 330
 	add_child(log_panel)
 	var v := VBoxContainer.new(); log_panel.add_child(v)
-	v.add_child(L("Dispatches", 16, GOLD))
+	# v0.5: the diplomatic Inbox lives with the dispatches (the top bar is already full at 1600 px)
+	inbox_btn = B("✉ Inbox", func(): toggle_inbox(), false, "Diplomatic proposals and recent warnings waiting for you")
+	v.add_child(row([L("Dispatches", 16, GOLD), _spacer(), inbox_btn]))
 	log_text = RichTextLabel.new()
 	log_text.bbcode_enabled = true
 	log_text.scroll_following = true

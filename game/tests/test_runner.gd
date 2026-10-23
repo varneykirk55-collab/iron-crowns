@@ -312,6 +312,7 @@ func test_continuity() -> void:
 	var a: Dictionary = _strongest_army("SWE")
 	Sim.order_move(a["id"], Sim.nations[target]["capital"])
 	var bid := -1
+	var chasing := -1
 	for i in 300:
 		if i % 5 == 0 and Sim.armies.has(a["id"]) and Sim.armies[a["id"]]["state"] != "battle":
 			# chase the nearest Norwegian army
@@ -321,8 +322,9 @@ func test_continuity() -> void:
 					var d := GameData.node_km(a["node"], o["node"])
 					if d < bd:
 						bd = d; best = o["node"]
-			if best >= 0:
+			if best >= 0 and best != chasing:   # re-ordering resets march progress, so only when the quarry moved (v0.5)
 				Sim.order_move(a["id"], best)
+				chasing = best
 		Sim.tick_day()
 		for b in Sim.battles.values():
 			if b["player_side"] >= 0 and b["awaiting"]:
@@ -2188,7 +2190,7 @@ func test_inbox() -> void:
 		pv.call()
 	m.hud.refresh_top()
 	check("inbox: 5 routine trade offers arrive without a single popup; the top bar shows '%s'" % m.hud.inbox_btn.text,
-		popups["n"] == 0 and Sim.pending_offers.size() == 5 and "(5)" in m.hud.inbox_btn.text, "")
+		popups["n"] == 0 and Sim.pending_offers.size() == 5 and m.hud.inbox_btn.text == "✉ Inbox (5)", "")
 	# 2. the same envoy pressing the same offer is merged, not duplicated
 	for k in 6:
 		Sim.day += 30

@@ -1,4 +1,4 @@
-# Feature status (v0.4.0): honest accounting
+# Feature status (v0.5.0): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -27,6 +27,10 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Recapture of lost provinces (player and AI) | VERIFIED | Player: province panel "Retake" (test). AI: majors and minors now send armies to win back provinces they held at the start (test: Finland counterattacks Mariehamn). |
 | Landless nations fight on; clear defeat | VERIFIED | A nation that loses its last province survives while it has an army of ≥150 men and can retake land (test). No land and no army → DEFEAT screen (Load quicksave / Return to title / Quit) and the clock stops. |
 | Overseas invasion | VERIFIED | Japan → Busan via the existing embark / sea-zone / landing path (test + demo). Uses the era's naval range; there is still no naval combat. |
+| **Strategic AI targeting (v0.5)** | VERIFIED | `--only=aistrategy` 7/7: regional attacks (median ~1,150 km in 1800 vs 3,600 km before), no Saudi expedition to Tokyo, Britain still crosses to France, home guard when threatened, battered armies rest, no special protection for the player. Diagnostic: `res://tests/dbg_ai_targets.tscn`. |
+| **Invasion detection & warnings (v0.5)** | VERIFIED | `--only=detection` 8/8: era ranges 60/110/180/350/900 km, hidden until detected (map + panels), one warning per approach with province, strength and an ETA that matches the actual arrival, undeclared invasions reported, clock slows to Normal, save/load. The AI's own threat assessment is not limited by detection. |
+| **Mid-battle reinforcements (v0.5)** | VERIFIED | `--only=reinforce` 11/11: a neighbouring army arrives on day 6 and joins (15 → 19 regiments), too-late arrivals leave the result identical, watched / unwatched / saved-loaded battles identical, entry edge from the approach, AI joins on its own (Germany vs France 1914), all eras, and a watched 3D battle draws the arriving regiments. Battles now take ~5 s of battle time per campaign day. |
+| **Diplomatic inbox (v0.5)** | VERIFIED | `--only=inbox` 8/8: no popups, one entry per nation and kind, bulk set-aside, cooldowns, urgent peace offers highlighted, lapse after 90 days, save/load, no duplicates over an 8-year campaign. |
 | Invalid routes explained | VERIFIED | Orders that cannot be carried out say why (ally, truce, neutral land in the way plus naval range, halted mid-march by a closed border). |
 | AI: recruit, expand, declare war, negotiate trade/alliance/NAP, make peace | VERIFIED (sim) | Per-nation test counts (hundreds of proposals, dozens of wars). The AI is rule-based and simple, and peace is rare. |
 | Diplomacy UI (F1) and Economy/Army UI (F2) | VERIFIED | `diplomacy_SWE*.png`, `economy_SWE*.png`, `diplomacy_demo.mp4` (proposal sent, unit bought, treasury drops by unit cost). |
@@ -42,6 +46,7 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Feature | Status | Evidence / notes |
 |---|---|---|
 | Player only deploys (formation + objective); fully AI-simulated | VERIFIED | Deploy window (`battle_deploy_USA.png`). |
+| Medieval morale vs missiles (v0.5) | VERIFIED | `--only=medieval` 8/8: no spear rout before contact in SWE-NOR 1300 (was 15/80), missiles still the main killer, mirror battles contested, ranged victories still possible, legitimate melee routs kept, holding troops counter-charge shooters, no terrain/scenery morale effect, rocks off the fighting area. Diagnostic: `res://tests/dbg_medieval.tscn`. |
 | Deterministic sim; the same sim drives the outcome and the visuals | VERIFIED | Test: watched and unwatched battles give the same outcome. |
 | Smooth map → battle transition | VERIFIED (video) | Battle MP4. |
 | 3D formations, volleys, smoke, impacts, casualties, routs, result | VERIFIED | `battle_USA_close0/close1/top/engage/melee/result.png` and the MP4. |
