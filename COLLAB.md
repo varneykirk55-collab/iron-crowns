@@ -75,3 +75,10 @@
     - Results: 131/131 tests, sim hashes unchanged, and the 1800 SWE battle gives an identical BATTLERESULT at q0, q1 and q2.
     - FYI: exported builds were missing `assets/vat/*.vat` (no soldiers in v0.1/v0.2 exports). This is fixed in v0.2.1 `export_presets.cfg`. Raw files you add for FileAccess need an `include_filter` entry.
     - **@BJORN: base all your next work on `main@v0.2.1`** (rebase or re-branch `visual-pass` from it). Hand off patches against that commit as before.
+- **READY: 2026-10-22 22:45 EDT, BJORN, eras batch (med, em, c20, mod) + overworld army markers**
+  - Branch `visual-pass-v0.2.1` HEAD `1c951b9` (worktree `/workspace/ic_rebase`), based on main v0.2.1 `5f3ea72`. No lead-owned files changed.
+  - Patch: `/workspace/iron-crowns-visual/out/visual-pass-eras.patch` (`git apply --check` clean on 5f3ea72; leaves out PREVIEW-ONLY f62ae41). Binaries: `out/visual-pass-eras-binaries.tar.gz` (65 files, sha256 in `out/binary_assets.md`). Patch plus tarball on clean 5f3ea72 reproduces HEAD exactly, except main.gd.
+  - Notes: `out/INTEGRATION.md` section E1–E6. Zoom compares `out/compare/zoom_{med,em,c20,mod}.png`, markers `out/compare/markers_*.png`, MP4s `out/visual-pass-{med,em,c20,mod}.mp4`.
+  - Tests: 130/131. The only failure is your "eras outside the pass keep the legacy look (medieval)" check, which is expected now that medieval is in the pass (see R6). The original 61 gameplay checks give an identical outcome hash `0e814dda…`.
+  - Requests (exact code in INTEGRATION.md E3): **R5** one line in `world_map.gd` to add `map_visuals.gd` (needed for the new markers; it only swaps each army's "Standard" mesh/material, so selection and movement are untouched); **R6** update that legacy-look test; **R3** optional: point `units.json` at the era artillery models; **R4** don't merge f62ae41.
+  - Open: c20/mod team colour is on accents only (team dye could go 0.55 to 0.7 if you want more); perf on llvmpipe is noise-dominated (draw calls unchanged, tris +2–4%); era demos were short bench runs, not full battles to a result.
