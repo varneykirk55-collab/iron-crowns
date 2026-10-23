@@ -59,6 +59,7 @@ func _ready() -> void:
 	_build_deploy()
 	_build_popup()
 	_build_game_menu()
+	_build_inbox()
 	toast = Label.new()
 	toast.add_theme_font_size_override("font_size", 22)
 	toast.add_theme_color_override("font_color", PARCH)
@@ -82,6 +83,7 @@ func _ready() -> void:
 	Sim.player_offer.connect(_on_offer)
 	Sim.speed_changed.connect(func(_i): _refresh_speed())
 	Sim.battle_resolved.connect(_on_battle_resolved)
+	Sim.invasion_warning.connect(_on_invasion_warning)
 	Controls.settings_changed.connect(_on_settings_changed)
 	Controls.device_changed.connect(func(_k): _update_hint())
 	_build_pad_cursor()
@@ -244,7 +246,7 @@ func _on_settings_changed() -> void:
 
 ## Windows that take gamepad focus while open (topmost first).
 func modal_windows() -> Array:
-	return [popup, deploy_win, menu_win, diplo_win, econ_win]
+	return [popup, deploy_win, menu_win, inbox_win, diplo_win, econ_win]
 
 func first_focusable(n: Node) -> Control:
 	for c in n.get_children():
@@ -288,7 +290,7 @@ func focus_panels() -> void:
 
 func close_windows() -> bool:
 	var any := false
-	for w in [diplo_win, econ_win, menu_win, popup]:
+	for w in [diplo_win, econ_win, menu_win, popup, inbox_win]:
 		if w and w.visible:
 			w.visible = false; any = true
 	return any
@@ -370,6 +372,10 @@ func refresh_top() -> void:
 	lbl_era.text = GameData.eras[Sim.era]["name"]
 	lbl_date.text = Sim.date_string()
 	_refresh_speed()
+	if inbox_btn:
+		var ic := Sim.inbox_counts()
+		inbox_btn.text = "✉ Inbox (%d)" % ic["total"] if ic["total"] > 0 else "✉ Inbox"
+		inbox_btn.add_theme_color_override("font_color", BAD if ic["urgent"] > 0 else (GOLD if ic["total"] > 0 else PARCH))
 
 # ------------------------------------------------------------------ selection panel
 func _build_sel_panel() -> void:
@@ -420,7 +426,8 @@ func selection_signature() -> String:
 			var sg: Dictionary = Sim.sieges[sel_pid]
 			parts.append_array([sg["by"], snappedf(float(sg.get("progress", 0.0)) / maxf(Sim.siege_days_needed(sel_pid), 1.0), 0.003)])
 		for a2 in Sim.armies_in(sel_pid):
-			parts.append_array([a2["id"], a2["owner"], int(Sim.army_men(a2))])
+			if not Sim.hidden_from_player(a2):
+				parts.append_array([a2["id"], a2["owner"], int(Sim.army_men(a2))])
 		if o == Sim.player:
 			for uid in GameData.units_by_era[GameData.eras[Sim.era]["id"]]:
 				var c := Sim.can_afford(Sim.player, uid)
@@ -455,7 +462,7 @@ func _province_panel(pid: int) -> void:
 		var s: Dictionary = Sim.sieges[pid]
 		sel_box.add_child(L("Under siege by %s" % Sim.nations[s["by"]]["name"], 14, BAD))
 		sel_box.add_child(bar(float(s.get("progress", 0.0)) / maxf(Sim.siege_days_needed(pid), 1.0), BAD, 300))
-	var here := Sim.armies_in(pid)
+	var here := Sim.armies_in(pid).filter(func(x): return not Sim.hidden_from_player(x))
 	if not here.is_empty():
 		sel_box.add_child(HSeparator.new())
 		for a in here:
@@ -586,6 +593,8 @@ func _army_panel(a: Dictionary) -> void:
 		elif dest_o != "" and Sim.at_war(a["owner"], dest_o):
 			verb = "attacking"
 		st = "%s %s (%d stops, ~%d days)" % [verb, GameData.provinces[dest]["name"] if GameData.provinces.has(dest) else "sea", a["path"].size(), Sim.est_days(a, a["path"])]
+	if a.get("reinforce", -1) >= 0 and Sim.battles.has(a["reinforce"]):
+		st = "reinforcing the battle of %s (~%d days)" % [GameData.provinces[Sim.battles[a["reinforce"]]["prov"]]["name"], Sim.est_days(a, a["path"])]
 	elif a["state"] == "siege" and Sim.sieges.has(a["node"]):
 		st = "besieging %s (%d%%)" % [GameData.provinces[a["node"]]["name"], int(minf(float(Sim.sieges[a["node"]]["progress"]), 1.0) * 100)]
 	sel_box.add_child(L("Status: %s" % st, 14, GOLD if a["state"] == "idle" else BAD))
@@ -616,10 +625,40 @@ func _army_panel(a: Dictionary) -> void:
 			if o["id"] != a["id"] and o["owner"] == Sim.player and o["state"] != "battle":
 				var oid: int = o["id"]
 				sel_box.add_child(B("Merge %s into this army" % o["name"], func(): Sim.merge_armies(aid2, oid); refresh_selection()))
-		sel_box.add_child(L("Right-click a province to march there. Right-click foreign land to attack or invade — no declaration needed.", 13, DIM))
+		_reinforce_buttons(a)
+		sel_box.add_child(L("Right-click a province to march there. Right-click foreign land to attack or invade — no declaration needed. Right-click a battle to reinforce it.", 13, DIM))
 	if a["state"] == "battle" and Sim.battles.has(a["battle"]):
 		var bid: int = a["battle"]
 		sel_box.add_child(B("Watch this battle", func(): main.watch_battle(bid)))
+
+## v0.5: battles of ours (or an ally's) this army can still reach — march in directly, round a flank, or in support.
+func _reinforce_buttons(a: Dictionary) -> void:
+	if a["state"] == "battle":
+		return
+	var opts: Array = []
+	for bid in Sim.battles.keys():
+		var b: Dictionary = Sim.battles[bid]
+		if b["done"] or Sim._reinforce_side(Sim.player, b) < 0:
+			continue
+		var r := Sim.order_reinforce(a["id"], bid, "direct", true)
+		if r["ok"] and r["days"] <= 10:
+			opts.append([r["days"], bid])
+	opts.sort_custom(func(x, y): return x[0] < y[0])
+	for o in opts.slice(0, 2):
+		var bid: int = o[1]
+		var aid: int = a["id"]
+		var bn: String = GameData.provinces[Sim.battles[bid]["prov"]]["name"]
+		sel_box.add_child(HSeparator.new())
+		sel_box.add_child(L("Battle of %s under way · ~%d days away (it may be over before we arrive)" % [bn, int(o[0])], 14, GOLD))
+		sel_box.add_child(row([
+			B("⚔ Reinforce", func(): _reinforce(aid, bid, "direct"), false, "March straight in and join the fight from the direction we arrive"),
+			B("Flank", func(): _reinforce(aid, bid, "flank"), false, "Swing round and enter on a flank of the enemy line"),
+			B("Support", func(): _reinforce(aid, bid, "support"), false, "Form up behind our own line and hold it")]))
+
+func _reinforce(aid: int, bid: int, mode: String) -> void:
+	var r := Sim.order_reinforce(aid, bid, mode)
+	show_toast(("Reinforcing the battle of %s (~%d days)" % [GameData.provinces[Sim.battles[bid]["prov"]]["name"], int(r["days"])]) if r["ok"] else r["msg"], 3.0)
+	refresh_selection()
 
 func _refit(aid: int) -> void:
 	var r := Sim.refit_army(aid)
@@ -633,7 +672,9 @@ func _build_log() -> void:
 	log_panel.offset_left = -400; log_panel.offset_right = -12; log_panel.offset_top = 58; log_panel.offset_bottom = 330
 	add_child(log_panel)
 	var v := VBoxContainer.new(); log_panel.add_child(v)
-	v.add_child(L("Dispatches", 16, GOLD))
+	# v0.5: the diplomatic Inbox lives with the dispatches (the top bar is already full at 1600 px)
+	inbox_btn = B("✉ Inbox", func(): toggle_inbox(), false, "Diplomatic proposals and recent warnings waiting for you")
+	v.add_child(row([L("Dispatches", 16, GOLD), _spacer(), inbox_btn]))
 	log_text = RichTextLabel.new()
 	log_text.bbcode_enabled = true
 	log_text.scroll_following = true
@@ -644,7 +685,7 @@ func _build_log() -> void:
 func _on_event(ev: Dictionary) -> void:
 	if not Sim.player_relevant(ev):
 		return
-	var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090"}.get(ev["kind"], "#e8e0c8")
+	var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090", "warning": "#ff9040"}.get(ev["kind"], "#e8e0c8")
 	log_text.append_text("[color=#9a9080]%s[/color]  [color=%s]%s[/color]\n" % [ev["date"], col, ev["text"]])
 	if ev["kind"] in ["war", "peace", "capture"] and ev["nations"].has(Sim.player):
 		show_toast(ev["text"])
@@ -690,12 +731,12 @@ func refresh_game_menu() -> void:
 	menu_box.add_child(row([B("Quit to desktop", func(): get_tree().quit())]))
 
 func on_game_loaded() -> void:
-	for w in [diplo_win, econ_win, popup, menu_win, deploy_win]:
+	for w in [diplo_win, econ_win, popup, menu_win, deploy_win, inbox_win]:
 		if w: w.visible = false
 	log_text.clear()
 	var evs: Array = Sim.event_log.filter(func(e): return Sim.player_relevant(e))
 	for ev in evs.slice(maxi(0, evs.size() - 40)):
-		var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090"}.get(ev["kind"], "#e8e0c8")
+		var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090", "warning": "#ff9040"}.get(ev["kind"], "#e8e0c8")
 		log_text.append_text("[color=#9a9080]%s[/color]  [color=%s]%s[/color]\n" % [ev["date"], col, ev["text"]])
 	sel_pid = -1; sel_army = -1
 	refresh_top()
@@ -733,6 +774,7 @@ func toggle_diplomacy() -> void:
 
 func open_diplomacy(code: String) -> void:
 	econ_win.visible = false
+	if inbox_win: inbox_win.visible = false
 	diplo_win.visible = true
 	var cands := _diplo_candidates()
 	if code == "" or not Sim.nations.has(code) or code == Sim.player:
@@ -1067,11 +1109,97 @@ func _on_era(e: int) -> void:
 		"The world enters the [b]%s[/b] (%d).\n\nNew equipment available for procurement: [color=#ffd880]%s[/color].\nProductivity ×%.1f · Armies march %d km/day · Naval reach %d sea zones.\n\nExisting regiments keep their old equipment until refitted (Army panel → Refit)." % [ed["name"], int(ed["start"]), ", ".join(names), ed["productivity"], ed["move_km_day"], ed["naval_range"]],
 		[["Continue", func(): pass]])
 
+## v0.5: offers go to the inbox instead of a popup each. Urgent ones (peace while at war, alliance while at war)
+## get a one-line notice; routine ones only update the Inbox counter.
 func _on_offer(offer: Dictionary) -> void:
 	var from: String = offer["from"]
 	var kn := Sim._kind_name(offer["kind"])
-	show_popup("Envoy from %s" % Sim.nations[from]["name"], "%s proposes a [b]%s[/b].\nRelations: %+d." % [Sim.nations[from]["name"], kn, int(Sim.relation(from, Sim.player))],
-		[["Decline", func(): Sim.respond_offer(offer, false)], ["Accept", func(): Sim.respond_offer(offer, true); main.map.lut_dirty = true]])
+	if offer.get("urgent", false):
+		show_toast("✉ %s offers %s — see the Inbox" % [Sim.nations[from]["name"], kn], 5.0)
+	_log_line("[color=#a0c8f0]%s proposes a %s (in the Inbox).[/color]" % [Sim.nations[from]["name"], kn])
+	if inbox_win and inbox_win.visible:
+		refresh_inbox()
+
+func _log_line(bb: String) -> void:
+	log_text.append_text("[color=#9a9080]%s[/color]  %s\n" % [Sim.date_string(), bb])
+
+# ------------------------------------------------------------------ diplomatic inbox (v0.5)
+var inbox_btn: Button
+var inbox_win: PanelContainer
+var inbox_box: VBoxContainer
+
+func _build_inbox() -> void:
+	var w := _window(820, 560)
+	inbox_win = w[0]
+	var v: VBoxContainer = w[1]
+	v.add_child(row([title("Diplomatic Inbox"), _spacer(), B("Close", func(): inbox_win.visible = false)]))
+	var sc := ScrollContainer.new(); sc.follow_focus = true; sc.custom_minimum_size = Vector2(790, 500); sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(sc)
+	inbox_box = VBoxContainer.new(); inbox_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inbox_box.add_theme_constant_override("separation", 6)
+	sc.add_child(inbox_box)
+	Sim.inbox_changed.connect(func(): if inbox_win.visible: refresh_inbox.call_deferred())
+
+func toggle_inbox() -> void:
+	diplo_win.visible = false; econ_win.visible = false
+	inbox_win.visible = not inbox_win.visible
+	if inbox_win.visible:
+		refresh_inbox()
+
+func refresh_inbox() -> void:
+	clear(inbox_box)
+	var offers: Array = Sim.pending_offers
+	var urgent: Array = offers.filter(func(o): return o.get("urgent", Sim.is_urgent_offer(o)))
+	var routine: Array = offers.filter(func(o): return not o.get("urgent", Sim.is_urgent_offer(o)))
+	if offers.is_empty():
+		inbox_box.add_child(L("No proposals waiting. Envoys' offers collect here instead of interrupting you; unanswered ones lapse after %d days." % Sim.OFFER_TTL, 14, DIM))
+	if not urgent.is_empty():
+		inbox_box.add_child(L("Needs attention (%d)" % urgent.size(), 17, BAD))
+		for o in urgent:
+			_offer_row(o, true)
+	if not routine.is_empty():
+		inbox_box.add_child(HSeparator.new())
+		inbox_box.add_child(row([L("Routine proposals (%d)" % routine.size(), 17, GOLD), _spacer(),
+			B("Set aside all routine", func(): Sim.respond_all("", false); refresh_inbox(), false, "Politely decline every routine proposal (small relations cost; they will not be repeated for a while)")]))
+		var kinds := {}
+		for o in routine:
+			if not kinds.has(o["kind"]): kinds[o["kind"]] = []
+			kinds[o["kind"]].append(o)
+		for k in ["trade", "nap", "alliance"]:
+			if not kinds.has(k):
+				continue
+			var kk: String = k
+			var hdr: String = {"trade": "Trade agreements", "nap": "Non-aggression pacts", "alliance": "Defensive alliances"}[k]
+			inbox_box.add_child(row([L("%s (%d)" % [hdr, kinds[k].size()], 15, PARCH), _spacer(),
+				B("Accept all", func(): Sim.respond_all(kk, true); main.map.lut_dirty = true; refresh_inbox()),
+				B("Decline all", func(): Sim.respond_all(kk, false); refresh_inbox())]))
+			for o in kinds[k]:
+				_offer_row(o, false)
+	# recent warnings stay visible here too
+	var warns: Array = Sim.event_log.filter(func(e): return e["kind"] == "warning" and Sim.day - int(e["day"]) <= 60)
+	if not warns.is_empty():
+		inbox_box.add_child(HSeparator.new())
+		inbox_box.add_child(L("Recent warnings", 17, BAD))
+		for e in warns.slice(maxi(0, warns.size() - 5)):
+			var lw := L("%s — %s" % [e["date"], e["text"]], 13, Color(1.0, 0.7, 0.45))
+			lw.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; lw.custom_minimum_size = Vector2(760, 0)
+			inbox_box.add_child(lw)
+
+func _offer_row(o: Dictionary, urgent: bool) -> void:
+	var from: String = o["from"]
+	var f := FlagRect.new(); f.custom_minimum_size = Vector2(30, 20); f.set_nation(from)
+	var ev: Dictionary = Sim.evaluate(from, Sim.player, o["kind"])
+	var extra := ""
+	if o["kind"] == "peace" and Sim.at_war(from, Sim.player):
+		extra = " · war score %+.0f" % Sim.war_score(Sim.player, from)
+	var txt := "%s — %s · relations %+d%s · waiting %d days" % [Sim.nations[from]["name"], Sim._kind_name(o["kind"]), int(Sim.relation(from, Sim.player)), extra, Sim.day - int(o["day"])]
+	var lab := L(txt, 14, BAD if urgent else PARCH); lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var still: bool = ev["score"] > -900.0
+	inbox_box.add_child(row([f, lab,
+		B("Accept", func(): Sim.respond_offer(o, true); main.map.lut_dirty = true; refresh_inbox(), not still, "" if still else "No longer applies"),
+		B("Decline", func(): Sim.respond_offer(o, false); refresh_inbox()),
+		B("…", func(): inbox_win.visible = false; open_diplomacy(from), false, "Open diplomacy with %s" % Sim.nations[from]["name"])]))
 
 func _on_battle_resolved(bid: int, res: Dictionary) -> void:
 	var b: Dictionary = Sim.battles.get(bid, {})
@@ -1079,6 +1207,12 @@ func _on_battle_resolved(bid: int, res: Dictionary) -> void:
 		return
 	var won: bool = res["winner"] == b["player_side"]
 	show_toast("%s at %s! Losses: ours %d, theirs %d" % ["Victory" if won else "Defeat", GameData.provinces[b["prov"]]["name"], int(res["losses"][b["player_side"]]), int(res["losses"][1 - b["player_side"]])], 5.0)
+
+## v0.5: an approaching force has been spotted. Show it, and slow a fast clock to Normal so there is time to act.
+func _on_invasion_warning(w: Dictionary) -> void:
+	show_toast("⚠ " + w["text"], 7.0)
+	if Sim.speed_idx > 2:
+		Sim.set_speed(2)
 
 func _process(delta: float) -> void:
 	toast.position = Vector2((get_viewport().get_visible_rect().size.x - 800.0) * 0.5, 70.0)
@@ -1105,4 +1239,4 @@ func _descendants(n: Node) -> Array:
 	return out
 
 func any_window_open() -> bool:
-	return diplo_win.visible or econ_win.visible or deploy_win.visible or popup.visible or menu_win.visible
+	return diplo_win.visible or econ_win.visible or deploy_win.visible or popup.visible or menu_win.visible or inbox_win.visible

@@ -51,6 +51,12 @@
   - `main.gd` input handling changed a lot (actions via `Controls` autoload). Your PREVIEW-ONLY hook in `main.gd` (2a36972) will conflict; prefer a one-line hook I add myself — just say which call you need.
 
 ## Handoffs
+- **MERGED to `main` 2026-10-23 ~16:20 EDT (Kirk approved, 15:49 EDT): environment bot, biome framework + tropical + east_asia battlefield regions**
+  - Merge commits (no force push, no rebase) onto `origin/main` 644174c (v0.5.0): `4f7f1e2` env/biome-framework, `93c9988` env/tropical, `b853c98` env/east_asia.
+  - After each merge: test_runner 205/205, test_audio 28/28, test_env 0 failures. sim_hash is identical to pre-merge 644174c every time (SWE 1800 0b3153c6…, USA 1914 a9beef57…, JPN 1500 563be302…).
+  - The only conflicts were in CHANGELOG.md. I kept every side (v0.5.0 notes intact) and put the env notes under "Battlefield environment: biome framework + regions".
+  - Scope: rendering only. Data-driven biome profiles are in `game/scripts/battle/biomes/` and battle_environment.gd chooses them from the battle's province. BattleVisuals.apply() re-applies the biome look so era passes stay idempotent.
+  - **Note for Claude / BJORN:** no sim, morale, pathfinding, combat, AI or unit code was touched. The engagement-corridor rules and `plan(ctx)["obstacles"]` behave exactly as described below. env/arid and env/temperate stay on their branches and are NOT on main.
 - **READY (review only, NOT for main until Kirk approves): 2026-10-23 13:30 EDT, environment bot, Scandinavian medieval battlefield prototype**
   - **MERGED to `main` 2026-10-23 ~13:45 EDT (Kirk approved).** `origin/main` had not moved past a3f4f35, so there were no conflicts. Before merging I re-ran the checks on 774aee5: test_runner 163/163, test_audio 28/28, test_env 0 failures, and sim_hash identical to a fresh origin/main worktree (SWE 417a5300…, USA 4679c5a2…, JPN e104d558…). Only Scandinavia (medieval) is covered; other regions go on separate `env/<biome>` branches and wait for approval.
   - Branch `env/scandinavia-medieval` (from `main` a3f4f35). Worktree `/workspace/ic_env`. Evidence is in `evidence/env-scandinavia/` (README, perf, ASSETS.md, before/after compare, key frames). The MP4 is in `/workspace/ic_env/out/video/`.
