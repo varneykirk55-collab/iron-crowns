@@ -662,6 +662,7 @@ func _start_demo(kind: String) -> void:
 			_start_game("SWE", 1800, int(args.get("seed", "81")), 60)
 			Sim.set_speed(0)
 			Sim.ai_enabled = false
+			Sim.auto_respond_player = ""     # leave the envoys' offers in the Inbox
 			var fid := Sim._spawn_army("FIN", Sim.nations["FIN"]["capital"], [])
 			for k in 6:
 				Sim.armies[fid]["units"].append(Sim._make_unit(GameData.unit_for_role("c19", ["inf", "ranged"][k % 2])))
