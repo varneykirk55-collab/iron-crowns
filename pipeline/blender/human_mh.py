@@ -95,6 +95,26 @@ def eyes(ph, name='eyes'):
     _attrs(o, 'eye', 2.0)
     return o
 
+def ear_weight(P):
+    """soft mask (0..1) of the auricles on the posed MH head (centre y ~0.01, out to |x| 0.088, z 1.60..1.72)."""
+    def ss(a, b, t): t = np.clip((t - a) / (b - a), 0, 1); return t * t * (3 - 2 * t)
+    ax = np.abs(P[:, 0]); y = P[:, 1]; z = P[:, 2]
+    return ss(0.058, 0.068, ax) * np.exp(-((y - 0.010) / 0.032) ** 2) * ss(1.585, 1.605, z) * (1 - ss(1.725, 1.745, z))
+
+def smooth_ears(o, iters=6, lam=0.5, mu=-0.53, mask=None):
+    """Taubin (lambda / mu) smoothing of the ear vertices only (weighted by ear_weight): rounds the auricle folds that a
+    2.4k-tri LOD0 head can't carry (decimation faceting + bake rays crossing between folds) without shrinking the ear."""
+    me = o.data; n = len(me.vertices)
+    P = np.zeros(n * 3); me.vertices.foreach_get('co', P); P = P.reshape(-1, 3)
+    E = np.zeros(len(me.edges) * 2, np.int64); me.edges.foreach_get('vertices', E); E = E.reshape(-1, 2)
+    w = ear_weight(P)[:, None] if mask is None else (ear_weight(P) * mask)[:, None]
+    if w.max() < 1e-3: return
+    deg = np.zeros(n); np.add.at(deg, E[:, 0], 1); np.add.at(deg, E[:, 1], 1); deg = np.maximum(deg, 1)[:, None]
+    for k in range(iters * 2):
+        acc = np.zeros_like(P); np.add.at(acc, E[:, 0], P[E[:, 1]]); np.add.at(acc, E[:, 1], P[E[:, 0]])
+        P = P + (lam if k % 2 == 0 else mu) * w * (acc / deg - P)
+    me.vertices.foreach_set('co', P.ravel()); me.update()
+
 def subdivide(o, levels):
     m = o.modifiers.new('sd', 'SUBSURF'); m.levels = levels; m.render_levels = levels; m.uv_smooth = 'PRESERVE_BOUNDARIES'
     bpy.context.view_layer.objects.active = o

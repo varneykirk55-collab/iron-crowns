@@ -155,6 +155,7 @@ def relax(o, target, iters=6):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 BODY_KEYS = ('collar', 'button')
+HEAD_PID = []   # pid of the MH head group (ear_uv)
 AO_AWAY = set()   # part groups moved out of the way for the AO bake (hands hang by the thighs in the rest pose)   # lo collar shell / hi-only buttons bake against the body group (pid 0)
 
 def build_meshes():
@@ -191,7 +192,8 @@ def build_meshes():
     log('part groups', keys)
     for o in [hi, lo] + kit_hi + kit_lo:   # group id: the normal / id bakes are 'exploded' per group (no cross-part ray hits)
         i = 0 if o in (hi, lo) or gkey(o) in BODY_KEYS else 1 + keys.index(gkey(o))
-        if gkey(o) in ('handL', 'handR', 'mhhandL', 'mhhandR'): AO_AWAY.add(i)   # lo collar shell bakes from the fused hi body
+        if gkey(o) in ('handL', 'handR', 'mhhandL', 'mhhandR'): AO_AWAY.add(i)
+        if gkey(o) == 'mhhead': HEAD_PID[:] = [i]   # lo collar shell bakes from the fused hi body
         at = o.data.attributes.new('pid', 'FLOAT', 'POINT'); at.data.foreach_set('value', [float(i)] * len(o.data.vertices))
     for o in [hi] + kit_hi:   # painted detail default (neutral) where nothing was painted
         if 'det2' not in o.data.attributes: C.set_det(o, lambda p: C.NEUTRAL)
@@ -229,6 +231,90 @@ def unwrap(L):
     bpy.ops.uv.pack_islands(rotate=True, margin=0.003)
     bpy.ops.object.mode_set(mode='OBJECT')
     for i, c in orig.items(): me.vertices[i].co = c
+    # ear fix AFTER the atlas pack, so every other island keeps exactly its packed place / texels
+    import human_mh as HM
+    if HEAD_PID:
+        pid = np.zeros(len(me.vertices), np.float32); me.attributes['pid'].data.foreach_get('value', pid)
+        HM.smooth_ears(L, iters=20, mask=(np.round(pid).astype(int) == HEAD_PID[0]).astype(float))   # LOD0 ear: Taubin relax of the decimation facets
+    ear_uv(L)
+
+def _raster(tris, R):
+    """bool R x R coverage of uv triangles (n, 3, 2) in 0..1"""
+    occ = np.zeros((R, R), bool)
+    for t in tris * R:
+        x0, y0 = np.floor(t.min(0)).astype(int); x1, y1 = np.ceil(t.max(0)).astype(int)
+        x0, y0 = max(x0, 0), max(y0, 0); x1, y1 = min(x1, R), min(y1, R)
+        if x1 <= x0 or y1 <= y0: continue
+        gx, gy = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5)
+        a, b, c = t; d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1])
+        if abs(d) < 1e-12: occ[y0:y1, x0:x1] |= True; continue
+        l1 = ((b[1] - c[1]) * (gx - c[0]) + (c[0] - b[0]) * (gy - c[1])) / d
+        l2 = ((c[1] - a[1]) * (gx - c[0]) + (a[0] - c[0]) * (gy - c[1])) / d
+        e = 1.0 / R   # conservative (touching cells count)
+        occ[y0:y1, x0:x1] |= (l1 > -e * 4) & (l2 > -e * 4) & (1 - l1 - l2 > -e * 4)
+    return occ
+
+def _dilate(m, k):
+    for _ in range(k):
+        m = m | np.roll(m, 1, 0) | np.roll(m, -1, 0) | np.roll(m, 1, 1) | np.roll(m, -1, 1)
+    return m
+
+def ear_uv(L):
+    """smart_project cuts each curled auricle into ~30 tiny uv islands (many 1-4 tris); their seams + margins showed as
+    hard-edged light / dark shards on the ear. Re-unwrap each ear as ONE island at the same texel area and drop it into
+    free atlas space; every other island keeps its packed position."""
+    import human_mh as HM
+    if not HEAD_PID: return
+    me = L.data; n = len(me.vertices)
+    co = np.zeros(n * 3); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    pid = np.zeros(n, np.float32); me.attributes['pid'].data.foreach_get('value', pid)
+    w = HM.ear_weight(co) * (np.round(pid).astype(int) == HEAD_PID[0])
+    nl = len(me.loops); lv = np.zeros(nl, np.int64); me.loops.foreach_get('vertex_index', lv)
+    ls = np.zeros(len(me.polygons), np.int64); me.polygons.foreach_get('loop_start', ls)
+    lt = np.zeros(len(me.polygons), np.int64); me.polygons.foreach_get('loop_total', lt)
+    pe = np.array([w[lv[a:a + t]].mean() > 0.5 for a, t in zip(ls, lt)])   # ear polygons
+    tri_l = np.array([(a, a + k, a + k + 1) for a, t in zip(ls, lt) for k in range(1, t - 1)], np.int64)   # fan tris
+    tri_p = np.array([i for i, t in enumerate(lt) for k in range(1, t - 1)], np.int64)
+    ear = pe[tri_p]
+    side = np.sign(co[lv[tri_l[:, 0]], 0])
+    uvl = me.uv_layers['atlas'].data
+    def get_uv():
+        a = np.zeros(nl * 2); uvl.foreach_get('uv', a); return a.reshape(-1, 2)
+    def area(U, f):
+        t = U[tri_l[f]]; return 0.5 * np.abs(np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])).sum()
+    U0 = get_uv()
+    old_area = {sd: area(U0, ear & (side == sd)) for sd in (1, -1)}
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.context.tool_settings.mesh_select_mode = (False, False, True)
+    bm = bmesh.from_edit_mesh(me)
+    for v in bm.verts: v.select_set(False)
+    bm.faces.ensure_lookup_table()
+    for fa in bm.faces: fa.select_set(bool(pe[fa.index]))
+    bm.select_flush_mode(); bmesh.update_edit_mesh(me)
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.0); bpy.ops.object.mode_set(mode='OBJECT')
+    U = get_uv()
+    R = 1024; occ = _dilate(_raster(U[tri_l[~ear]], R), 4)   # 4 cells = 8 texels at 2048 (pack margin 0.003 ~ 6)
+    for sd in (1, -1):
+        f = ear & (side == sd); li = np.unique(tri_l[f])
+        P = U[li]; c = P.mean(0); s = math.sqrt(old_area[sd] / max(area(U, f), 1e-12))
+        for k in range(12):
+            Q = (P - c) * s; Q -= Q.min(0)
+            sub = U.copy(); sub[li] = Q
+            m = _dilate(np.pad(_raster(sub[tri_l[f]], R)[: int(Q[:, 1].max() * R) + 2, : int(Q[:, 0].max() * R) + 2], 4), 4)
+            h, wd = m.shape
+            F = np.fft.rfft2(occ.astype(np.float32)); K = np.fft.rfft2(m[::-1, ::-1].astype(np.float32), occ.shape)
+            hit = np.fft.irfft2(F * K, occ.shape)   # hit[y, x] = overlap of m placed with its far corner at (y, x)
+            ok = hit[h - 1:, wd - 1:] < 0.5
+            ys, xs = np.nonzero(ok)
+            if len(ys):
+                y, x = ys[0], xs[0]
+                U[li] = Q + np.array([(x + 4) / R, (y + 4) / R])
+                occ[y:y + h, x:x + wd] |= m
+                log('ear uv side', sd, 'islands -> 1, scale', round(s, 3), 'at', (x, y))
+                break
+            s *= 0.92
+        else:
+            U[li] = U0[li]; log('ear uv side', sd, 'no space, kept smart_project islands')
+    uvl.foreach_set('uv', U.ravel()); me.update()
 
 def bake_maps(H, L):
     sc = bpy.context.scene

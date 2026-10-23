@@ -20,6 +20,7 @@
 - [x] 5b cloth: folds, wool twill micro-normal, desaturated navy, roughness separation, realistic collar — c8f2e9f
 - [x] 5c era-generic system docs/char/CHAR_SYSTEM.md (b5a951c)
 - [x] 5d stills (front/side/back/3-4/bust/hand, gameplay distance), compare blocky/c19sr/v2/v3, slow-orbit idle video <20 MB — stills/compare 65b5e49, deliverables/proto_v3/video/proto_v3_idle_orbit.mp4 (24 s, 3.4 MB)
+- [x] ear fix (Oct 23, ~16:30 EDT): cause = texture/UV seams, not split normals. smart_project cut each auricle into ~30 tiny UV islands, and the island borders/margins baked as hard-edged light/dark shards; plus mild collapse-decimation faceting of the LOD0 ear. Fix: one angle-based UV island per ear (same texel area, placed in free atlas space, other islands untouched), Taubin relax (20 it.) of the LOD0 ear verts after the atlas pack, Taubin-smoothed ear on the hi bake source. Only 285 LOD0 ear verts move (max 9.7 mm); hands/face/body unchanged. Mid/far head re-decimates slightly differently (decimation is UV-seam aware). Tris 11,670 / 2,000 (was 1,998) / 693. Stills: v3_close_bust(_l).png, v3_close_ear.png, wip/ear_before_after.png
 
 ## 2a-2c notes (Oct 23, ~11:50 EDT)
 - Body: torso/neck/collar + arms (built spread +-6 cm) + legs/gaiters + shoes, unioned by 5 mm voxel remesh (hi ~92k verts);

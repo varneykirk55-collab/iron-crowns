@@ -680,6 +680,8 @@ def mh_parts(hi):
     out = [HM.part('mhhead', HM.head_faces(ph), ph), HM.eyes(ph, 'mheye'),
            HM.part('mhhandR', HM.hand_faces(ph, '.R'), ph), HM.part('mhhandL', HM.hand_faces(ph, '.L'), ph)]
     for o in out:
+        head = o.name.startswith('mhhead')
+        if head and hi: HM.smooth_ears(o)   # rounded ear on the bake source (the game mesh ear is relaxed after the atlas unwrap)
         if hi:
             HM.subdivide(o, 1 if o.name.startswith('mhhand') else 2)
         elif o.name.split('.')[0] in MH_LO:   # (the hi kit is built first, so the lo copies are named mhhead.001 ...)
