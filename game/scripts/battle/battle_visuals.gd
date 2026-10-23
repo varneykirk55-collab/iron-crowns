@@ -419,7 +419,7 @@ static func proto_on() -> bool:
 	return proto_v2 or _proto_cmd == 1
 
 ## Eras v3 (docs/char/ERAS_PROGRESS.md, --vx-proto only): v3 kits swapped in under the existing unit ids (render only).
-const V3_MODEL := {"c19_grenadier": "v3_c19_grenadier", "c19_artillery": "v3_c19_artillery", "med_spear": "v3_med_pike",
+const V3_MODEL := {"c19_grenadier": "v3_c19_grenadier", "c19_artillery": "v3_c19_artillery", "c19_hussar": "v3_c19_hussar", "med_spear": "v3_med_pike",
 	"med_archer": "v3_med_archer", "em_musket": "v3_em_musket", "em_pike": "v3_em_pike", "c20_rifle": "v3_c20_rifle",
 	"mod_rifle": "v3_mod_rifle"}
 

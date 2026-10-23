@@ -78,7 +78,7 @@ def auto_weights(o, rig):
         o.modifiers.remove(m)
     add_groups(o)
 
-def transfer_weights(src, dst):
+def transfer_weights(src, dst, only=None):
     add_groups(dst)
     bm = bmesh.new(); bm.from_mesh(src.data); tree = BVHTree_from(bm)
     dl = src.data.vertices
@@ -96,6 +96,8 @@ def transfer_weights(src, dst):
         for vi, w in ws:
             for g in dl[vi].groups:
                 acc[gi[g.group]] = acc.get(gi[g.group], 0.0) + g.weight * w / tot
+        if only:   # torso-only garments (slung pelisse): drop limb weights, fall back to the chest
+            acc = {n: w for n, w in acc.items() if n in only} or {'chest': 1.0}
         s = sum(acc.values()) or 1.0
         for n, w in acc.items():
             if w / s > 0.01:
@@ -215,6 +217,7 @@ def build_meshes():
         r = rule_for(o.name)
         if r == 'tail': tail_weights(o)
         elif r == 'transfer': transfer_weights(lo, o)
+        elif r == 'transfer_torso': transfer_weights(lo, o, ('hips', 'spine', 'chest', 'neck', 'clav.L', 'clav.R'))
         elif r == 'own': add_groups(o)
         else: rigid(o, r)
     import re
@@ -222,6 +225,9 @@ def build_meshes():
     keys = sorted(set(gkey(o) for o in kit_hi + kit_lo))
     C.PID_KEYS = keys   # pid i (> 0) = group keys[i - 1] (rider kits classify horse / tack / reins vertices by it)
     log('part groups', keys)
+    _gt = {}
+    for o in kit_lo: _gt[gkey(o)] = _gt.get(gkey(o), 0) + C.tris(o)
+    log('lo tris body', C.tris(lo), 'groups', sorted(_gt.items(), key=lambda kv: -kv[1]))
     for o in [hi, lo] + kit_hi + kit_lo:   # group id: the normal / id bakes are 'exploded' per group (no cross-part ray hits)
         i = 0 if o in (hi, lo) or gkey(o) in BODY_KEYS else 1 + keys.index(gkey(o))
         if gkey(o) in ('handL', 'handR', 'mhhandL', 'mhhandR') + tuple(getattr(C, 'AO_AWAY_KEYS', ())): AO_AWAY.add(i)
@@ -754,8 +760,9 @@ def main():
               'split': 'verts [0,near_verts) = LOD0 set, [near_verts,mid_verts) = mid set, [mid_verts,vertices) = far set'}
     if getattr(C, 'RIDER', None):   # rider kits (docs/char/ERAS_PROGRESS.md): seated on the existing cavalry rig, see v3_rider.py
         import v3_rider
+        fvn = len(far.data.vertices)
         v3_rider.bake(full, farx, extra0, {'tris': tf, 'maps': maps}, [H, L, mid, far])
-        json.dump({'near': tn, 'mid': tm, 'far': tf, 'near_verts': nv, 'mid_verts': mv - nv, 'far_verts': len(far.data.vertices)},
+        json.dump({'near': tn, 'mid': tm, 'far': tf, 'near_verts': nv, 'mid_verts': mv - nv, 'far_verts': fvn},
                   open(os.path.join(OUTP, 'tris.json'), 'w'), indent=1)
         log('done'); return
     rig = build_rig(KID)

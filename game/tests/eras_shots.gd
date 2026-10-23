@@ -3,6 +3,7 @@ extends Node3D
 # and a 3x6 block at 22 m gameplay distance (optionally next to the model it replaces, --old=<id>). FRA palette, crowd
 # shaders, battle-like light. Camera only, no sim.
 #   godot --path game --resolution 1200x1200 res://tests/eras_shots.tscn -- --model=v3_c19_grenadier --out=<abs dir> [--old=c19sr_grenadier]
+#   mounted kits: --sx=1.3 --sz=3.0 (block file / rank spacing) --oldx=-1.3 (old solo offset)
 const BV := preload("res://scripts/battle/battle_visuals.gd")
 var cam: Camera3D
 var args := {}
@@ -23,7 +24,7 @@ func _ready() -> void:
 	groups["new"] = {"solo": _make(m, pal, [Transform3D(Basis(), Vector3.ZERO)]), "block": _make(m, pal, _block(Vector3(0, 0, -200.0)))}
 	var old := _arg("old", "")
 	if old != "":
-		groups["old"] = {"solo": _make(old, pal, [Transform3D(Basis(), Vector3(-1.3, 0, 0))]), "block": _make(old, pal, _block(Vector3(-6.5, 0, -200.0)))}
+		groups["old"] = {"solo": _make(old, pal, [Transform3D(Basis(), Vector3(float(_arg("oldx", "-1.3")), 0, 0))]), "block": _make(old, pal, _block(Vector3(_oldbx(), 0, -200.0)))}
 	cam = Camera3D.new(); add_child(cam); cam.fov = 40.0; cam.near = 0.05; cam.make_current()
 	var l := DirectionalLight3D.new(); l.rotation_degrees = Vector3(-38, 35, 0); l.light_energy = 1.25; l.shadow_enabled = true
 	l.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS; l.directional_shadow_max_distance = 120.0
@@ -39,11 +40,15 @@ func _ready() -> void:
 	get_viewport().msaa_3d = Viewport.MSAA_4X
 	_run()
 
+func _oldbx() -> float:
+	return -(6.0 * float(_arg("sx", "0.72")) + 2.18)
+
 func _block(c: Vector3) -> Array:
 	var r := []
+	var sx := float(_arg("sx", "0.72")); var sz := float(_arg("sz", "1.05"))
 	for rank in 3:
 		for f in 6:
-			r.append(Transform3D(Basis(), c + Vector3((f - 2.5) * 0.72, 0, rank * 1.05)))
+			r.append(Transform3D(Basis(), c + Vector3((f - 2.5) * sx, 0, rank * sz)))
 	return r
 
 func _mesh(path: String) -> Mesh:
@@ -123,9 +128,9 @@ func _run() -> void:
 	_look(Vector3(0, bz, 0), 25.0, 0.95, 0.04); await _snap("close_bust")
 	_look(Vector3(0, bz, 0), -25.0, 0.95, 0.04); await _snap("close_bust_l")
 	_look(Vector3(0, bz, 0), 160.0, 0.95, 0.04); await _snap("close_back")
-	if args.has("zoom"):   # --zoom=x,z,yaw,dist (inspection close-up, not a deliverable still)
+	if args.has("zoom"):   # --zoom=x,z,yaw,dist[,depth] (inspection close-up, not a deliverable still)
 		var zz := _arg("zoom", "").split(",")
-		_look(Vector3(float(zz[0]), float(zz[1]), 0), float(zz[2]), float(zz[3]), 0.02); await _snap("zoom")
+		_look(Vector3(float(zz[0]), float(zz[1]), float(zz[4]) if zz.size() > 4 else 0.0), float(zz[2]), float(zz[3]), 0.02); await _snap("zoom")
 		get_tree().quit(); return
 	if groups.has("old"):
 		_show("solo", ["new", "old"])
@@ -134,5 +139,6 @@ func _run() -> void:
 	cam.position = Vector3(0, 22.0 * sin(0.33), -200.0 + 1.0 - 22.0 * cos(0.33)); cam.look_at(Vector3(0, 0.9, -199.0)); await _snap("game_22m")
 	if groups.has("old"):
 		_show("block", ["new", "old"])
-		cam.position = Vector3(-3.25, 22.0 * sin(0.33), -199.0 - 22.0 * cos(0.33)); cam.look_at(Vector3(-3.25, 0.9, -199.0)); await _snap("game_22m_cmp")
+		var hx := _oldbx() / 2.0
+		cam.position = Vector3(hx, 22.0 * sin(0.33), -199.0 - 22.0 * cos(0.33)); cam.look_at(Vector3(hx, 0.9, -199.0)); await _snap("game_22m_cmp")
 	get_tree().quit()
