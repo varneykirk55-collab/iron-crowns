@@ -13,6 +13,9 @@
 ### Region: east_asia (env/east_asia)
 - New `east_asia` biome: East Asian hill-country biome (Japan, Taiwan, Korea, eastern / southern China): sugi, red pine, evergreen broadleaf, maple, bamboo, sasa, azalea, susuki, mossy andesite, humid light; latitude gradient Hokkaido -> Okinawa / Taiwan. Render only. Evidence: evidence/env-east_asia/.
 
+### Region: arid (env/arid; branch only, NOT on main until Kirk approves)
+- New `arid` biome for every `desert`-tagged province plus Arabia / Mexican plateau: dry earth / gravel-pavement mosaic with drift sand on crests, regional scrub (saguaro / creosote / prickly pear / mesquite in the Americas; acacia, date palm, tamarisk, saltbush in N Africa / Arabia; saxaul, poplar oases in Central Asia; spinifex + mulga in Australia), sandstone boulders and banded mesa outcrops, harsh dusty light. Graded by a desert `core` factor so semi-arid margins get more grass and softer light. 20 procedural models (`pipeline/blender/env_arid.py`), terrain `lichen` / `lichen_amt` uniforms (defaults = old look). Rendering only; sim hashes unchanged. Evidence: `evidence/env-arid/`.
+
 ## v0.5.0 — 2026-10-23 (gameplay & AI refinement)
 ### Medieval combat: no more panic routs just before contact
 - **Diagnosis** (Sweden vs Norway 1300, real starting armies, 40 seeds): 15 of 80 spear regiments routed without ever reaching melee, and attackers won 40/40. The battle model has **no obstacles**; rocks are scenery only. The real causes were that a melee-only regiment on "hold" had no response to being shot, morale never recovered under the 4-second arrow cadence, and the 28-second "decisive phase" doubled arrow casualties right as the lines met. The Norwegian spearmen routed at a 4 m gap, wherever a rock happened to be.
