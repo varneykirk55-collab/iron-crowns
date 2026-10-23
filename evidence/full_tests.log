@@ -1,6 +1,6 @@
 Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 
-[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 105 ms
+[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 115 ms
 == Battle model ==
   [PASS] battle duration medieval mean 42.4s (target 25-50s)  -- durations=[42.5, 44.1, 43.7, 41.2, 44.9, 35.6, 46.0, 41.4] wins(att,def)=[6, 2]
   [PASS] battle duration early_modern mean 40.6s (target 25-50s)  -- durations=[41.6, 42.2, 33.9, 36.6, 43.9, 36.2, 42.4, 47.8] wins(att,def)=[4, 4]
@@ -74,7 +74,7 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 == Save / load ==
   [PASS] save: campaign state is non-trivial at save time  -- day 263 (21 Sep 1800), wars 7, battles in progress 1, armies 209, treaties 98, sieges 1
   [PASS] save: write user://saves/test_slot.save  -- Saved "test_slot" (21 Sep 1800) size 987896 B
-  [PASS] save: metadata header readable  -- { "magic": "IRONCROWNS", "version": 1, "player": "SWE", "nation": "Sweden", "date": "21 Sep 1800", "era": "Age of Revolutions", "saved_unix": 1792714544 }
+  [PASS] save: metadata header readable  -- { "magic": "IRONCROWNS", "version": 1, "player": "SWE", "nation": "Sweden", "date": "21 Sep 1800", "era": "Age of Revolutions", "saved_unix": 1792716666 }
   [PASS] save: loaded state deep-equals saved state  -- Loaded "test_slot" (21 Sep 1800), 987660 bytes identical
   [PASS] save: in-progress battles restored as live BattleSim objects  -- 2 battles
   [PASS] save: determinism, original and loaded runs identical after 180 more days  -- both at 20 Mar 1801, 208 armies, 2 battles, 222 events
@@ -84,7 +84,8 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] camera: battle under a live view (no toggles) == bare sim  -- winner 0, t=36.5s, 1145 frames; 
   [PASS] camera: 27 camera toggles + zoom input give an identical battle  -- steps 365/365, men [1200.0, 781.065035827416, 1200.0, 424.081798109027, 200.0, 886.805158205628, 402.889953040105, 415.657854190128, 854.878661388497, 571.374573550761, 581.975871185597] / [1200.0, 781.065035827416, 1200.0, 424.081798109027, 200.0, 886.805158205628, 402.889953040105, 415.657854190128, 854.878661388497, 571.374573550761, 581.975871185597] 
   [PASS] camera: blend reached both overhead (0) and cinematic (1)  -- min 0.000 max 1.000
-  [PASS] camera: director cut between event-driven shots  -- 8 cuts, shot kinds ["establishing", "flank", "low_angle", "rout"]
+  [PASS] camera: director cut between event-driven shots  -- 8 cuts, shot kinds ["establishing", "flank", "low_angle", "aftermath"]
+  [PASS] camera: director switches to the aftermath shot when the battle ends  -- ["establishing", "flank", "low_angle", "aftermath"]
   [PASS] camera: no invalid (NaN/inf) camera positions
 == Controls: InputMap, gamepad, touch ==
   [PASS] controls: 37 InputMap actions registered, gameplay actions all have gamepad bindings  -- missing [], no-joy []
@@ -95,7 +96,7 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] controls: Back opens diplomacy with gamepad focus inside; D-pad navigates it  -- visible true, focus @Button@1862:<Button#282662540865> -> @Button@2366:<Button#304540031345>
   [PASS] controls: B closes the window
   [PASS] controls: L3 economy, Start game menu (focused), Start again closes  -- econ true menu true
-  [PASS] controls: left stick moves the map cursor reticle (no on-screen controller)  -- (800.0, 800.0) -> (873.119, 800.0)
+  [PASS] controls: left stick moves the map cursor reticle (no on-screen controller)  -- (800.0, 800.0) -> (875.1866, 800.0)
   [PASS] controls: A selects the army under the cursor  -- selected 51 want 51 at (800.0, 800.0001)
   [PASS] controls: X orders the selected army to the province under the cursor  -- dest 343 goal 343
   [PASS] controls: touch tap selects the army  -- selected 51
@@ -103,7 +104,7 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] controls: one-finger drag pans the map (and is not a tap)  -- target moved 11.41
   [PASS] controls: pinch out zooms in, two-finger twist rotates  -- dist 30.0 -> 9.0, yaw 0.00 -> 0.79
   [PASS] controls: long-press marches the selected army to the pressed province  -- dest 343 goal 343
-  [PASS] controls: UI scale, large touch targets, F3 perf overlay and quality settings apply  -- scale true big true perf 'FPS 37   frame 156.7 ms avg / 300.0 worst (2 s)' msaa 0
+  [PASS] controls: UI scale, large touch targets, F3 perf overlay and quality settings apply  -- scale true big true perf 'FPS 49   frame 146.1 ms avg / 280.8 worst (2 s)' msaa 0
   [PASS] controls: no virtual joystick / on-screen gamepad nodes in the scene tree  -- 0 TouchScreenButton
   [PASS] controls: battle view — RB speeds up, right stick orbits (leaves cinematic), pinch zooms, Back leaves  -- speed 2x stick true pinch 170->57 leave true
 == Era battle verification ==
@@ -143,4 +144,5 @@ GPDBG at_war true sieges {  } armies ["51@345 idle men4667 path0", "209@328 idle
   [PASS] gameplay: save/load restores 30 Dec 1913 exactly  -- Loaded "gameplay_test" (30 Dec 1913)
   [PASS] gameplay: era advanced to Age of Mechanised War on 1 Jan 1914 (game started 1913)
 
-==== 126 / 126 checks passed (72.1 s) ====
+==== 127 / 127 checks passed (70.5 s) ====
+EXIT 0

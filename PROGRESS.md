@@ -61,8 +61,16 @@
 - Headless (pure CPU) SWE 1800 battle demo: map frame 20.2→9.3 ms (p95 115→12.7), battle 20.1→7.7 ms (p95 113→9.7).
   Bench: month parts econ 48→5 ms, diplomacy 180→65 ms, worst day 245→~105 ms, hud._process 116→9 ms, update_markers 6→2 ms.
 - xvfb/llvmpipe 1280x720 is render-bound (~2 fps, render_cpu 185–300 ms): software rasteriser, no GPU; not fixable in game code.
-## v0.2 — Task 5 era verification (tests DONE; recordings in progress)
+## v0.2 — Task 5 era verification (DONE: tests + 5 era recordings)
 - `--only=eras` 26 checks: roster/models per era, full battle per era (30–34 s, era-only units), projectile classes per era, melee share
   falls with era, medieval armour (knights) and modern armour (MBT) effects, USA/SWE/JPN start armies in all 5 start years.
 - Battle view prints `BATTLERESULT {json}` (units, models, projectiles, melee share, outcome) on the result panel.
-NEXT: Task 5 recordings (5 eras), Task 6 BJORN handoff check, Task 7 full pass + scripted gameplay, merge/export/deliverables.
+- Recordings rec/era_{1300_SWE,1500_JPN,1800_SWE,1914_USA,1914_USA_reinf,1980_USA}_demo.mp4: era-only units, battle 33.4/32.3/39.5/17.8/28.8/31.0 s
+  (1914 without reinforce is a 9.7:1 mismatch). Fixed: aftermath shot never fired; P/W model names in BATTLERESULT.
+## v0.2 — Task 7 full pass (DONE)
+- `--only=gameplay` 7 checks (Sweden 1913: march, war, watch battle + camera toggle, capture, save/load, 1914 era advance). Full run 127/127 (pre-graphics).
+## v0.2 — Task 6 graphics (BJORN c19 handoff)
+- Patch + binaries applied on `graphics` (6b58baf, binary sha256 verified). Merged into lead-dev-gfx, hooks d1c8a22: apply(self) at end of setup,
+  apply_quality forwarding (only once his apply_quality exists), apply_viewport NOT called (Controls quality owns MSAA). 131/131, sim hashes unchanged.
+- NOT on main: parent asked to wait for BJORN's revised READY (brightness/readability). main = v0.2 without visuals.
+NEXT: merge pre-graphics lead-dev to main, export, deliverables/v0.2; on revised READY: re-apply on graphics, retest, merge to main.
