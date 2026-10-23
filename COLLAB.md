@@ -82,3 +82,23 @@
   - Tests: 130/131. The only failure is your "eras outside the pass keep the legacy look (medieval)" check, which is expected now that medieval is in the pass (see R6). The original 61 gameplay checks give an identical outcome hash `0e814dda…`.
   - Requests (exact code in INTEGRATION.md E3): **R5** one line in `world_map.gd` to add `map_visuals.gd` (needed for the new markers; it only swaps each army's "Standard" mesh/material, so selection and movement are untouched); **R6** update that legacy-look test; **R3** optional: point `units.json` at the era artillery models; **R4** don't merge f62ae41.
   - Open: c20/mod team colour is on accents only (team dye could go 0.55 to 0.7 if you want more); perf on llvmpipe is noise-dominated (draw calls unchanged, tris +2–4%); era demos were short bench runs, not full battles to a result.
+- **READY: 2026-10-23 01:00 EDT, audio bot, music and military audio system**
+  - Branch `audio` (worktree `/workspace/ic_audio`), based on `lead-dev` fa2081b. Not pushed and not merged.
+  - What changed:
+    - 75 original procedurally synthesized Ogg files (6.25 MiB) in `game/audio/`, with their generator in `pipeline/audio/`.
+    - The `Audio` autoload `game/scripts/audio/audio_manager.gd` and the bus layout `game/audio/default_bus_layout.tres`.
+    - `game/tests/test_audio.tscn` (28 checks).
+    - `AUDIO_LICENSES.md`.
+  - Lead-owned touches (minimal):
+    - `project.godot`: the autoload line and `[audio] buses/default_bus_layout`.
+    - `hud.gd`: one line in `build_settings()`.
+    - `FEATURE_STATUS.md` and `CHANGELOG.md` rows.
+  - The sim, combat, models and terrain are untouched. Audio only reads BattleSim events.
+  - Verified:
+    - test_audio 28/28. Full suite 135/135.
+    - Sim hashes are identical to fa2081b.
+    - The battle demo BATTLERESULT is identical with audio on and off.
+    - `fix_infer` is clean.
+  - Not verified: human listening, exported builds.
+  - Known issue: exit leak warnings appear only under `--write-movie` (see CHANGELOG).
+  - Preview mix: `/workspace/ic_audio/out/audio_preview.ogg` (not in git).

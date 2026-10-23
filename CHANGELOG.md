@@ -18,9 +18,13 @@
 - test_audio 28/28; full suite 135/135 on both the baseline (fa2081b) and this branch.
 - Sim hashes unchanged: SWE1800 e79839ca…, USA1914 45cf5510…, JPN1500 9bb2394d….
 - Battle outcome identical with audio on and off.
+- `--demo=battle --nation=SWE` (1800) gives the same BATTLERESULT as the baseline (39.5 s, end_men 5039/5166). Its `--write-movie` recording carries the mixed audio: 62.1 s, peak -2.0 dBFS, no clipped samples, battle-section 100 ms RMS p50 about -20 dBFS with p90 about -15.5 dBFS.
+- `analyze_audio.py`: all 75 files pass (max decoded peak -0.71 dBFS, every loop seam within the interior range). Rebuilding the assets is byte-identical.
+- `test_audio` snapshots and restores `user://audio.cfg`, so test runs never change a player's saved volumes.
 ### Not verified
 - No human listening test (no subjective quality check).
 - Exported builds not run with audio.
+- Known issue: when the demo is recorded with `--write-movie`, Godot reports at exit that 8 ObjectDB instances leaked and 4 resources were still in use (`music_tension.ogg`, `sting_victory.ogg`). The movie writer stops mixing audio on the frame the demo calls `quit()`, so playbacks that were just stopped are never released. Normal runs (the demo without movie, the main scene, the tests) exit clean, and the baseline has no such warning.
 
 ## v0.2.1 — 2026-10-22 (BJORN's c19 graphics pass merged)
 ### Added
