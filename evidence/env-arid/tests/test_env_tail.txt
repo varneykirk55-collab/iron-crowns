@@ -1,0 +1,3 @@
+  [INFO] routing regiments: min clearance 73.2 m, 0 overlapping samples (props are render-only; no sim effect)
+
+==== test_env: 0 failures ====

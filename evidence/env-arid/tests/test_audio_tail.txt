@@ -1,0 +1,3 @@
+  [PASS] music returns to campaign after battle  -- campaign
+
+==== 28 / 28 audio checks passed (61.6 s) ====
