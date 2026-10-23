@@ -111,12 +111,27 @@ def clip_pk_collapse(t):
               '_loc': (-0.1, -0.05, 0.13)})
     return keys(t, [(0.0, guard(0)), (0.1, rec), (0.42, kneel), (0.8, down), (1.0, down)])
 
+def _jog(t):
+    """hurried jog AWAY from the enemy (soldier faces his direction of travel): forward lean, spear sloped back over
+    the right shoulder (point high behind), shield arm loose and pumping"""
+    p = soldiers.legs(t, 34, 58, 0.05, 12)
+    p.update({'upper_arm.R': (22 + 6 * S(t), 0, -8), 'forearm.R': (122, 0, 0),
+              'upper_arm.L': (8 - 22 * S(t), 0, -10), 'forearm.L': (-34, 0, 0),
+              'hips': (0, 0, 8 * S(t)), 'chest': (-4, 0, -6 * S(t))})
+    return p
+
 def clip_pk_withdraw(t):
-    """back away from the enemy: guard upper body, reversed stepping, glance over the shoulder"""
-    p = soldiers.legs(1.0 - t, 20, 30, 0.025, -2)
-    p.update(SHIELD_UP)
-    p.update({'upper_arm.R': (18, 0, 14), 'forearm.R': (74, 0, 0), 'chest': (2, 0, -8 + 3 * S(t)),
-              'hips': (0, 0, -5 * S(t)), 'head': (0, 0, 30 * ss(abs(S(t, 0.1))) - 6)})
+    """retreat: forward-facing hurried jog (the renderer turns the soldier ~180 deg to his velocity first)"""
+    p = _jog(t)
+    p['head'] = (6, 0, 2 * S(t))
+    return p
+
+def clip_pk_withdraw_look(t):
+    """retreat jog, glancing back over the left shoulder mid-cycle (chest + neck twist, eased in and out)"""
+    p = _jog(t)
+    g = ss(min(1.0, max(0.0, (0.5 - abs(t - 0.5)) * 3.2)))   # 0 at the cycle ends, 1 through the middle
+    p['chest'] = (-4 + 4 * g, 0, -6 * S(t) * (1 - g) + 24 * g)
+    p['head'] = (6 - 10 * g, 8 * g, 2 * S(t) * (1 - g) + 62 * g)
     return p
 
 def clip_pk_flee(t):
@@ -131,7 +146,7 @@ COMBAT_CLIPS = [('pk_advance', 24, True, clip_pk_advance), ('pk_charge', 16, Tru
                 ('pk_guard', 48, True, clip_pk_guard), ('pk_thrust', 14, False, clip_pk_thrust),
                 ('pk_recover', 12, False, clip_pk_recover), ('pk_hit', 14, False, clip_pk_hit),
                 ('pk_collapse', 38, False, clip_pk_collapse), ('pk_withdraw', 24, True, clip_pk_withdraw),
-                ('pk_flee', 16, True, clip_pk_flee)]
+                ('pk_flee', 16, True, clip_pk_flee), ('pk_withdraw_look', 24, True, clip_pk_withdraw_look)]
 EVENTS = {'pk_thrust': {'contact': 0.56 * 13 / 24.0}}
 
 # ---------- baking ----------

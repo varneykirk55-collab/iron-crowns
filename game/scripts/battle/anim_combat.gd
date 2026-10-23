@@ -7,8 +7,8 @@ extends RefCounted
 ## (c19sr: mk_*). A model without those clips falls back to the legacy per-soldier loop untouched.
 ##  * 1300 spears: formation stops at a contact gap (no interpenetration), front two ranks run a per-soldier
 ##    guard -> thrust -> recover cycle (hash-desynced), neighbours of a casualty flinch (pk_hit), deaths alternate
-##    die / pk_collapse, a broken regiment holds for a staggered moment, backs away facing the enemy (pk_withdraw),
-##    then turns (rate limited) and runs (pk_flee); advance = pk_advance (no foot slide at 1.4 m/s), charge = pk_charge.
+##    die / pk_collapse, a broken regiment holds for a staggered moment, each soldier turns ~180 deg in 0.3-0.6 s and
+##    jogs away facing his velocity (pk_withdraw / pk_withdraw_look glance, some pk_flee), formation loosening, stragglers lag; advance = pk_advance (no foot slide at 1.4 m/s), charge = pk_charge.
 ##  * c19 muskets: front ranks bring the musket up (mk_aim) as the sim's fire cooldown runs out, each shot plays
 ##    mk_fire with the flash / smoke / ball spawned from the baked muzzle position at the shot frame, then mk_reload
 ##    (speed fitted to the unit's fire interval) and back to shoulder arms; march = mk_march.
@@ -64,6 +64,7 @@ static func _init_state(v: Dictionary) -> void:
 	var seen := PackedFloat32Array(); seen.resize(n); seen.fill(-1.0)
 	v["ac_act"] = a; v["ac_t"] = t; v["ac_next"] = nx; v["ac_hit"] = hit; v["ac_seen"] = seen
 	v["ac_shift"] = Vector2.ZERO; v["ac_rout_t"] = -1.0; v["ac_cyc"] = PackedInt32Array(); v["ac_cyc"].resize(n)
+	v["ac_turn"] = PackedFloat32Array(); v["ac_turn"].resize(n)
 	v["ac_shots"] = []
 
 static func _clip(bv, model: String, name: String) -> Vector2:
@@ -122,6 +123,7 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 	var clip: PackedInt32Array = v["clip"]; var clip_t: PackedFloat32Array = v["clip_t"]
 	var phase: PackedFloat32Array = v["phase"]; var dead: PackedFloat32Array = v["dead"]
 	var act: PackedInt32Array = v["ac_act"]; var act_t: PackedFloat32Array = v["ac_t"]; var nxt: PackedFloat32Array = v["ac_next"]
+	var turn: PackedFloat32Array = v["ac_turn"]
 	var hit_t: PackedFloat32Array = v["ac_hit"]; var seen: PackedFloat32Array = v["ac_seen"]; var cyc: PackedInt32Array = v["ac_cyc"]
 	var side: int = r["side"]
 	var sr: bool = bv.vat[model].has("sr")
@@ -166,22 +168,53 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 			var maxs := maxf(spd_base, 1.0) * 1.35 * dt
 			var face := facing
 			var hk := h(fi * 131.0 + float(k), 1.0)
-			if routing and kind == 1:
-				var hold := 0.15 + hk * 1.4
-				var back := 0.6 + h(float(k), fi + 7.0) * 0.8
-				if rt < hold:
+			if routing:
+				# real retreat: hold a staggered moment, turn ~180 deg (0.3-0.6 s), then jog/run away facing the
+				# direction of travel; formation loosens (lateral scatter, depth jitter), a few glance back, stragglers lag
+				var hs := h(float(k), fi + 31.0)
+				var straggler := hs < 0.12
+				var nranks := maxf(ceilf(float(n) / float(files)), 1.0)
+				var delay := 0.1 + h(float(k), fi + 7.0) * 0.6 + (1.0 - float(rank) / nranks) * 0.25   # rear ranks go first
+				if straggler:
+					delay += 0.6 + hs * 6.0
+				var turn_d := 0.3 + h(float(k), fi + 41.0) * 0.3
+				var away := -facing
+				var et := rt - delay   # time since this soldier started to turn
+				if et < 0.0:
 					face = toward if toward.length() > 0.5 else facing
-					cname = "pk_guard"; ct = -phase[k] * 2.0; cur = 12
-				elif rt < hold + back:
-					if dist > 0.001:
-						p += dv / dist * minf(dist, 1.05 * dt)
-					face = -dv.normalized() if dist > 0.3 else facing
-					cname = "pk_withdraw"; ct = float(v["ac_rout_t"]) + hold; cur = 17
+					cname = "pk_guard" if kind == 1 else "idle"; ct = -phase[k] * 2.0; cur = 12 if kind == 1 else 0
 				else:
-					if dist > 0.001:
-						p += dv / dist * minf(dist, maxs * 1.3)
-					face = dv.normalized() if dist > 0.5 else -facing
-					cname = "pk_flee"; ct = -phase[k]; spd = 1.0 + phase[k] * 0.15; cur = 18
+					var lat := Vector2(-away.y, away.x)
+					var loosen := clampf(et / 3.0, 0.0, 1.0)
+					var tgt_p := slot + lat * (h(float(k), fi + 51.0) - 0.5) * 3.2 * loosen \
+						+ away * (h(float(k), fi + 61.0) - 0.5) * 1.6 * loosen
+					if straggler:
+						tgt_p -= away * 2.8 * loosen
+					var dv2 := tgt_p - p
+					var d2v := dv2.length()
+					var jit := 0.9 + h(float(k), fi + 71.0) * 0.2
+					if straggler: jit *= 0.82
+					var ramp := clampf(et / turn_d, 0.0, 1.0)
+					var vmax := maxs * 1.3 * jit * (0.25 + 0.75 * ramp * ramp)
+					var p0 := p
+					if d2v > 0.001:
+						p += dv2 / d2v * minf(d2v, vmax)
+					var vel := (p - p0) / maxf(dt, 1e-4)
+					var sp := vel.length()
+					# heading: the flight direction (with a per-soldier bias so they turn both ways), then the velocity
+					face = away.rotated((h(float(k), fi + 81.0) - 0.5) * 0.5)
+					if et > turn_d and sp > 0.5:
+						face = vel / sp
+					var panic := h(float(k), fi + 91.0) > 0.72 and not straggler
+					if kind == 2:
+						cname = "run"; ct = -phase[k] * 3.0; spd = clampf(sp / 3.4, 0.6, 1.3); cur = 2
+					elif panic and et > turn_d:
+						cname = "pk_flee"; ct = -phase[k]; spd = clampf(sp / 3.4, 0.8, 1.35); cur = 18
+					else:
+						var look := h(float(k), fi + 101.0) < (0.45 if straggler else 0.18)
+						cname = "pk_withdraw_look" if look else "pk_withdraw"; cur = 19 if look else 17
+						ct = -phase[k]; spd = clampf(maxf(sp, 0.8) / 2.6, 0.55, 1.45)
+				turn[k] = PI / turn_d
 			else:
 				var moving := dist > 0.35
 				if dist > 0.001:
@@ -192,9 +225,7 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 					face = toward
 				var walk := moving and dist > 0.6
 				var spd_w := clampf(spd_base / 1.4, 0.6, 1.8) * (0.96 + 0.08 * hk)
-				if routing:   # muskets: legacy run, but turned smoothly (below)
-					cname = "run"; ct = -phase[k] * 3.0; spd = 1.0 + phase[k] * 0.15; cur = 2
-				elif walk:
+				if walk:
 					var run: bool = r["running"] or dist > 4.0
 					if kind == 1:
 						cname = "pk_charge" if run else "pk_advance"; cur = 11 if run else 10
@@ -252,7 +283,7 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 			# models face local -Z (VAT bake writes Blender (x, z, -y)); _put maps local -Z to -(sin a, cos a), so the
 			# heading that points the model's front along `face` is atan2(-x, -y). (The legacy loop uses atan2(x, y).)
 			var want := atan2(-face.x, -face.y)
-			yaw[k] = rotate_toward(yaw[k], want, TURN_RATE * dt * (1.6 if routing else 1.0))
+			yaw[k] = rotate_toward(yaw[k], want, (turn[k] if routing else TURN_RATE) * dt)
 		if hidden and dk < 0.0:
 			continue
 		var y: float = bv.h_at(p.x, p.y)

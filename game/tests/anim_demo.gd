@@ -74,6 +74,14 @@ func _cam() -> void:
 		var c2: Vector2 = r0["pos"] + r0["facing"] * (float(r0["depth"]) * 0.5)
 		bv.cam_target = Vector3(c2.x + 3.0, 0, c2.y)
 		bv.cam_dist = 13.0; bv.cam_pitch = -0.16; bv.cam_yaw = 2.35
+	if a.has("focus"):   # follow the rendered soldiers of one regiment (e.g. the routing one)
+		var pv: PackedVector2Array = bv.rv[int(a["focus"])]["pos"]
+		var m := Vector2.ZERO
+		for q in pv: m += q
+		m /= maxf(float(pv.size()), 1.0)
+		if cam_c == Vector2.ZERO: cam_c = m
+		cam_c = cam_c.lerp(m, 0.04)
+		bv.cam_target = Vector3(cam_c.x, 0, cam_c.y)
 	if a.has("cam"):
 		var cv: PackedStringArray = str(a["cam"]).split(",")
 		bv.cam_dist = float(cv[0]); bv.cam_pitch = float(cv[1]); bv.cam_yaw = float(cv[2])
