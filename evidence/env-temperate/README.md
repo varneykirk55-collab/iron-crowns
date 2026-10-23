@@ -1,6 +1,6 @@
 # Evidence: env/temperate (deciduous / mixed temperate forest, prairie, Rockies)
 
-This branch is built on `env/biome-framework` and contains `main` at e7964f8 (v0.5.0 plus the merged framework, tropical and east_asia regions). It uses the Scandinavian build as its design language and quality bar. It keeps the same tiled MultiMesh scatter, LOD and quality tiers, engagement-corridor rules and ground shader. The species, understorey, ground palette and seasonal light are new and temperate. Nordic models are reused only where the species is genuinely shared (spruce / pine in the Rockies and Cascades, Scots pine in Europe, granite in the Rockies, reeds on shores), and are re-tinted.
+This branch is built on `env/biome-framework` and contains `main` at 77306f4 (v0.5.0, the merged framework / tropical / east_asia regions, and combat animations v1 on by default). It uses the Scandinavian build as its design language and quality bar. It keeps the same tiled MultiMesh scatter, LOD and quality tiers, engagement-corridor rules and ground shader. The species, understorey, ground palette and seasonal light are new and temperate. Nordic models are reused only where the species is genuinely shared (spruce / pine in the Rockies and Cascades, Scots pine in Europe, granite in the Rockies, reeds on shores), and are re-tinted.
 
 ## Look (driven by province data, see `game/scripts/battle/biomes/temperate.gd`)
 - **Which provinces:** eastern / midwestern North America, Atlantic and central Europe below 57 N, New Zealand and the other mid-latitude provinces that are not boreal, steppe, mediterranean or east_asia.
@@ -23,15 +23,15 @@ This branch is built on `env/biome-framework` and contains `main` at e7964f8 (v0
 - `battle_result/`: the `BATTLERESULT` line from the video run and from a legacy `--env=0` run on the same code, plus `sim_hash.txt`.
 - `tests/`: test_runner, test_audio and test_env results after merging main.
 - `ASSETS.md`: provenance (all procedural and original) with triangle counts.
-- **Video** (not in git): VIDEOLINE
+- **Video** (not in git): `/workspace/ic_env_temperate/out/video/env-temperate-battle.mp4`, 18.2 MB, H.264 1600x900 at 30 fps, 39.9 s. The 1914 demo battle (USA vs Canada) dressed as New York (prov 64) in **winter**: dormant brown hardwoods, green white pines, faded grass, low cold sun. Recorded on e1e1643 (before the 77306f4 main merge).
 
 ## Method
 All evidence runs use the 1914 demo battle (`--demo=battle --year=1914 --nation=USA`) with `--env-prov=<id>`, so cameras, units and battle time match between before and after. The compares are summer (`--env-season=summer`); the battle video is winter (`--env-season=winter`).
 
 ## Combat / sim untouched
-RESULTLINE
-- sim_hash is identical to `main` 644174c / e7964f8: SWE 1800 `0b3153c6f9fb7c454686cb49f19cb866`, USA 1914 `a9beef573f5922b7eb83ba8f2beb5e63`, JPN 1500 `563be302cdf34e56b4a33a873230ebf1`.
-- test_runner, test_audio and test_env all pass after merging main (`tests/`).
+- `BATTLERESULT` from the video run (env on, winter) is **byte-identical** to a legacy `--env=0` run on the same code: md5 `a030d0a0572cd9bc24b790d159537bf9` (`battle_result/`). Re-checked after merging main 77306f4: POST77LINE
+- sim_hash after merging main 77306f4 is identical to main 77306f4: SWE 1800 `0b3153c6f9fb7c454686cb49f19cb866`, USA 1914 `a9beef573f5922b7eb83ba8f2beb5e63`, JPN 1500 `563be302cdf34e56b4a33a873230ebf1`.
+- test_runner, test_audio and test_env all pass after merging main 77306f4 (`tests/`).
 - No morale, pathfinding, combat, soldier-model or rules files are touched. The only code change is the new `biomes/temperate.gd` (plus the procedural models and their Blender script).
 
 ## Perf reading
