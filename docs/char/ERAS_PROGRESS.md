@@ -40,4 +40,4 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
   red turnbacks w/ blue grenades, blue breeches + waistcoat via kit pal, short black gaiters, red epaulettes, 1806 bell-top
   shako w/ lozenge plate + crossed cannons, red cords + plume), sabre-briquet crossbelt, small pouch, rammer / sponge (TIP (0,1.70,0)).
   Clip needs in docs/char/ROB_CLIP_REQUESTS.md.
-- 17:13 EDT pushed proto/eras-v3 at 9076875 (tests 163/163, outcome 553cc500..., SWE1800/USA1914/JPN1500 sim hashes = main). Next: kit 3 hussar.
+- 17:10 EDT pushed proto/eras-v3 at 9076875 (tests 163/163, outcome 553cc500..., SWE1800/USA1914/JPN1500 sim hashes = main). Next: kit 3 hussar.
