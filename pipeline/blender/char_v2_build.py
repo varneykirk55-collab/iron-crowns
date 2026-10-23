@@ -17,16 +17,19 @@ import char_rig as R
 import char_body as B
 import char_v2 as C
 import char_build as CB
+import importlib
+KIT_MOD = os.environ.get('V3_KIT', '')   # eras v3 (docs/char/ERAS_PROGRESS.md): kit module patches char_v2 (garments / gear / slots)
+if KIT_MOD: importlib.import_module(KIT_MOD)
 
-KID = 'c19v2_line'
+KID = getattr(C, 'KID', 'c19v2_line')
 TEX = int(os.environ.get('V2_TEX', '2048'))
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-OUTP = os.path.join(ROOT, 'out', 'proto', 'bake')
+OUTP = os.path.join(ROOT, 'out', 'proto', 'bake') if KID == 'c19v2_line' else os.path.join(ROOT, 'out', 'eras_v3', 'bake', KID)
 LO_VOXEL = float(os.environ.get('V2_LO_VOXEL', '0.013'))
 BODY_TRIS = int(os.environ.get('V2_BODY_TRIS', '5200'))   # LOD0 budget raised to ~8-12k (Kirk, 12:33 EDT)
 MID_TRIS = int(os.environ.get('V2_MID_TRIS', '2000'))
 FAR_TRIS = int(os.environ.get('V2_FAR_TRIS', '700'))
-TIP_LOCAL = (0.02, 1.52, -0.006)    # bayonet tip in prop-local coordinates (char_body.build_musket / char_v2.musket)
+TIP_LOCAL = getattr(C, 'TIP_LOCAL', (0.02, 1.52, -0.006))    # bayonet tip in prop-local coordinates (char_body.build_musket / char_v2.musket)
 DEFORM = [b[0] for b in R.BONES if b[0] not in ('root', 'prop')]
 
 def log(*a):
@@ -119,7 +122,7 @@ RULES = [  # object-name prefix -> weight rule ('own': MakeHuman weights mapped 
     (('cart', 'scab', 'hilt'), 'hips'), (('tail',), 'tail'), (('belt', 'collar'), 'transfer')]
 
 def rule_for(name):
-    for pre, r in RULES:
+    for pre, r in getattr(C, 'KIT_RULES', []) + RULES:
         if name.split('.')[0] in pre or any(name.startswith(p) for p in pre):
             return r
     raise KeyError(name)
@@ -536,7 +539,7 @@ def bake_vat(o, rig, lod, extra):
         tips = []
         for f in range(nf):
             t = f / nf if loop else f / max(1, nf - 1)
-            p = A.solve(fn(t, 'musket')); worst = max(worst, p.reach)
+            p = A.solve(fn(t, getattr(C, 'CLIP_STYLE', 'musket'))); worst = max(worst, p.reach)
             CB.apply(rig, p)
             bpy.context.view_layer.update()
             ev = o.evaluated_get(bpy.context.evaluated_depsgraph_get()); me = ev.to_mesh()
