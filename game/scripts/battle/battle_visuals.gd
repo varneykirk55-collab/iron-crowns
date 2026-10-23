@@ -3,7 +3,7 @@
 ##
 ## Intended integration (lead dev): at the end of BattleView.setup() call
 ##     preload("res://scripts/battle/battle_visuals.gd").apply(self)
-## and optionally once at startup:  preload(...).apply_viewport(get_viewport())
+## and from the game's quality setting:  preload(...).apply_quality(q)   # 0 low, 1 medium, 2 high (any order)
 ##
 ## Debug-only: when instanced as a Node under main.gd with --perflog / --bench / --vispass on the command line,
 ## it applies the pass to the live BattleView (if --vispass=1), logs frame times and render stats, and
@@ -14,25 +14,69 @@ const VERSION := 1   # 0 = measurement only (baseline); 1 = c19 visual pass
 const ERAS := ["c19"]  # scope of the pass until review; other eras keep the legacy look untouched
 
 # ------------------------------------------------------------------ static API
-## Rendering-only tweaks for a freshly set-up BattleView. Touches environment, sun, materials, nothing else.
-static func apply(bv: Node) -> void:
-	if not (str(bv.get("era_id")) in ERAS):
-		return
-	_apply_environment(bv.get("environment"), bv.get("sun"))
-	_apply_materials(bv)
+## Quality presets (rendering only). q = 0 low, 1 medium (= shipped defaults), 2 high.
+## Applies to every era (MSAA / shadows / LOD / effects are cost knobs, not part of the c19 look).
+const QUALITY := [
+	{"name": "low", "msaa": Viewport.MSAA_DISABLED, "shadows": false, "shadow_dist": 260.0, "atlas": 2048,
+		"soft": RenderingServer.SHADOW_QUALITY_HARD, "lod": 45.0, "glow": false, "aniso": Viewport.ANISOTROPY_2X},
+	{"name": "medium", "msaa": Viewport.MSAA_2X, "shadows": true, "shadow_dist": 260.0, "atlas": 4096,
+		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 75.0, "glow": true, "aniso": Viewport.ANISOTROPY_4X},
+	{"name": "high", "msaa": Viewport.MSAA_4X, "shadows": true, "shadow_dist": 300.0, "atlas": 4096,
+		"soft": RenderingServer.SHADOW_QUALITY_SOFT_LOW, "lod": 120.0, "glow": true, "aniso": Viewport.ANISOTROPY_8X},
+]
+static var _quality := 1          # medium until apply_quality() is called
+static var _bv_ref: WeakRef = null # last BattleView passed to apply(); weak so a freed battle is simply skipped
 
-## Viewport sharpness: 4x MSAA, no FXAA/TAA, native 3D scale, higher anisotropy. (Project-setting equivalents
-## are listed as a request in out/INTEGRATION.md; this runtime version is what the previews use.)
+## Rendering-only tweaks for a freshly set-up BattleView. Touches environment, sun, materials, LOD distance,
+## nothing else. Idempotent; may be called before or after apply_quality().
+static func apply(bv: Node) -> void:
+	if bv == null:
+		return
+	_bv_ref = weakref(bv)
+	if str(bv.get("era_id")) in ERAS:
+		_apply_environment(bv.get("environment"), bv.get("sun"))
+		_apply_materials(bv)
+	_apply_scene_quality(bv)
+
+## Store the quality level and apply it now to the root viewport and (if one was passed to apply() and is
+## still alive) the current BattleView. Idempotent and order-independent with apply().
+static func apply_quality(q: int) -> void:
+	_quality = clampi(q, 0, QUALITY.size() - 1)
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree != null and tree.root != null:
+		apply_viewport(tree.root)
+	var bv: Node = _bv_ref.get_ref() if _bv_ref != null else null
+	if bv != null and is_instance_valid(bv) and bv.is_inside_tree():
+		_apply_scene_quality(bv)
+
+static func get_quality() -> int:
+	return _quality
+
+## Viewport part of the current quality level: MSAA, anisotropy, shadow atlas; never FXAA/TAA, native 3D scale.
 static func apply_viewport(vp: Viewport) -> void:
 	if vp == null:
 		return
-	vp.msaa_3d = Viewport.MSAA_4X
+	var Q: Dictionary = QUALITY[_quality]
+	vp.msaa_3d = Q["msaa"]
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	vp.use_taa = false
 	vp.scaling_3d_scale = 1.0
-	vp.anisotropic_filtering_level = Viewport.ANISOTROPY_8X
-	RenderingServer.directional_shadow_atlas_set_size(4096, true)
-	RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_LOW)
+	vp.anisotropic_filtering_level = Q["aniso"]
+	RenderingServer.directional_shadow_atlas_set_size(Q["atlas"], true)
+	RenderingServer.directional_soft_shadow_filter_set_quality(Q["soft"])
+
+## Scene part of the current quality level: sun shadows + distance, LOD switch distance, glow.
+static func _apply_scene_quality(bv: Node) -> void:
+	var Q: Dictionary = QUALITY[_quality]
+	var sun = bv.get("sun")
+	if sun is DirectionalLight3D:
+		sun.shadow_enabled = Q["shadows"]
+		sun.directional_shadow_max_distance = Q["shadow_dist"]
+	var env = bv.get("environment")
+	if env is Environment:
+		env.glow_enabled = Q["glow"] and not ("--noglow" in OS.get_cmdline_user_args())
+	if "LOD_DIST" in bv:
+		bv.set("LOD_DIST", Q["lod"])
 
 static func _apply_environment(env: Environment, sun: DirectionalLight3D) -> void:
 	if env != null:
@@ -45,11 +89,13 @@ static func _apply_environment(env: Environment, sun: DirectionalLight3D) -> voi
 			sm.ground_horizon_color = Color(0.62, 0.66, 0.66)
 			sm.ground_bottom_color = Color(0.22, 0.23, 0.19)   # earthy bounce light from below
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-		env.ambient_light_energy = 0.62         # was 0.75: the main cause of the washed-out, low-contrast figures
+		env.ambient_light_energy = 0.75         # legacy value (0.62 measured as no visible change under GL Compatibility)
 		env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-		env.tonemap_mode = Environment.TONE_MAPPER_ACES
-		env.tonemap_exposure = 1.12
-		env.tonemap_white = 6.0
+		# readability pass: FILMIC (as legacy) instead of ACES. ACES (exp 1.12, white 6) crushed the dark blue coats
+		# and black kit towards black and over-saturated mid-tones; contrast now comes from the adjustment below.
+		env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+		env.tonemap_exposure = 1.08
+		env.tonemap_white = 1.0
 		env.fog_light_color = Color(0.68, 0.72, 0.78)
 		env.fog_density = 0.00045                # a touch more aerial perspective to separate distant lines
 		env.fog_sky_affect = 0.3
@@ -58,15 +104,13 @@ static func _apply_environment(env: Environment, sun: DirectionalLight3D) -> voi
 		env.glow_bloom = 0.0
 		env.glow_hdr_threshold = 1.1
 		env.adjustment_enabled = true
-		env.adjustment_contrast = 1.04
+		env.adjustment_contrast = 1.08
 		env.adjustment_saturation = 1.0
 	if sun != null:
 		sun.rotation_degrees = Vector3(-36, 35, 0)
-		sun.light_energy = 1.75
+		sun.light_energy = 1.45                  # was 1.75: lower key/fill ratio so the shaded (camera-facing) backs read
 		sun.light_color = Color(1.0, 0.95, 0.86)
-		sun.shadow_enabled = true
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL   # one pass; the 4096 atlas does the sharpening
-		sun.directional_shadow_max_distance = 260.0
 		sun.shadow_bias = 0.1
 		sun.shadow_normal_bias = 1.8
 		sun.shadow_blur = 0.5
@@ -119,9 +163,11 @@ static func _apply_materials(bv: Node) -> void:
 			mat.set_shader_parameter("vis_pass", 1.0)
 		elif path.ends_with("team_prop.gdshader") and str(key).begins_with("P"):
 			# battle props share WorldMap.team_material's cached instance with the overworld: duplicate first
-			var m2 := mat.duplicate() as ShaderMaterial
-			m2.set_shader_parameter("vis_pass", 1.0)
-			mmi.material_override = m2
+			if not mat.has_meta("vis_dup"):   # idempotent: duplicate only once
+				mat = mat.duplicate() as ShaderMaterial
+				mat.set_meta("vis_dup", true)
+				mmi.material_override = mat
+			mat.set_shader_parameter("vis_pass", 1.0)
 	for n in bv.find_children("*", "MeshInstance3D", true, false):
 		var gm := (n as MeshInstance3D).material_override as ShaderMaterial
 		if gm != null and gm.shader != null and gm.shader.resource_path.ends_with("ground.gdshader"):
@@ -167,6 +213,33 @@ func _ready() -> void:
 	process_priority = 1000   # run after main.gd and BattleView each frame
 	t_prev = Time.get_ticks_usec()
 
+## Debug-only look ablation: --vx-<shader uniform>=v (vat + battle team_prop materials), --vx-tonemap=filmic|aces,
+## --vx-exposure / --vx-white / --vx-ambient / --vx-sun / --vx-shadow-opacity.
+func _debug_overrides(bv: Node) -> void:
+	var env: Environment = bv.get("environment")
+	var sun: DirectionalLight3D = bv.get("sun")
+	for k in args.keys():
+		if not str(k).begins_with("vx-"):
+			continue
+		var n := str(k).substr(3)
+		var v := float(args[k])
+		match n:
+			"tonemap": env.tonemap_mode = {"filmic": Environment.TONE_MAPPER_FILMIC, "agx": Environment.TONE_MAPPER_AGX, "linear": Environment.TONE_MAPPER_LINEAR}.get(args[k], Environment.TONE_MAPPER_ACES)
+			"contrast": env.adjustment_contrast = v
+			"saturation": env.adjustment_saturation = v
+			"exposure": env.tonemap_exposure = v
+			"white": env.tonemap_white = v
+			"ambient": env.ambient_light_energy = v
+			"sun": sun.light_energy = v
+			"shadow-opacity": sun.shadow_opacity = v
+			_:
+				var mms: Dictionary = bv.get("mms")
+				for key in mms.keys():
+					var mat := (mms[key]["mmi"] as MultiMeshInstance3D).material_override as ShaderMaterial
+					if mat != null and mat.shader != null and (mat.shader.resource_path.ends_with("vat.gdshader") or str(key).begins_with("P")):
+						mat.set_shader_parameter(n, v)
+		print("VX ", n, "=", args[k])
+
 func _bv() -> Node:
 	var p := get_parent()
 	if p == null or not ("battle_view" in p):
@@ -189,9 +262,15 @@ func _process(_delta: float) -> void:
 	if not applied:
 		applied = true
 		if args.get("vispass", "0") == "1":
-			apply(bv)
-			apply_viewport(get_viewport())
-			print("VISPASS applied v", VERSION)
+			var q := int(args.get("quality", "2"))   # previews default to high (matches earlier 4x-MSAA previews)
+			if args.get("quality-order", "") == "first":
+				apply_quality(q); apply(bv)
+			else:
+				apply(bv); apply_quality(q)
+			if args.has("apply-twice"):
+				apply(bv); apply_quality(q)
+			print("VISPASS applied v", VERSION, " quality=", q, " lod=", bv.get("LOD_DIST"), " msaa=", get_viewport().msaa_3d)
+			_debug_overrides(bv)
 		if args.has("msaa"):   # debug override for perf attribution: --msaa=0|2|4|8
 			get_viewport().msaa_3d = {"0": Viewport.MSAA_DISABLED, "2": Viewport.MSAA_2X, "4": Viewport.MSAA_4X, "8": Viewport.MSAA_8X}.get(args["msaa"], get_viewport().msaa_3d)
 	var vp := get_viewport()
@@ -258,8 +337,8 @@ func _hold(bv: Node, vi: int) -> void:
 func _report(data: Dictionary) -> void:
 	var lines: Array = []
 	var vp := get_viewport()
-	lines.append("# perf log  renderer=%s  adapter=%s  size=%s  msaa=%d  scale=%.2f  version=%d" % [
-		RenderingServer.get_current_rendering_method(), RenderingServer.get_video_adapter_name(), str(vp.get_visible_rect().size), vp.msaa_3d, vp.scaling_3d_scale, VERSION])
+	lines.append("# perf log  renderer=%s  adapter=%s  size=%s  msaa=%d  scale=%.2f  version=%d  quality=%d" % [
+		RenderingServer.get_current_rendering_method(), RenderingServer.get_video_adapter_name(), str(vp.get_visible_rect().size), vp.msaa_3d, vp.scaling_3d_scale, VERSION, _quality])
 	lines.append("view,frames,mean_ms,median_ms,p95_ms,fps_mean,primitives,draw_calls,objects")
 	for k in data.keys():
 		var arr: Array = data[k]

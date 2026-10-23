@@ -7,10 +7,11 @@ from common import hexc, MeshBuilder, MAT_WOOL, MAT_LEATHER, MAT_STEEL, MAT_BRAS
 
 TEAM = (1, 1, 1, 1.0)           # full team tint (coat / dolman)
 TEAM_FACING = (0.5, 0.5, 0.5, 1.0)  # darker team shade for collar / cuffs / pelisse
+# readability pass: KNAPSACK was 6a4a30, FELT 1b1b20, WOOL_WHITE dcd6c6 (read as black blobs from behind at battle distance)
 SKIN = hexc('d9a988'); HAIR = hexc('3a2a1e')
-WOOL_WHITE = hexc('dcd6c6'); PIPECLAY = hexc('efede6'); BLACK_LEATHER = hexc('1e1a18'); FELT = hexc('1b1b20')
+WOOL_WHITE = hexc('e8e4d8'); PIPECLAY = hexc('efede6'); BLACK_LEATHER = hexc('1e1a18'); FELT = hexc('2a2a31')
 BRASS = hexc('c09a45'); GOLD_LACE = hexc('d6b45c'); STEEL = hexc('aab1b8'); IRON = hexc('3a3d42')
-WALNUT = hexc('6b4426'); KNAPSACK = hexc('6a4a30'); BLANKET = hexc('8a8d90'); SHEEPSKIN = hexc('e4ded2')
+WALNUT = hexc('6b4426'); KNAPSACK = hexc('8e6e4c'); BLANKET = hexc('8a8d90'); SHEEPSKIN = hexc('e4ded2')
 
 # ------------------------------------------------------------------ infantry (rig = soldiers.BONES)
 def line_infantry(name, groups, detail):
@@ -20,7 +21,7 @@ def line_infantry(name, groups, detail):
     for side, x in (('R', 0.09), ('L', -0.09)):
         b.box((0.13, 0.15, 0.44), (x, 0, 0.74), WOOL_WHITE, 'thigh.' + side, taper=1.1, mat=MAT_WOOL)
         b.box((0.11, 0.13, 0.17), (x, 0, 0.405), WOOL_WHITE, 'shin.' + side, taper=1.1, mat=MAT_WOOL)
-        b.box((0.118, 0.138, 0.24), (x, 0, 0.2), BLACK_LEATHER, 'shin.' + side, taper=1.08, mat=MAT_LEATHER)
+        b.box((0.118, 0.138, 0.17), (x, 0, 0.165), BLACK_LEATHER, 'shin.' + side, taper=1.08, mat=MAT_LEATHER)  # short gaiters (were 0.24 tall)
         b.box((0.11, 0.24, 0.09), (x, 0.04, 0.05), BLACK_LEATHER, 'shin.' + side, mat=MAT_LEATHER)
     # torso: short-tailed coatee (team colour)
     b.box((0.34, 0.2, 0.24), (0, 0, 1.1), TEAM, 'spine', taper=1.12, mat=MAT_WOOL)
@@ -31,8 +32,12 @@ def line_infantry(name, groups, detail):
     # pipeclayed crossbelts (read at distance -> both LODs)
     b.box((0.065, 0.245, 0.52), (0.0, 0.0, 1.25), PIPECLAY, 'chest', rot=(0, 30, 0), mat=MAT_PIPECLAY)
     b.box((0.065, 0.245, 0.52), (0.0, 0.0, 1.25), PIPECLAY, 'chest', rot=(0, -30, 0), mat=MAT_PIPECLAY)
-    # knapsack
-    b.box((0.3, 0.12, 0.3), (0, -0.17, 1.31), KNAPSACK, 'chest', mat=MAT_LEATHER)
+    # knapsack: smaller + lower than before so the back still reads team colour; white pipeclay straps over it
+    # (cameras mostly see the line from behind -> the white X / straps must read from the back too)
+    b.box((0.26, 0.1, 0.22), (0, -0.165, 1.24), KNAPSACK, 'chest', mat=MAT_LEATHER)
+    for x in (0.085, -0.085):
+        b.box((0.045, 0.02, 0.4), (x, -0.222, 1.3), PIPECLAY, 'chest', mat=MAT_PIPECLAY)   # knapsack shoulder straps
+    b.box((0.26, 0.02, 0.035), (0, -0.222, 1.42), PIPECLAY, 'chest', mat=MAT_PIPECLAY)      # breast/cross strap
     if detail:
         b.box((0.06, 0.02, 0.06), (0, 0.126, 1.27), BRASS, 'chest', mat=MAT_BRASS)          # belt plate
         b.box((0.08, 0.046, 0.22), (0, -0.112, 0.89), PIPECLAY, 'hips', mat=MAT_PIPECLAY)     # turnbacks
