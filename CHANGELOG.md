@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased (`audio` branch): music and military audio system
+### Added
+- **Audio system** (`game/scripts/audio/audio_manager.gd`, autoload `Audio`):
+  - Five buses: Master with a limiter; Music (default 0.6, battle track -3 dB trim); SFX (default 0.85) with a gentle compressor (-8 dB, 2.5:1) and limiter; Ambience and UI routed into SFX.
+  - Music moods with equal-power crossfades: campaign, tension (war or diplomacy) and battle. Stings for victory, defeat, war declared and new era, which duck the music.
+  - Positional battle SFX driven read-only by BattleSim events, with era-correct weapons, per-category voice caps, density gain, distant variants, and ambience, march, melee and engine beds.
+  - UI feedback sounds.
+  - Music and SFX sliders in Settings, saved to `user://audio.cfg`.
+  - `--audio=off` switch, and a synthesized fallback if a file is missing.
+- **75 original procedural audio assets** (6.25 MiB Ogg Vorbis, 543 s) plus their generator `pipeline/audio/`, which is deterministic and byte-reproducible. QA lives in `analyze_audio.py`, and `make_preview.py` builds the preview mix. No samples and no AI audio were used. See `AUDIO_LICENSES.md`.
+- `game/tests/test_audio.tscn`: 28 checks, including battle SFX vs music balance (SFX p90 must be at least 6 dB above the music median).
+### Changed (minimal touches to lead-owned files)
+- `game/project.godot`: `Audio` autoload added after `Controls`, plus `[audio] buses/default_bus_layout`.
+- `game/scripts/ui/hud.gd`: one line in `build_settings()` adds the audio sliders.
+### Verified
+- test_audio 28/28; full suite 135/135 on both the baseline (fa2081b) and this branch.
+- Sim hashes unchanged: SWE1800 e79839ca…, USA1914 45cf5510…, JPN1500 9bb2394d….
+- Battle outcome identical with audio on and off.
+### Not verified
+- No human listening test (no subjective quality check).
+- Exported builds not run with audio.
+
 ## v0.2.1 — 2026-10-22 (BJORN's c19 graphics pass merged)
 ### Added
 - **c19 graphics pass** by BJORN (`game/scripts/battle/battle_visuals.gd`, visual-pass 116c310, final handoff): new 1800s line infantry
