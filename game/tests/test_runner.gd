@@ -39,6 +39,8 @@ func _run() -> void:
 		test_save_load()
 	if only == "" or only == "camera":
 		test_camera_determinism()
+	if only == "" or only == "camera" or only == "visuals":
+		test_visuals_hook()
 	if only == "" or only == "controls":
 		await test_controls()
 	if only == "" or only == "eras":
@@ -407,10 +409,10 @@ func test_save_load() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Sim.save_path("test_slot")))
 
 # ---------------------------------------------------------------- battle camera never affects the sim
-func _cam_battle_setup() -> int:
+func _cam_battle_setup(year: int = 1800) -> int:
 	Sim.auto_deploy = false
 	Sim.auto_respond_player = "decline"
-	Sim.new_game("SWE", 1800, 11)
+	Sim.new_game("SWE", year, 11)
 	var tgt := ""
 	for o in Sim.neighbors_of("SWE"):
 		if Sim.can_declare_war("SWE", o)["ok"]:
@@ -832,6 +834,44 @@ func test_era_battles() -> void:
 				if u["era"] != e2: ok_n = false
 			info.append("%d:%s" % [y, a["units"][0]["type"] if not a.is_empty() and a["units"].size() > 0 else "-"])
 		check("%s: starting armies use the start era's units in every era" % code, ok_n, ", ".join(info))
+
+# ---------------------------------------------------------------- graphics pass integration (BJORN's battle_visuals.gd)
+func _bv_look(bv: BattleView) -> Array:
+	return [bv.environment.tonemap_mode, snappedf(bv.environment.tonemap_exposure, 0.001), snappedf(bv.environment.ambient_light_energy, 0.001),
+		snappedf(bv.sun.light_energy, 0.001), bv.sun.shadow_enabled]
+
+func test_visuals_hook() -> void:
+	print("== Graphics pass hook ==")
+	var q0: int = Controls.quality
+	Controls.quality = 1
+	var legacy := [Environment.TONE_MAPPER_FILMIC, 1.0, 0.75, 1.25, true]   # BattleView._build_env defaults
+	var looks := {}
+	for y in [1300, 1800]:
+		var bid := _cam_battle_setup(y)
+		var bv := BattleView.new()
+		add_child(bv)
+		bv.setup(bid)
+		var look := _bv_look(bv)
+		BattleView.BattleVisuals.apply(bv)   # idempotent by contract
+		looks[bv.era_id] = [look, _bv_look(bv)]
+		if bv.era_id == "c19":
+			# Controls.quality -> BattleView.apply_quality() -> battle_visuals.apply_quality(q) (INTEGRATION.md 3b)
+			var got := []
+			for q in [0, 1, 2]:
+				Controls.quality = q; bv.apply_quality()
+				got.append([get_viewport().msaa_3d, bv.sun.shadow_enabled, snappedf(bv.sun.directional_shadow_max_distance, 1.0), snappedf(bv.LOD_DIST, 1.0)])
+			Controls.quality = 1; bv.apply_quality()
+			var want := [[Viewport.MSAA_DISABLED, false, 260.0, 45.0], [Viewport.MSAA_2X, true, 260.0, 75.0], [Viewport.MSAA_4X, true, 300.0, 120.0]]
+			check("visuals: quality q0/q1/q2 forwards to battle_visuals (MSAA off/2x/4x, shadows off/on/on 300 m, LOD 45/75/120) %s" % str(got),
+				got == want and BattleView.BattleVisuals.get_quality() == 1 and get_viewport().msaa_3d == Viewport.MSAA_2X, str(got))
+		remove_child(bv)
+		bv.free()
+	check("visuals: c19 battle gets the graphics pass at setup (look differs from legacy) %s" % str(looks.get("c19", [[]])[0]),
+		looks.has("c19") and looks["c19"][0] != legacy, str(looks))
+	check("visuals: apply() is idempotent on a set-up c19 battle", looks.has("c19") and looks["c19"][0] == looks["c19"][1], str(looks))
+	check("visuals: eras outside the pass keep the legacy look (medieval %s)" % str(looks.get("medieval", [[]])[0]),
+		looks.has("medieval") and looks["medieval"][0] == legacy and looks["medieval"][1] == legacy, str(looks))
+	Controls.quality = q0
 
 # ---------------------------------------------------------------- scripted gameplay (Task 7)
 func test_gameplay_script() -> void:

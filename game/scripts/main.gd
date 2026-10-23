@@ -273,11 +273,12 @@ func _unhandled_input(ev: InputEvent) -> void:
 		elif ev.button_index == MOUSE_BUTTON_RIGHT:
 			world_command(ev.position)
 
-## Quality setting: Medium = shipped defaults. Low drops MSAA (battle view also drops sun shadows + shorter LOD),
-## High = 4x MSAA + longer full-detail LOD distance in battles.
+## Quality setting (Controls.quality, saved in config): 0 low / 1 medium (shipped default) / 2 high.
+## Values per level live in battle_visuals.QUALITY: low = no MSAA, no sun shadows, LOD 45 m, no glow;
+## medium = 2x MSAA, shadows 260 m, LOD 75 m; high = 4x MSAA, shadows 300 m, LOD 120 m.
 func apply_quality() -> void:
 	var q: int = Controls.quality
-	get_viewport().msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][q]
+	BattleView.BattleVisuals.apply_quality(q)   # graphics pass owns MSAA/shadows/LOD/glow/aniso per level
 
 ## Where gamepad/keyboard "select"/"move here" act: the pad cursor when the gamepad is in use, else the mouse.
 func pointer_pos() -> Vector2:

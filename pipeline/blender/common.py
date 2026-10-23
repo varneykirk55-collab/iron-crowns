@@ -1,6 +1,8 @@
 """Shared helpers for the Blender asset pipeline (run headless: blender -b --python <script>).
 All geometry is built procedurally from primitives -> original low-poly stylised assets.
-Vertex colour RGBA: rgb = base colour, alpha = team-colour blend amount (tinted in Godot shader)."""
+Vertex colour RGBA: rgb = base colour, alpha = team-colour blend amount (tinted in Godot shader).
+Material class (visual pass c19): optional per-part `mat` id, exported in UVMap.v = mat / 16 (Godot sees 1 - v).
+mat 0 = legacy default, so assets built without `mat` export exactly as before. See MAT_* ids below."""
 import bpy, bmesh, math, os, json, struct
 from mathutils import Matrix, Vector, Euler
 
@@ -14,6 +16,9 @@ def hexc(h, a=0.0):
     h = h.lstrip('#')
     return (int(h[0:2], 16) / 255, int(h[2:4], 16) / 255, int(h[4:6], 16) / 255, a)
 
+# material classes decoded by game/shaders/vat.gdshader + team_prop.gdshader (keep in sync)
+MAT_DEFAULT, MAT_WOOL, MAT_LEATHER, MAT_STEEL, MAT_BRASS, MAT_SKIN, MAT_WOOD, MAT_PIPECLAY, MAT_HIDE, MAT_FUR, MAT_IRON, MAT_HAIR = range(12)
+
 def reset_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -25,13 +30,15 @@ class MeshBuilder:
         self.col = self.bm.loops.layers.color.new('Col')
         self.deform = self.bm.verts.layers.deform.verify()
         self.groups = list(groups)
+        self.mat_layer = self.bm.faces.layers.int.new('mat')
 
-    def _finish(self, verts, color, bone):
+    def _finish(self, verts, color, bone, mat=0):
         faces = set()
         for v in verts:
             for f in v.link_faces:
                 faces.add(f)
         for f in faces:
+            f[self.mat_layer] = mat
             for l in f.loops:
                 l[self.col] = color
         if bone is not None:
@@ -40,7 +47,7 @@ class MeshBuilder:
                 v[self.deform][gi] = 1.0
         return verts
 
-    def box(self, size, loc, color, bone=None, rot=(0, 0, 0), taper=1.0):
+    def box(self, size, loc, color, bone=None, rot=(0, 0, 0), taper=1.0, mat=0):
         m = Matrix.Translation(Vector(loc)) @ Euler([math.radians(r) for r in rot]).to_matrix().to_4x4() @ Matrix.Diagonal((size[0], size[1], size[2], 1))
         r = bmesh.ops.create_cube(self.bm, size=1.0, matrix=m)
         verts = r['verts']
@@ -51,20 +58,21 @@ class MeshBuilder:
                 if local.z > 0:
                     local.x *= taper; local.y *= taper
                     v.co = m @ local
-        return self._finish(verts, color, bone)
+        return self._finish(verts, color, bone, mat)
 
-    def cyl(self, r1, r2, depth, loc, color, bone=None, rot=(0, 0, 0), segs=8):
+    def cyl(self, r1, r2, depth, loc, color, bone=None, rot=(0, 0, 0), segs=8, mat=0):
         m = Matrix.Translation(Vector(loc)) @ Euler([math.radians(a) for a in rot]).to_matrix().to_4x4()
         res = bmesh.ops.create_cone(self.bm, cap_ends=True, cap_tris=False, segments=segs, radius1=r1, radius2=r2, depth=depth, matrix=m)
-        return self._finish(res['verts'], color, bone)
+        return self._finish(res['verts'], color, bone, mat)
 
-    def sphere(self, r, loc, color, bone=None, segs=8, rings=5, scale=(1, 1, 1)):
+    def sphere(self, r, loc, color, bone=None, segs=8, rings=5, scale=(1, 1, 1), mat=0):
         m = Matrix.Translation(Vector(loc)) @ Matrix.Diagonal((scale[0], scale[1], scale[2], 1))
         res = bmesh.ops.create_uvsphere(self.bm, u_segments=segs, v_segments=rings, radius=r, matrix=m)
-        return self._finish(res['verts'], color, bone)
+        return self._finish(res['verts'], color, bone, mat)
 
     def to_object(self, with_vid=True):
         me = bpy.data.meshes.new(self.name)
+        fmat = [f[self.mat_layer] for f in self.bm.faces]
         self.bm.to_mesh(me)
         self.bm.free()
         obj = bpy.data.objects.new(self.name, me)
@@ -72,6 +80,10 @@ class MeshBuilder:
         for g in self.groups:
             obj.vertex_groups.new(name=g)
         uv0 = me.uv_layers.new(name='UVMap')
+        # UVMap: u = 0 (props: recoil flag, set later), v = material class / 16
+        for poly in me.polygons:
+            for li in poly.loop_indices:
+                uv0.data[li].uv = (0.0, fmat[poly.index] / 16.0)
         # second UV: x = vertex id for VAT lookup (0 for static props), y = team-colour amount
         # (glTF drops vertex-colour alpha, so the team mask travels in UV2.y)
         uv1 = me.uv_layers.new(name='VID')

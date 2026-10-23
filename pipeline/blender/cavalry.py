@@ -2,7 +2,7 @@
 import sys, os, math
 sys.path.insert(0, os.path.dirname(__file__))
 import bpy
-import common, rigkit
+import common, rigkit, c19_kit
 from common import hexc, MeshBuilder
 
 BONES = [
@@ -27,10 +27,12 @@ HORSE = hexc('6b4a30'); HORSE_D = hexc('3a281b'); BOOT = hexc('231d19')
 VARIANTS = {
     'med_knight': dict(rider=METAL, surcoat=TEAM, hat='greathelm', weapon='lance', barding=True),
     'em_cuirassier': dict(rider=TEAM, surcoat=METAL, hat='lobster', weapon='sabre'),
-    'c19_hussar': dict(rider=TEAM, surcoat=hexc('d9c36a'), hat='shako', weapon='sabre'),
+    'c19_hussar': dict(rider=TEAM, surcoat=hexc('d9c36a'), hat='shako', weapon='sabre', builder='c19_hussar'),
 }
 
 def build(name, kit, detail):
+    if kit.get('builder') == 'c19_hussar':  # visual pass: detailed Napoleonic kit (pipeline/blender/c19_kit.py)
+        return c19_kit.hussar(name, GROUPS, detail)
     s = 8 if detail else 5
     b = MeshBuilder(name, GROUPS)
     # horse
@@ -126,7 +128,10 @@ def clips(kit):
             ('fire', 24, True, attack), ('die', 36, False, die)]
 
 def main():
+    only = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []  # e.g. -- c19_hussar
     for vid, kit in VARIANTS.items():
+        if only and vid not in only:
+            continue
         for lod in (0, 1):
             common.reset_scene()
             rig = rigkit.build_armature('horse', BONES)
