@@ -1,0 +1,2 @@
+SIMHASH with mkills (current): SWE1800 e79839ca.. USA1914 45cf5510.. JPN1500 9bb2394d..
+SIMHASH with mkills line disabled: SWE1800 dd801195.. USA1914 45cf5510.. JPN1500 07914c56.. == pre-perf baseline -> only diff is the added mkills stat field

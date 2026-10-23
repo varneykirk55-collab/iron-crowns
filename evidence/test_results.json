@@ -1,0 +1,44 @@
+{
+  "failed": 0,
+  "godot": "4.7.2-stable (official)",
+  "passed": 7,
+  "results": [
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: campaign started as Sweden in 22 Jul 1913"
+    },
+    {
+      "detail": "{ \"ok\": true, \"path\": [], \"days\": 13 }",
+      "pass": true,
+      "test": "gameplay: army 51 marched 344 -> 345"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: war declared on NOR"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: watched a battle in 3D (camera toggle true -> false), result true"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: captured enemy province(s) [328] by 15 Jan 1914"
+    },
+    {
+      "detail": "Loaded \"gameplay_test\" (15 Jan 1914)",
+      "pass": true,
+      "test": "gameplay: save/load restores 15 Jan 1914 exactly"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: era advanced to Age of Mechanised War on 1 Jan 1914 (game started 1913)"
+    }
+  ],
+  "seconds": 8.367,
+  "total": 7
+}

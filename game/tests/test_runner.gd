@@ -878,9 +878,9 @@ func test_gameplay_script() -> void:
 				var b: Dictionary = Sim.battles[bid]
 				if b["player_side"] >= 0 and not b["done"] and b["sim"] != null:
 					m.watch_battle(bid)
-					for k in 200:
+					var t0 := Time.get_ticks_msec()
+					while not (m.in_battle and not m.transitioning) and Time.get_ticks_msec() - t0 < 8000:
 						await _frames(1)
-						if m.in_battle and not m.transitioning: break
 					if m.in_battle:
 						var bv = m.battle_view
 						var c0: bool = bv.cam_auto
@@ -894,9 +894,9 @@ func test_gameplay_script() -> void:
 						await _frames(2)
 						check("gameplay: watched a battle in 3D (camera toggle %s -> %s), result %s" % [c0, c1, str(bv.finished)], toggles_ok and bv.finished, "")
 						bv.leave_requested.emit(bid)
-						for k in 200:
+						t0 = Time.get_ticks_msec()
+						while (m.in_battle or m.transitioning) and Time.get_ticks_msec() - t0 < 8000:
 							await _frames(1)
-							if not m.in_battle and not m.transitioning: break
 					watched = true
 					break
 		if watched and not captured.is_empty():
