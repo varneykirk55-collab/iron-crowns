@@ -473,7 +473,7 @@ def detail_nodes(nt, df):
     band = add(math('COMPARE', sp.outputs['Y'], 0.12, 0.035), math('COMPARE', sp.outputs['Y'], 0.88, 0.035))
     dash = math('LESS_THAN', math('FRACT', math('MULTIPLY', sp.outputs['X'], 180.0)), 0.6)
     stitch = math('MULTIPLY', band, dash)
-    wool = mask(B.MAT_WOOL); canvas = mask(B.MAT_CANVAS); lea = mask(B.MAT_LEATHER, B.MAT_HIDE); clay = mask(B.MAT_PIPECLAY)
+    wool = mask(B.MAT_WOOL); canvas = mask(B.MAT_CANVAS); lea = mask(B.MAT_LEATHER, B.MAT_HIDE, C.MAT_WORN_LEATHER, C.MAT_SHOE_LEATHER); clay = mask(B.MAT_PIPECLAY)
     skin = mask(B.MAT_SKIN); fur = mask(B.MAT_FUR); wood = mask(B.MAT_WOOD); metal = mask(B.MAT_BRASS, B.MAT_STEEL, B.MAT_IRON)
     # bump height
     h = add(math('MULTIPLY', wool, add(math('MULTIPLY', tw, 0.7), math('MULTIPLY', nF, 0.6))),

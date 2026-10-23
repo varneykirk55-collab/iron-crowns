@@ -20,6 +20,10 @@ SLOT_MAT = {'coat': 'wool', 'lapel': 'wool', 'collar': 'wool', 'cuff': 'wool', '
             'eye': 'skin', 'mouth': 'skin', 'wood': 'wood', 'steel': 'steel', 'button': 'brass', 'stock': 'leather',
             'piping': 'wool', 'epaulette': 'wool'}
 M['hide'] = B.MAT_HIDE
+MAT_WORN_LEATHER = 14   # matte worn / waxed brown leather (shoes, belts, pouches of pre-1700 kits); append-only id
+M['worn_leather'] = MAT_WORN_LEATHER
+MAT_SHOE_LEATHER = 15  # blackened shoe leather, waxed not polished (v3 shoes; plain 'leather' read as steel at 1 m)
+M['shoe_leather'] = MAT_SHOE_LEATHER
 
 def V(*a):
     return Vector(a[0] if len(a) == 1 else a)

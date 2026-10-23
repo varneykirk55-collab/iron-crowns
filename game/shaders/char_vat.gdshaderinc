@@ -108,6 +108,8 @@ void vmat(float slot_u_, float team_amt_, float mat_id_, float rest_h_, float sh
 	else if (m == 10) { rough = 0.5; metal = 0.6; spec = 0.5; }                // blackened iron
 	else if (m == 11) { rough = 0.75; spec = 0.3; alb *= mix(0.7, 1.3, inst_k_); } // hair
 	else if (m == 13) { rough = 0.9; spec = 0.2; alb *= sv; }                  // canvas / linen
+	else if (m == 14) { rough = 0.8; spec = 0.25; alb *= sv; }                 // worn matte leather (v3 pre-1700 kits)
+	else if (m == 15) { rough = 0.62; spec = 0.3; }                             // waxed blackened shoe leather (v3)
 	float ao = mix(1.0 - contact_dark, 1.0, smoothstep(0.0, contact_height, rest_h_));
 	if (m == 7 || m == 13) { ao = 1.0; }
 	alb_o = alb * brightness * mix(1.0, ao, 0.6); rough_o = rough; metal_o = metal; spec_o = spec; ao_o = ao;
@@ -260,6 +262,8 @@ void fragment() {
 		} else if (mi == 7.0) { alb = mix(alb, alb * vec3(0.93, 0.91, 0.85), gk); rough = mix(rough, 0.82, gk); }   // pipeclayed buff
 		else if (mi == 2.0 || mi == 8.0) { alb = mix(alb, alb * 0.62, gk); rough = mix(rough, 0.33, gk); spec = mix(spec, 0.55, gk); }   // blackened leather, semi-gloss
 		else if (mi == 4.0) { metal = mix(metal, 1.0, gk); rough = mix(rough, 0.30, gk); }   // brass
+		else if (mi == 14.0) { rough = mix(rough, 0.78, gk); spec = mix(spec, 0.22, gk); }   // worn leather: matte, keeps its brown
+		else if (mi == 15.0) { alb = mix(alb, alb * 0.62, gk); rough = mix(rough, 0.6, gk); spec = mix(spec, 0.28, gk); }   // waxed black shoes
 	}
 	if (id4.x >= 0.0) {   // painted detail: wool fibre / leather / skin variation, stubble + ruddy skin, eyes, edge wear
 		alb *= 0.55 + 0.9 * dlum;
@@ -276,7 +280,7 @@ void fragment() {
 				alb = mix(alb, alb * vec3(1.06, 0.74, 0.70), rud * 0.75);
 			}
 		} else if (mi == 4.0 || mi == 3.0) { alb *= 1.0 + 0.6 * dk; rough = max(0.12, rough - 0.18 * dk); }   // polished worn edges
-		else if (mi == 2.0 || mi == 8.0) { alb = mix(alb, alb * 1.7 + 0.03, dk * 0.45); rough = min(1.0, rough + 0.25 * dk); }   // scuffed leather
+		else if (mi == 2.0 || mi == 8.0 || mi == 14.0 || mi == 15.0) { alb = mix(alb, alb * 1.7 + 0.03, dk * 0.45); rough = min(1.0, rough + 0.25 * dk); }   // scuffed leather
 	}
 	ALBEDO = alb * mix(1.0, nao, 0.5); ROUGHNESS = rough; METALLIC = metal; SPECULAR = spec * nao; AO = ao * nao;
 #elif defined(CHAR_VPAL)

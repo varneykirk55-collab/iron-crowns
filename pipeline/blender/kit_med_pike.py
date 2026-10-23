@@ -18,12 +18,12 @@ from char_v2 import V, ss, lerp, gauss, limb, ring, grid_sweep, superellipsoid, 
 C.KID = 'v3_med_pike'
 C.CLIP_STYLE = 'musket'                 # shouldered at idle / walk, levelled for the charge (melee)
 C.TIP_LOCAL = (0.0, 3.12, 0.0)          # pike point (weapon_tip on the prop)
-C.SLOT_MAT.update({'waist': 'canvas', 'cartbox': 'leather', 'scabbard': 'leather', 'shoe': 'leather', 'breeches': 'wool',
+C.SLOT_MAT.update({'waist': 'canvas', 'cartbox': 'worn_leather', 'scabbard': 'worn_leather', 'shoe': 'worn_leather', 'breeches': 'wool',
                    'felt': 'iron'})
 C.BODY_TRIS = 4800
 HM.FIST['.L'] = 0.007                   # empty left hand: relaxed fist
 C.HEAD_BOX = (0.20, -0.20, 0.21, 1.90)  # kettle hat brim gets head-level texel density
-C.KIT_PAL = {'breeches': '#7a5236', 'shoe': '#2c2119', 'cartbox': '#3a2a1c', 'waist': '#e6dfcc', 'felt': '#55595e',
+C.KIT_PAL = {'breeches': '#7a5236', 'shoe': '#4a3424', 'cartbox': '#4f3722', 'waist': '#e6dfcc', 'felt': '#55595e',
              'steel': '#a5abb1', 'metal': '#b8913a', 'scabbard': '#2a1f17', 'wood': '#9a7a52'}
 C.KIT_RULES = [(('pkcoif', 'pkhat', 'pktie'), 'head'), (('pkbelt', 'pkgart'), 'transfer'), (('pkskirt',), 'tail'),
                (('pkbuck', 'pkstrap', 'pkpurse', 'pkdag'), 'hips'), (('pkshaft', 'pkhead', 'pklang'), 'prop')]
