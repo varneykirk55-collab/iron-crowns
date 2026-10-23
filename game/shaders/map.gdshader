@@ -16,7 +16,7 @@ uniform float height_scale = 0.42;
 uniform vec2 map_size = vec2(360.0, 180.0);
 uniform vec3 era_tint = vec3(1.0);
 uniform float era_sepia = 0.0;
-uniform float political = 0.72;     // political tint at world zoom; fades toward terrain when zoomed in
+uniform float political = 0.80;     // political tint at world zoom; fades toward terrain when zoomed in
 uniform float time_s = 0.0;
 uniform float cam_dist = 60.0;
 uniform int quality = 1;            // 0 low (simple path), 1 medium, 2 high
@@ -157,9 +157,10 @@ void fragment() {
 		float bdist = dat.g * dat.g * BORDER_R;                     // texels to nearest province border
 		bool owned = own.a > 0.5;
 		bool country_b = nb != 0 && distance(own, own_n) > 0.004;
-		float pol = owned ? political * mix(0.46, 1.0, smoothstep(12.0, 150.0, cam_dist)) : 0.0;
+		// strong at world/region zoom, terrain takes over close up
+		float pol = owned ? political * mix(0.30, 1.0, smoothstep(7.0, 55.0, cam_dist)) : 0.0;
 		float tl = dot(terrain, vec3(0.333));
-		vec3 tint = own.rgb * (0.72 + 0.5 * tl);
+		vec3 tint = own.rgb * (0.82 + 0.4 * tl);
 		vec3 col = mix(terrain, tint, pol);
 		// soft colour band inside country borders (Victoria-style edge emphasis)
 		if (owned && country_b && quality > 0) {
@@ -175,16 +176,16 @@ void fragment() {
 		if (fl.r > 0.5) col = mix(col, vec3(1.0, 0.95, 0.7), 0.28); // selected province
 		// border lines from the distance field: width = max(pixel based, world based)
 		float d_line = border_dist(uv, max(bdist - 0.5, 0.0), px);
-		float prov_w = max(px * 0.55, 0.25);
+		float prov_w = max(px * 0.5, 0.1);
 		float prov_line = (1.0 - smoothstep(prov_w * 0.5, prov_w * 0.5 + px, d_line)) * (1.0 - smoothstep(60.0, 110.0, cam_dist));
-		float ctry_w = max(px * 1.1, 0.6);
+		float ctry_w = max(px * 1.7, 0.22);
 		float ctry_line = 1.0 - smoothstep(ctry_w * 0.5, ctry_w * 0.5 + px * 1.2, d_line);
 		float ctry_shadow = 1.0 - smoothstep(ctry_w, ctry_w + px * 3.0, d_line);
 		if (country_b) {
 			col = mix(col, col * 0.55, ctry_shadow * 0.5);
-			col = mix(col, vec3(0.06, 0.05, 0.045), ctry_line * 0.9);
+			col = mix(col, vec3(0.05, 0.04, 0.035), ctry_line * 0.95);
 		} else if (nb != 0) {
-			col = mix(col, col * 0.6, prov_line * 0.6);
+			col = mix(col, col * 0.7, prov_line * 0.45);
 		}
 		if ((fl.r > 0.5 || fl_n.r > 0.5) && nb != 0) {
 			float sel_line = 1.0 - smoothstep(ctry_w * 0.6, ctry_w * 0.6 + px * 1.2, d_line);
