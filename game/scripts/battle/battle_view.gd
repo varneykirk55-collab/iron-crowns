@@ -19,7 +19,7 @@ func apply_quality() -> void:
 		LOD_DIST = _lod_forced_dist   # debug --lod-dist= overrides the preset
 
 const BattleVisuals := preload("res://scripts/battle/battle_visuals.gd")
-const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_musket", "c19": "c19_line", "c20": "c20_rifle", "modern": "mod_rifle"}
+const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_gunner", "c19": "c19_artillery", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
 var bid := -1

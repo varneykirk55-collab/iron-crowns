@@ -41,6 +41,7 @@ func _run() -> void:
 		test_camera_determinism()
 	if only == "" or only == "camera" or only == "visuals":
 		test_visuals_hook()
+		test_polish()
 	if only == "" or only == "controls":
 		await test_controls()
 	if only == "" or only == "controls" or only == "markers":
@@ -982,6 +983,62 @@ func test_visuals_hook() -> void:
 	# R6 (v0.3): medieval is in battle_visuals.ERAS now, so it gets the era pass too (no era stays legacy).
 	check("visuals: medieval battle gets the era pass at setup (look differs from legacy, apply() idempotent) %s" % str(looks.get("medieval", [[]])[0]),
 		looks.has("medieval") and looks["medieval"][0] != legacy and looks["medieval"][0] == looks["medieval"][1], str(looks))
+	Controls.quality = q0
+
+## v0.3 polish pass: c19 grenadiers use the bearskin model, gun crews wear the era artillery uniform (units.json +
+## BattleView.CREW_MODEL name them directly, so the battle_visuals runtime swap is a no-op), and a winter battle gets
+## the depth-range fog / snow grade instead of the full-field exponential haze.
+func test_polish() -> void:
+	print("== Polish pass (grenadiers, gun crews, snow) ==")
+	var q0: int = Controls.quality
+	Controls.quality = 1
+	var want_crew := {"c19": "c19_artillery", "early_modern": "em_gunner"}
+	for y in [1800, 1500]:
+		var bid := _cam_battle_setup(y)
+		var bv := BattleView.new()
+		add_child(bv)
+		bv.setup(bid)
+		var gren := [0, 0]; var guns := [0, 0]; var drawn := {}
+		for v in bv.rv:
+			var d: Dictionary = bv.sim.regs[int(v["i"])]["def"]
+			if str(d["id"]) == "grenadiers":
+				gren[0] += 1
+				if str(v["model"]) == "c19_grenadier": gren[1] += 1
+			if v.has("crew_model"):
+				guns[0] += 1
+				if str(v["crew_model"]) == want_crew.get(str(d["era"]), "?"): guns[1] += 1
+		for key in bv.mms.keys():
+			var m: String = str(key).split("|")[0]
+			if m in ["c19_grenadier", "c19_artillery", "em_gunner"]:
+				drawn[m] = drawn.get(m, 0) + (bv.mms[key]["mm"] as MultiMesh).instance_count
+		var before := [gren.duplicate(), guns.duplicate(), drawn.duplicate()]
+		BattleView.BattleVisuals.apply(bv)   # the runtime swap must find nothing left to do
+		var same := bv.mms.size()
+		BattleView.BattleVisuals.apply(bv)
+		if bv.era_id == "c19":
+			check("polish: c19 grenadiers drawn with c19_grenadier, gun crews with c19_artillery (grenadier regs %s, guns %s, multimesh rows %s)" % [str(gren), str(guns), str(drawn)],
+				gren[0] > 0 and gren[0] == gren[1] and guns[0] > 0 and guns[0] == guns[1] and drawn.get("c19_grenadier", 0) > 0 and drawn.get("c19_artillery", 0) > 0, str(before))
+		else:
+			check("polish: early-modern gun crews drawn with em_gunner (guns %s, rows %s)" % [str(guns), str(drawn)],
+				guns[0] > 0 and guns[0] == guns[1] and drawn.get("em_gunner", 0) > 0, str(before))
+		check("polish: %s re-apply() adds no multimeshes (%d == %d)" % [bv.era_id, same, bv.mms.size()], same == bv.mms.size(), "")
+		remove_child(bv)
+		bv.free()
+	# winter ground + light: tundra vs plains on the same c19 battle
+	var res := {}
+	for terr in ["plains", "tundra"]:
+		var bid2 := _cam_battle_setup(1800)
+		Sim.battles[bid2]["terrain"] = terr
+		var bv2 := BattleView.new()
+		add_child(bv2)
+		bv2.setup(bid2)
+		var e := bv2.environment
+		res[terr] = [e.fog_mode, snappedf(e.fog_depth_begin, 1.0), snappedf(e.tonemap_exposure, 0.001), snappedf(e.adjustment_contrast, 0.001)]
+		remove_child(bv2)
+		bv2.free()
+	check("polish: depth-range fog (field < 260 m clear) on plains and tundra; tundra exposure lower, contrast higher %s" % str(res),
+		res["plains"][0] == Environment.FOG_MODE_DEPTH and res["tundra"][0] == Environment.FOG_MODE_DEPTH and res["tundra"][1] >= 200.0
+		and res["tundra"][2] < res["plains"][2] and res["tundra"][3] > res["plains"][3], str(res))
 	Controls.quality = q0
 
 # ---------------------------------------------------------------- scripted gameplay (Task 7)
