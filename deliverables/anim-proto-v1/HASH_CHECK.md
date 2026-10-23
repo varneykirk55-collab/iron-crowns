@@ -2,7 +2,7 @@
 
 **Trees**
 - Clean `a3f4f35` is the worktree `/workspace/ic_anim_base`.
-- The branch was checked at commit `74b9053` (horse gaits).
+- The branch was checked at commit `74b9053` (horse gaits) and re-checked at `3c2474b` (gaits v2, cavalry death, all-at-once retreat; all later commits are footage/docs only).
 - The branch was run twice, once with the flag off (default) and once with `--anim-v1`.
 
 **How it was run**
@@ -22,8 +22,10 @@
 | BattleView SWE 1650 (early modern, cuirassiers) | e8cdfb7ffed4 | same | same |
 | BattleView SWE 1800 (c19, hussars) | 572031327ebe | same | same |
 | BattleView USA 1914 (c20) | a030d0a0572c | same | same |
-| anim_demo cav (knights vs levy, gap 80) | – | 6408573137f4e17a9de42d0fb8325fb1 | same |
-| anim_demo spear / retreat | – | ae9064e0… | same |
+| anim_demo cav (knights vs levy, gap 80) @74b9053 | – | 6408573137f4e17a9de42d0fb8325fb1 | same |
+| anim_demo cav, 22 s (horse_side / charge clips) @3c2474b | – | 6a4ee37a64e7ea8c421e4324412f1a02 | same |
+| anim_demo cavdie (cavalry death) @3c2474b | – | 9b95b068e29cff86ce7c428733ca6ead | same |
+| anim_demo spear / retreat (re-checked @3c2474b) | – | ae9064e04c3198c92dfa4a454a30ad78 | same |
 
 **BATTLERESULT**
 - Each BATTLERESULT line contains battle time, end men, per-unit kills and projectile counts. The whole line is byte-identical in every run.
