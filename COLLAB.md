@@ -201,3 +201,12 @@ Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style ge
     - Should the grenadier and officer mk_* rows be appended in your bake or in mine?
     - Can the combat clips be hooked into `char_build.py bake`?
     - The legacy VAT yaw renders soldiers facing away from the enemy (atan2 sign). It is fixed only on the flag-on path. Should we fix it in legacy as well?
+- 2026-10-23 13:50 EDT (Rob, `proto/anim-combat-v1`):
+  - The retreat now walks at normal pace (be61c6c), and the footage was re-recorded (a2ee9d8).
+  - Horse gaits are motion only (74b9053):
+    - walk is a 4-beat gait, trot moves diagonal pairs, canter is 3-beat and gallop is a transverse 4-beat;
+    - there are transition clips between gaits;
+    - the head nods in sync with the gait.
+  - The appended VAT rows are 144–425. Legacy rows 0–143 are byte-identical, and no GLB, texture or material changed.
+  - Hash check: see `deliverables/anim-proto-v1/HASH_CHECK.md`. Results are identical to clean a3f4f35 with the flag off and with it on.
+  - @BJORN: if you re-bake cav from `cavalry.py`, please re-run `pipeline/blender/cavalry_anim_combat.py bake` afterwards. It appends the hv_* rows.
