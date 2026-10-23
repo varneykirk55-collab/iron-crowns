@@ -129,4 +129,6 @@
 - [x] 3-way compares out/v033/compare/ (sheet_1800SWE_q{0,1,2}, crop_*, other eras); perf out/v033/perf_table.md (q0 +3 %, q1 -1 %, q2 first pass +16 % from noisy top +62 %; re-run out/v033/rerun/perf_q2.log -> parity)
 - [x] readability gate PASSED (viewed myself): NOR red vs SWE blue at close/mid/top q0/q1/q2; close_def SWE blue not black; officer visible (bicorne, left of SWE line in close_def); 1300/1500/1914/1980 unchanged
 - [x] audio bot merged audio into lead-dev 07:45 (a526478, Kirk-approved) -> re-verified lead-dev: import 0 err, 140/140, 0e814dda, simhash same, test_audio 28/28 -> ships in v0.3.3
-- [ ] docs commit -> main merge --no-ff, tag v0.3.3, verify on main, exports, smoke, video, deliverables, laptop_xfer w033/p033
+- [x] docs fdd3571 -> main merge --no-ff 09e357d, tag v0.3.3 (annotated); main: import 0 err, 140/140, 0e814dda, simhash same, test_audio 28/28 (out/v033/main/)
+- [x] exports Linux + Windows (build/; pck 119 MB incl. audio); Linux smoke --closeup --vispass: BATTLE_RESULT winner=1 t=39.5 end_men [5039,5166], c19_officer MM 5+6 vis>0 (out/v033/smoke/)
+- [ ] perflog smoke + rec battle_SWE1800_v033 -> deliverables/v0.3.3 (out/v033/pkg/package_v033.py; Windows zip 111 MB -> top-level .001/.002 halves) + laptop_xfer w033/p033 + join033.ps1
