@@ -13,7 +13,7 @@
 - [x] 4a in-engine stills (2fffbed)
 - [x] 4b compare + distance sheets, before/after close-ups (e4509cf, refreshed 997a4c6)
 - [x] 4c gameplay MP4 deliverables/proto_v2/proto_v2_gameplay.mp4 (00a4be3)
-- [ ] 4d bench q0/q1/q2 x3 vs same-build --vx-proto=0 (FRA 1800 battle)
+- [x] 4d bench q0/q1/q2 x3 vs same-build --vx-proto=0 (FRA 1800 battle): docs/char/PROTO_BENCH.md (llvmpipe, shared-box contention noted; same draws, +17k prims, q1 close ~-40%)
 - [x] 4e tests 163/163, outcome hash 553cc500... = main; sim hashes = main (SWE1800 417a5300..., USA1914 4679c5a2..., JPN1500 e104d558...)
 - [ ] 4f push proto/c19-line-v2
 
