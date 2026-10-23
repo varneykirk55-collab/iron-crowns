@@ -1,7 +1,7 @@
 extends RefCounted
 ## Combat animation v1 (Rob, proto/anim-combat-v1). PRESENTATION ONLY: reads BattleSim state, never writes it, never
 ## draws from BattleView.rng except exactly where the legacy code already did (volley), so the outcome and the view's
-## random sequence are unchanged. Off by default: BattleView enables it with the user arg --anim-v1 (or AnimCombat.on).
+## random sequence are unchanged. ON by default (Kirk, 2026-10-23); see resolve_on() for the troubleshooting switches.
 ##
 ## Uses the clips baked by pipeline/blender/soldier_anim_combat.py (legacy rig: pk_*) and char_anim_combat.py
 ## (c19sr: mk_*). A model without those clips falls back to the legacy per-soldier loop untouched.
@@ -17,7 +17,29 @@ extends RefCounted
 
 const BattleVisuals := preload("res://scripts/battle/battle_visuals.gd")
 
-static var on := false
+static var on := true
+
+const ENV_VAR := "IRONCROWNS_ANIM_V1"                 # env var: 0/off/false disables, 1/on/true enables
+const SETTING := "iron_crowns/battle/anim_v1"        # optional project setting (e.g. override.cfg next to the exe)
+
+## Is combat animation v1 on? Pure, so tests can call it. Precedence: command-line user arg > env var > setting > ON.
+##   off: --no-anim-v1, --anim-v1=off|0|false|no      on: --anim-v1 (legacy flag, now a no-op), --anim-v1=on|1|true|yes
+static func resolve_on(args: PackedStringArray, env: String, setting: Variant) -> bool:
+	var res := true
+	if setting is bool:
+		res = setting
+	var e := env.strip_edges().to_lower()
+	if e in ["0", "off", "false", "no"]: res = false
+	elif e in ["1", "on", "true", "yes"]: res = true
+	for a in args:
+		if a == "--no-anim-v1": res = false
+		elif a == "--anim-v1": res = true
+		elif a.begins_with("--anim-v1="):
+			res = not (a.substr(10).to_lower() in ["off", "0", "false", "no"])
+	return res
+
+static func resolve_from_runtime() -> bool:
+	return resolve_on(OS.get_cmdline_user_args(), OS.get_environment(ENV_VAR), ProjectSettings.get_setting(SETTING, null))
 static var dbg_k := -1        # demo/debug only: record what instance dbg_k of regiment 0 is fed (clip row, time, LOD, buffer slot)
 static var dbg := {}
 
