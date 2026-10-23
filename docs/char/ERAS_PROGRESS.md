@@ -10,12 +10,13 @@ No gameplay / sim / AI change; outcome + sim hashes must match main. Hooked behi
     V3_KIT=kit_c19_grenadier nohup /workspace/tools/blender/blender -b --python pipeline/blender/char_v2_build.py -- all > /tmp/k.log 2>&1 &
 Kit modules (pipeline/blender/kit_*.py) patch char_v2 (body_slot, tails, build_kit, KID, KIT_RULES, CLIP_STYLE ...);
 with V3_KIT unset the build is the unchanged c19v2_line.
-Stills: `tools/eras_shots.sh <kid> <kit>` -> deliverables/eras_v3/<kit>/.
+Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 1200x1200 res://tests/eras_shots.tscn -- --model=<kid> --old=<old kid> --out=$PWD/deliverables/eras_v3/<kit>`
+(add `--zoom=x,z,yaw,dist` for an inspection close-up, zoom.png).
 
 ## Checklist
 - [x] infra: kit selector in char_v2_build.py (V3_KIT)
 - [x] 1 grenadier (1800)          kid v3_c19_grenadier   unit c19_grenadier   tris 11984 / 1997 / 685
-- [ ] 2 artillery crewman (1800)  kid v3_c19_artillery   unit c19_artillery (rammer clips)
+- [x] 2 artillery crewman (1800)  kid v3_c19_artillery   unit c19_artillery (rammer clips)   tris 11881 / 1997 / 693
 - [ ] push + report (after 2 kits)
 - [ ] 3 hussar rider (1800)       unit c19_hussar (cavalry rig: see blockers)
 - [ ] 4 medieval pikeman (1300)   unit med_spear
@@ -35,3 +36,7 @@ Stills: `tools/eras_shots.sh <kid> <kit>` -> deliverables/eras_v3/<kit>/.
   Normals: v3 kits bake OBJECT space and re-express per texel in the runtime shader frame (char_v2_build.shader_frame_nrm);
   removes the uv-seam shards / decimation facets (the line model still uses the Mikk bake and keeps them). Bake cage 0.035 / ray 0.08 for v3.
   Known minor: a few dark flecks on the lower right crossbelt at close zoom; id-map staircase on waistcoat hem at extreme zoom.
+- 17:08 EDT artillery done: French foot artillery (all-blue habit, blue lapels / collar piped red, red cuffs + blue flaps,
+  red turnbacks w/ blue grenades, blue breeches + waistcoat via kit pal, short black gaiters, red epaulettes, 1806 bell-top
+  shako w/ lozenge plate + crossed cannons, red cords + plume), sabre-briquet crossbelt, small pouch, rammer / sponge (TIP (0,1.70,0)).
+  Clip needs in docs/char/ROB_CLIP_REQUESTS.md.
