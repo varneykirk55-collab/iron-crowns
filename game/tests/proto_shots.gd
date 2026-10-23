@@ -8,6 +8,7 @@ var groups := {}   # name -> {"solo": mmi, "block": mmi}
 var cam: Camera3D
 var out := "res://../out/proto/engine"
 var args := {}
+var labels := {}   # shot -> {model: screen x 0..1}, for the compare-sheet captions
 
 func _arg(k: String, d: String) -> String:
 	return str(args.get(k, d))
@@ -25,7 +26,8 @@ func _ready() -> void:
 	for i in MODELS.size():
 		var m: String = MODELS[i]
 		groups[m] = {"solo": _make(m, pal, [Transform3D(Basis(), Vector3(xs[i], 0, 0))]),
-					 "block": _make(m, pal, _block(Vector3((i - 1) * 9.0, 0, -200.0)))}
+					 "block": _make(m, pal, _block(Vector3((i - 1) * 9.0, 0, -200.0))),
+					 "c_solo": Vector3(xs[i], 1.0, 0), "c_block": Vector3((i - 1) * 9.0, 0.9, -199.0)}
 	cam = Camera3D.new(); add_child(cam); cam.fov = 40.0; cam.near = 0.05; cam.make_current()
 	var l := DirectionalLight3D.new(); l.rotation_degrees = Vector3(-38, 35, 0); l.light_energy = 1.25; l.shadow_enabled = true
 	l.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS; l.directional_shadow_max_distance = 120.0
@@ -112,13 +114,20 @@ func _look(target: Vector3, yaw_deg: float, dist: float, h: float) -> void:
 func _snap(name: String) -> void:
 	for i in 4: await get_tree().process_frame
 	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
+	var lab := {}
+	for m in MODELS:
+		for k in ["solo", "block"]:
+			if groups[m][k].visible:
+				var c: Vector3 = groups[m]["c_" + k]
+				if not cam.is_position_behind(c): lab[m] = cam.unproject_position(c).x / get_viewport().get_visible_rect().size.x
+	labels[name] = lab
 	print("SHOT ", name)
 
 func _run() -> void:
 	var views := [["front", 0.0], ["34", 35.0], ["side", 90.0], ["back", 180.0]]
 	var xs := {"c19_line": -1.25, "c19sr_line": 0.0, "c19v2_line": 1.25}
 	# solo v2 views + bust
-	for m in ["c19v2_line", "c19sr_line"]:
+	for m in ["c19v2_line", "c19sr_line", "c19_line"]:
 		_show([m], "solo")
 		var x: float = xs[m]
 		for v in views:
@@ -136,4 +145,5 @@ func _run() -> void:
 		var dist: float = d[0]
 		cam.position = Vector3(0, 0.0, -199.0) + Vector3(0, dist * sin(-d[1]), -dist * cos(d[1]))
 		cam.look_at(Vector3(0, 0.9, -199.0)); await _snap("game_%dm" % int(dist))
+	var f := FileAccess.open(out.path_join("labels.json"), FileAccess.WRITE); f.store_string(JSON.stringify(labels)); f.close()
 	get_tree().quit()
