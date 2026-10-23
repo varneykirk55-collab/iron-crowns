@@ -20,15 +20,15 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
 - [x] push + report (after 2 kits): 9076875, tests 163/163, outcome + 3 sim hashes = main
 - [x] 5:11 decisions (c): grenadier left fist closed (relaxed v3 fist on the free hand), smooth hem bands on all kits,
       fix_folds for decimation folds; (d) c19v2_line rebaked with the normal-bake fix (eras-v3 + proto/c19-line-v2)
-- [x] 3 hussar rider (1800)       kid v3_c19_hussar      unit c19_hussar (existing cavalry rig)   tris ~11.9k / 1983 / 678
+- [~] 3 hussar rider (1800)       kid v3_c19_hussar      unit c19_hussar (existing cavalry rig)   tris 12007 / 1983 / 678  ** HANDED OFF TO ANOTHER BOT (Kirk 19:11), see CAVALRY_HANDOFF.md **
 - [x] 4 medieval pikeman (1300)   unit med_spear -> v3_med_pike (kit_med_pike.py): Flemish militia c.1302: quilted team-colour
       gambeson w/ split skirt, belt + strap end, purse, ballock dagger, russet hose, turnshoes, linen coif, kettle hat, ash pike.
       tris 11333 / 1993 / 694. Stills deliverables/eras_v3/pikeman/. Smooth hose leg (kit overrides LEG_PROF, no gaiter step).
 - [ ] push + report
-- [ ] 6a v3 horse (18:52 decision): smooth semi-realistic horse (muscle forms, head, hooves, mane, tail) on the EXISTING
+- [~] 6a v3 horse (18:52 decision): smooth semi-realistic horse (muscle forms, head, hooves, mane, tail) on the EXISTING  ** DROPPED here: handed off to another bot (Kirk 19:11) **
       horse bones/anim, shared by hussar + knight; barding is a separate kit layer; rebuild hussar on it
 - [ ] 5 archer (1300)             unit med_archer
-- [ ] 6 medieval cavalry (1300)   unit med_knight
+- [~] 6 medieval cavalry (1300)   unit med_knight  ** HANDED OFF TO ANOTHER BOT (Kirk 19:11); no 1300 cavalry work exists **
 - [ ] push + report
 - [ ] 7 musketeer + pikeman (1500) units em_musket / em_pike
 - [ ] 8 WWI infantry (1914)       unit c20_rifle (nation helmets)
@@ -61,3 +61,5 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
   Horse still the legacy low-poly mesh -> Kirk 18:52: build a v3 horse before kit 6 (after kit 4 push).
 - 19:xx kit 4 pikeman done (11333 tris). Clips: uses the musket style (shoulder / port / charge thrust); fire clip unsuitable,
   pike clips requested in ROB_CLIP_REQUESTS. Hussar committed at 12007 tris (7 over); it gets rebuilt on the v3 horse anyway.
+- 19:11 Kirk: all horse / cavalry work handed off to another bot (kits 3, 6, 6a). Handoff snapshot + docs/char/CAVALRY_HANDOFF.md,
+  copy in /workspace/handoff/iron-crowns-cavalry-v3/. Continuing infantry only: kits 4, 5, 7, 8, 9.
