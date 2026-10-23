@@ -3,6 +3,7 @@ conifer, granite boulders + low outcrops, grass tufts, heather, juniper, reeds, 
 100 % procedural / original (built from bmesh primitives + mathutils.noise displacement in this script, no external
 meshes or textures) -> no licence obligations; see evidence/env-scandinavia/ASSETS.md.
 Run: blender -b --python pipeline/blender/env_nordic.py [-- name ...]   (writes game/assets/models/env_*.glb only)
+The helpers (MeshBuilder wrappers, _stone, _blade, colour utils) are imported by the other biome scripts (env_<biome>.py).
 Units are metres (Z up in Blender, Y up in Godot). Vertex colour alpha (-> UV2.y, glTF drops alpha) is the foliage
 mask read by game/shaders/env_foliage.gdshader: 1 = needles / leaves / blades (wind sway + rounded crown normals),
 0 = wood / stone (rigid)."""
@@ -139,9 +140,11 @@ def conifer_far(name='env_conifer_far'):
 GRANITE = [hexc('8a867e'), hexc('7b776f'), hexc('938c80'), hexc('6f6b66')]
 LICHEN = [hexc('9a9670'), hexc('6f7a4a'), hexc('a8a690')]
 
-def _stone(b, c, size, rnd, seed, subdiv=2, flat=0.55, rough=0.28):
+def _stone(b, c, size, rnd, seed, subdiv=2, flat=0.55, rough=0.28, pal=None, moss=None, moss_p=0.55, crev='5d5953'):
+    """pal / moss / crev: rock + lichen palette (defaults: Nordic granite); other biomes pass their own."""
+    pal = pal or GRANITE; moss = LICHEN if moss is None else moss
     bm = bmesh.ops.create_icosphere(b.bm, subdivisions=subdiv, radius=1.0, matrix=Matrix.Identity(4))
-    base = GRANITE[rnd.randrange(len(GRANITE))]
+    base = pal[rnd.randrange(len(pal))]
     off = Vector((seed * 3.1, seed * 1.7, seed * 0.3))
     for v in bm['verts']:
         p = v.co.copy()
@@ -156,9 +159,9 @@ def _stone(b, c, size, rnd, seed, subdiv=2, flat=0.55, rough=0.28):
     def fc(f):
         n = f.normal
         cc = jit(base, rnd, 0.07)
-        cc = lerpc(cc, hexc('5d5953'), max(0.0, -n.z) * 0.7)          # darker undersides / crevices
-        if n.z > 0.55 and rnd.random() < 0.55:                          # lichen + moss on the upper faces
-            cc = lerpc(cc, LICHEN[rnd.randrange(len(LICHEN))], rnd.uniform(0.35, 0.8))
+        cc = lerpc(cc, hexc(crev), max(0.0, -n.z) * 0.7)              # darker undersides / crevices
+        if moss and n.z > 0.55 and rnd.random() < moss_p:               # lichen + moss on the upper faces
+            cc = lerpc(cc, moss[rnd.randrange(len(moss))], rnd.uniform(0.35, 0.8))
         return cc
     fs = new_faces(b, bm['verts'])
     for f in fs: f.normal_update()
@@ -285,4 +288,5 @@ def main():
         print('ENVASSET', name, 'tris', tris)
         common.export_glb([o], os.path.join(common.MODELS, name + '.glb'))
 
-main()
+if __name__ == "__main__":
+    main()

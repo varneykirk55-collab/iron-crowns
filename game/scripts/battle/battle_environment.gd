@@ -4,10 +4,11 @@ extends RefCounted
 ## supported biome, and the light / sky / fog for it. Nothing here has collision or feeds BattleSim: the sim stays 2-D,
 ## its inputs (b.terrain, seed, units) are untouched and so are battle results / hashes.
 ##
-## Biome selection is data-driven (biome_for): GameData.provinces[b.prov] region (Norway / Sweden / Denmark / Finland)
-## + terrain + lat / lon / elev / coastal pick the "scandinavia_boreal" biome and its variant parameters (relief,
-## forest density, birch / pine share, rockiness, distant-mountain height, snow on peaks, lake). Prototype gate: the
-## medieval era only (other eras / regions keep the legacy BattleView ground until approved).
+## Biome selection is data-driven (biome_for / biome_id): GameData.provinces[b.prov] terrain + lat / lon (+ region
+## for the Nordic Scandes rules) pick one of BIOMES; scripts/battle/biomes/<id>.gd then sets that biome's species,
+## rocks, ground cover, ground palette, water and light, and adjusts the generic numbers (_base: relief, forest
+## density, rockiness, dryness, distant relief, snowline, lake) for the province. A biome whose file is not present
+## keeps the legacy BattleView ground (so each biome lands on its own branch). docs/BIOMES.md has the grouping.
 ##
 ## Determinism / isolation: everything is placed from its own RNG + noise seeded from b.seed (BattleView.rng, which
 ## also jitters the soldiers, is consumed exactly as before by a dry run of the legacy scatter), so the same battle
@@ -18,8 +19,8 @@ extends RefCounted
 ## of it (+ their footprint radius + margin); only knee-high cover (grass, heather, pebbles) may appear inside, and
 ## sparser there. tests/test_env.gd runs real BattleSims and checks no regiment footprint ever meets an obstacle.
 ##
-## Debug / evidence: --env=0 forces the legacy look (before/after shots), --env=1 forces this biome for any medieval
-## battle, --env-prov=<id> PREVIEW-ONLY: dress the field as if the battle were fought in province <id>.
+## Debug / evidence: --env=0 forces the legacy look (before/after shots), --env=1 ignores a biome's era gate,
+## --env-prov=<id> PREVIEW-ONLY: dress the field as if the battle were fought in province <id>.
 
 const FIELD := 1000.0
 const FAR := 4600.0
@@ -27,10 +28,9 @@ const TREE_TILE := 125.0     # near-tree multimesh tile (m): detail mesh only fo
 const TREE_DETAIL := 190.0
 const NEAR_TILE := 250.0
 const COVER_TILE := 125.0
-const SPECIES := ["env_spruce_a", "env_spruce_b", "env_pine_a", "env_birch_a"]
-const REGIONS := ["Norway", "Sweden", "Denmark", "Finland"]
-const TERRAINS := ["forest", "tundra", "plains", "hills", "mountains"]
-const ERAS := ["medieval"]
+const REGIONS := ["Norway", "Sweden", "Denmark", "Finland", "Åland"]   # Nordic provinces (Scandes rules in boreal.gd)
+const BIOME_DIR := "res://scripts/battle/biomes/%s.gd"   # one file per biome profile; a missing file = legacy ground
+const BIOMES := ["boreal", "tundra", "temperate", "east_asia", "tropical", "savanna", "arid", "mediterranean", "steppe"]
 
 static var _args := {}
 static var _args_read := false
@@ -57,41 +57,86 @@ static func biome_for(b: Dictionary, era: String) -> Dictionary:
 		return {}
 	var p: Dictionary = GameData.provinces[pid]
 	var terr: String = str(p.get("terrain", "plains")) if pv != "" else str(b.get("terrain", p.get("terrain", "plains")))
-	var forced := _arg("env") == "1"
-	if not forced and (not (era in ERAS) or not (str(p.get("region", "")) in REGIONS) or not (terr in TERRAINS)):
+	var prof := profile(p, terr, int(b.get("seed", 0)))
+	if prof.is_empty():
 		return {}
-	return profile(p, terr, int(b.get("seed", 0)))
+	var eras: Array = prof.get("eras", [])
+	if _arg("env") != "1" and not eras.is_empty() and not (era in eras):
+		return {}
+	prof["era"] = era
+	return prof
 
-## Pure: province record + battle terrain -> biome parameters. Every number comes from the data fields.
+## Pure: province record -> biome id. Climate zones from the data fields only (terrain, lat / lon); see docs/BIOMES.md.
+static func biome_id(p: Dictionary, terr: String) -> String:
+	var region := str(p.get("region", ""))
+	var lat: float = float(p.get("lat", 50.0)); var lon: float = float(p.get("lon", 10.0)); var a := absf(lat)
+	var americas := lon >= -130.0 and lon <= -30.0
+	if region in REGIONS:
+		return "boreal"
+	if terr == "desert":
+		return "arid"
+	if a >= 64.0 or region in ["Greenland", "Iceland", "Faeroe Is."] or lat < -46.0:
+		return "tundra"
+	if terr == "tundra":
+		return "boreal"
+	if terr == "jungle":
+		return "tropical"
+	if (lon >= 88.0 or lon <= -140.0) and a < 22.5 and not (lon >= 100.0 and lon <= 146.0 and lat >= 22.0):
+		return "tropical"                                   # SE Asia, Pacific islands, Hawaii
+	if lon >= 88.0 and lon < 100.0 and lat < 29.0 and terr != "mountains":
+		return "tropical"                                   # Bengal / Assam / Burma monsoon lowlands
+	if lon >= 100.0 and lon <= 146.0 and lat >= 20.0 and lat <= 46.0:
+		return "east_asia"                                  # China (east), Korea, Japan, Taiwan
+	if a < 8.0 or (americas and a < 26.0 and lon > -95.0):
+		return "tropical"                                   # equatorial belt, Caribbean / Central America
+	if lon >= 34.0 and lon <= 62.0 and lat >= 12.0 and lat <= 32.0:
+		return "arid"                                       # Arabia / Gulf (non-desert-tagged coasts)
+	if americas and lat >= 14.0 and lat <= 33.0:
+		return "arid"                                       # Mexican plateau / Sierra Madre
+	if (lon >= -26.0 and lon <= 55.0 and lat >= -36.0 and lat <= 24.0) or (lon >= 60.0 and lon < 88.0 and lat >= 5.0 and lat <= 30.0) or (americas and lat >= -30.0 and lat <= -8.0):
+		return "savanna"                                    # Africa, Indian subcontinent, cerrado / chaco
+	if (lat >= 30.0 and lat <= 45.0 and lon >= -10.0 and lon <= 45.0) or (lat >= 32.0 and lat <= 42.0 and lon >= -125.0 and lon <= -114.0) or (lat >= -38.0 and lat <= -28.0 and lon >= -75.0 and lon <= -69.0) or (lon > 110.0 and lat >= -40.0 and lat <= -25.0):
+		return "mediterranean"                              # Med basin, California, central Chile, S Australia
+	if (lat >= 30.0 and lat <= 55.0 and lon > 45.0 and lon < 120.0) or (americas and lat >= 30.0 and lat <= 50.0 and lon >= -106.0 and lon <= -97.0 and terr in ["plains", "hills"]) or (americas and lat < -30.0):
+		return "steppe"                                     # Central Asia, Tibet, Great Plains, pampas / Patagonia
+	if lon > -12.0 and lon < 30.0 and lat > 35.0:           # Atlantic / central Europe: broadleaf + mixed up to ~57 N
+		return "boreal" if a >= 57.0 else "temperate"
+	if a >= 52.0 or (a >= 50.0 and terr == "forest"):
+		return "boreal"                                     # taiga (Russia, Canada, Siberia)
+	return "temperate"                                      # Europe, eastern / northern US, NZ ...
+
+## Pure: province record + battle terrain -> biome parameters. Generic numbers from the data fields (_base), then the
+## biome file (scripts/battle/biomes/<id>.gd: make(p, terr, base)) adds its species, palette, light and adjustments.
 static func profile(p: Dictionary, terr: String, seed: int) -> Dictionary:
+	var id := biome_id(p, terr)
+	var path := BIOME_DIR % id
+	if not ResourceLoader.exists(path):
+		return {}
+	var base := _base(p, terr, seed)
+	base["id"] = id
+	return (load(path) as GDScript).call("make", p, terr, base)
+
+static func _base(p: Dictionary, terr: String, seed: int) -> Dictionary:
 	var lat: float = float(p.get("lat", 60.0)); var lon: float = float(p.get("lon", 15.0)); var elev: float = float(p.get("elev", 0.2))
-	var region: String = str(p.get("region", ""))
-	var relief: float = {"plains": 2.6, "forest": 4.0, "tundra": 5.5, "hills": 9.0, "mountains": 12.0}.get(terr, 4.0)
+	var a := absf(lat)
+	var relief: float = {"plains": 2.6, "forest": 4.0, "tundra": 5.5, "hills": 9.0, "mountains": 12.0, "desert": 3.5, "jungle": 5.0}.get(terr, 4.0)
 	relief += elev * 6.0
-	var forest: float = {"plains": 0.45, "forest": 1.0, "tundra": 0.65, "hills": 0.8, "mountains": 0.7}.get(terr, 0.7)
-	var rocks: float = {"plains": 0.3, "forest": 0.6, "tundra": 1.0, "hills": 0.85, "mountains": 1.2}.get(terr, 0.6)
-	rocks = clampf(rocks + elev * 0.6 + (0.25 if region in ["Norway", "Finland"] else 0.0), 0.2, 1.6)
-	# boreal gradient: birch share rises to the north, pine on thin / dry (tundra, high) ground, beech-oak south of
-	# ~56.5 N is out of scope (Denmark keeps birch + spruce, fewer conifers)
-	var birch: float = clampf(0.16 + (lat - 56.0) * 0.035, 0.12, 0.45) + (0.15 if region == "Denmark" else 0.0)
-	var pine: float = clampf(0.18 + (0.22 if terr == "tundra" else 0.0) + elev * 0.3, 0.12, 0.5)
-	var dry: float = {"plains": 0.35, "forest": 0.22, "tundra": 0.5, "hills": 0.32, "mountains": 0.4}.get(terr, 0.3)
-	# distant relief: Scandes (Norway, western / northern Sweden: lon < 16 and lat > 59, or high elev) -> snow-capped
-	# mountains; southern Sweden / Finland -> forested ridges; Denmark -> low hills
-	var mtn: float = 180.0
-	if region == "Denmark":
-		mtn = 70.0
-	elif region == "Norway" or (lat > 59.0 and lon < 16.5) or lat > 64.0 or elev > 0.35:
-		mtn = 560.0 + elev * 600.0
-	elif region == "Finland":
-		mtn = 120.0
-	var snow_h: float = 1400.0 - (lat - 55.0) * 70.0        # summer snowline falls ~70 m per degree north (stylised)
-	var treeline: float = 900.0 - (lat - 55.0) * 45.0
-	return {"id": "scandinavia_boreal", "variant": terr, "prov": p.get("id", -1), "name": p.get("name", ""), "region": region,
+	var forest: float = {"plains": 0.45, "forest": 1.0, "tundra": 0.65, "hills": 0.8, "mountains": 0.7, "desert": 0.15, "jungle": 1.0}.get(terr, 0.7)
+	var rocks: float = {"plains": 0.3, "forest": 0.6, "tundra": 1.0, "hills": 0.85, "mountains": 1.2, "desert": 0.9, "jungle": 0.3}.get(terr, 0.6)
+	rocks = clampf(rocks + elev * 0.6, 0.2, 1.6)
+	var dry: float = {"plains": 0.35, "forest": 0.22, "tundra": 0.5, "hills": 0.32, "mountains": 0.4, "desert": 0.9, "jungle": 0.05}.get(terr, 0.3)
+	var mtn: float = {"mountains": 620.0 + elev * 700.0, "hills": 260.0 + elev * 300.0}.get(terr, 120.0 + elev * 260.0)
+	var snow_h: float = maxf(700.0, 3600.0 - maxf(a - 25.0, 0.0) * 75.0)
+	return {"variant": terr, "prov": p.get("id", -1), "name": p.get("name", ""), "region": str(p.get("region", "")),
 		"lat": lat, "lon": lon, "elev": elev, "coastal": bool(p.get("coastal", false)),
-		"relief": relief, "forest": forest, "rocks": rocks, "birch": birch, "pine": pine, "dry": dry,
-		"mtn": mtn, "snow_h": snow_h, "treeline": treeline,
-		"lake": bool(p.get("coastal", false)) or (seed % 3) != 0, "seed": seed}
+		"relief": relief, "forest": forest, "rocks": rocks, "dry": dry, "mtn": mtn, "snow_h": snow_h, "treeline": snow_h - 700.0,
+		"lake": bool(p.get("coastal", false)) or (seed % 3) != 0, "seed": seed, "eras": [],
+		# content (biome files override): trees [model, weight, edge_bias], lod / far models, rocks, cover, shrubs
+		"trees": [], "lod": {}, "lone": [], "far_model": "", "far_dens": 1.0, "far_scale": Vector2(1.2, 1.8),
+		"tree_cell": 7.4, "tree_p": 0.62, "tree_scale": Vector2(0.7, 1.2),
+		"outcrop": "env_outcrop_a", "boulders": ["env_boulder_a", "env_boulder_b", "env_boulder_c"],
+		"cover_main": "env_grass_tuft", "cover_cell": 3.2, "cover_p": 0.85, "cover_in": 0.28, "accents": [],
+		"shrubs": [], "shore": "env_reeds", "shore_n": 420, "palette": {}, "tints": {}, "look": {}, "water": {}, "mats": {}}
 
 # ============================================================== layout + relief (pure)
 ## ctx = profile + seeded noises + corridor / lake / rocky-hill sites. regs: Array of {pos: Vector2, width, depth}.
@@ -215,30 +260,25 @@ static func plan(ctx: Dictionary) -> Dictionary:
 	var ok_obstacle := func(x: float, z: float, rad: float) -> bool:
 		return absf(x) > cor.x + rad + 10.0 or absf(z) > cor.y + rad + 10.0
 	# --- near trees: jittered grid over the field + a margin, accepted by the forest cover
-	var cell := 7.4
+	var cell: float = ctx["tree_cell"]
 	var n := int((FIELD + 140.0) / cell)
-	var birch: float = ctx["birch"]; var pine: float = ctx["pine"]
+	var species: Array = ctx["trees"]
+	var tp: float = ctx["tree_p"]
+	var tsc: Vector2 = ctx["tree_scale"]
 	for j in n:
 		for i in n:
 			var x := -FIELD / 2 - 70.0 + (i + rng.randf()) * cell
 			var z := -FIELD / 2 - 70.0 + (j + rng.randf()) * cell
 			var f := forest_f(ctx, x, z)
 			var u := rng.randf()
-			if u > f * 0.62 or not ok_obstacle.call(x, z, 3.0):
+			if species.is_empty() or u > f * tp or not ok_obstacle.call(x, z, 3.0):
 				continue
 			if ctx["has_lake"] and lake_d(ctx, x, z) < 1.2:
 				continue
-			# birches fringe the forest edges and clearings, pines on the rocky knoll / dry ground, spruce in the core
+			# species mix: weight x edge preference (edge_bias > 0: fringes / clearings, < 0: forest core)
 			var edge := 1.0 - smoothstep(0.35, 0.9, f)
-			var v := rng.randf()
-			var model: String
-			if v < birch * (0.6 + edge * 1.4):
-				model = "env_birch_a"
-			elif v < birch * (0.6 + edge * 1.4) + pine:
-				model = "env_pine_a"
-			else:
-				model = "env_spruce_a" if rng.randf() < 0.55 else "env_spruce_b"
-			var s := rng.randf_range(0.7, 1.2) * (0.85 + 0.25 * f)
+			var model := _pick(species, edge, rng.randf())
+			var s := rng.randf_range(tsc.x, tsc.y) * (0.85 + 0.25 * f)
 			var tier := 0 if rng.randf() < 0.5 else (1 if rng.randf() < 0.55 else 2)
 			trees.append([model, x, z, s, rng.randf() * TAU, tier, rng.randf()])
 			obst.append([Vector2(x, z), 1.2 * s])
@@ -247,11 +287,15 @@ static func plan(ctx: Dictionary) -> Dictionary:
 		var x := rng.randf_range(-FIELD / 2, FIELD / 2); var z := rng.randf_range(-FIELD / 2, FIELD / 2)
 		if not ok_obstacle.call(x, z, 3.0) or corridor_out(ctx, x, z) > 120.0 or lake_d(ctx, x, z) < 1.3:
 			continue
-		var model2: String = "env_birch_a" if rng.randf() < 0.5 else ("env_pine_a" if rng.randf() < 0.5 else "env_spruce_b")
+		var lone: Array = ctx["lone"]
+		if lone.is_empty():
+			continue
+		var model2: String = lone[rng.randi() % lone.size()]
 		var s2 := rng.randf_range(0.8, 1.15)
 		trees.append([model2, x, z, s2, rng.randf() * TAU, int(rng.randf() < 0.3), rng.randf()])
 		obst.append([Vector2(x, z), 1.2 * s2])
 	# --- far forest belts (distance LOD) out to ~2.6 km, below the treeline, off the lake
+	var far_m: String = ctx["far_model"]; var fsc: Vector2 = ctx["far_scale"]; var fdn: float = ctx["far_dens"]
 	var fc := 36.0   # sparse silhouette trees; the terrain shader paints the belt canopy (far_mask) between them
 	var fn := int(5400.0 / fc)
 	var tl: float = ctx["treeline"]
@@ -266,12 +310,12 @@ static func plan(ctx: Dictionary) -> Dictionary:
 			var r := Vector2(x, z).length()
 			var cl := nf.get_noise_2d(x * 0.6, z * 0.6) * 0.5 + 0.5
 			var dens := smoothstep(0.38, 0.55, cl) * (1.0 - smoothstep(1700.0, 2500.0, r))
-			if u > dens * 0.95:
+			if far_m == "" or u > dens * 0.95 * fdn:
 				continue
 			var h := height(ctx, x, z)
 			if h > tl * rng.randf_range(0.7, 1.0) or lake_d(ctx, x, z) < 1.2:
 				continue
-			far.append(["env_conifer_far", x, z, rng.randf_range(1.2, 1.8), rng.randf() * TAU, 0 if rng.randf() < 0.45 else (1 if rng.randf() < 0.6 else 2), rng.randf()])
+			far.append([far_m, x, z, rng.randf_range(fsc.x, fsc.y), rng.randf() * TAU, 0 if rng.randf() < 0.45 else (1 if rng.randf() < 0.6 else 2), rng.randf()])
 	# --- rocks: the granite knoll (outcrops + boulders), erratic boulder fields, lake-shore stones
 	var rk: float = ctx["rocks"]
 	var rc: Vector2 = ctx["rock_c"]; var rr: float = ctx["rock_r"]
@@ -280,12 +324,13 @@ static func plan(ctx: Dictionary) -> Dictionary:
 			return
 		rocks.append([model, x, z, s, rng.randf() * TAU, 0, rng.randf()])
 		obst.append([Vector2(x, z), rad * s])
-	for k in int(6 + 6 * rk):
+	var oc: String = ctx["outcrop"]; var bl: Array = ctx["boulders"]
+	for k in (int(6 + 6 * rk) if oc != "" else 0):
 		var a := rng.randf() * TAU; var d := sqrt(rng.randf()) * rr * 0.8
-		add_rock.call("env_outcrop_a", rc.x + cos(a) * d, rc.y + sin(a) * d, rng.randf_range(0.7, 1.25), 5.5)
+		add_rock.call(oc, rc.x + cos(a) * d, rc.y + sin(a) * d, rng.randf_range(0.7, 1.25), 5.5)
 	for k in int(26 + 30 * rk):
 		var a := rng.randf() * TAU; var d := sqrt(rng.randf()) * rr * 1.25
-		add_rock.call(["env_boulder_a", "env_boulder_b", "env_boulder_c"][k % 3], rc.x + cos(a) * d, rc.y + sin(a) * d, rng.randf_range(0.6, 1.3), 2.2)
+		add_rock.call(bl[k % bl.size()], rc.x + cos(a) * d, rc.y + sin(a) * d, rng.randf_range(0.6, 1.3), 2.2)
 	var clusters := int(5 + 8 * rk)
 	for c in clusters:
 		var cx := rng.randf_range(-FIELD / 2 + 20, FIELD / 2 - 20); var cz := rng.randf_range(-FIELD / 2 + 20, FIELD / 2 - 20)
@@ -293,18 +338,20 @@ static func plan(ctx: Dictionary) -> Dictionary:
 			continue
 		for k in rng.randi_range(2, 7):
 			var a := rng.randf() * TAU; var d := rng.randf_range(0.0, 14.0)
-			add_rock.call(["env_boulder_b", "env_boulder_a", "env_boulder_c"][k % 3], cx + cos(a) * d, cz + sin(a) * d, rng.randf_range(0.45, 1.1), 2.2)
+			add_rock.call(bl[(k + 1) % bl.size()], cx + cos(a) * d, cz + sin(a) * d, rng.randf_range(0.45, 1.1), 2.2)
 	if ctx["has_lake"]:
 		for k in int(18 + 14 * rk):
 			var a := rng.randf() * TAU
 			var q := _lake_pt(ctx, a, rng.randf_range(0.92, 1.15))
-			add_rock.call(["env_boulder_b", "env_boulder_a"][k % 2], q.x, q.y, rng.randf_range(0.5, 1.2), 2.0)
+			add_rock.call(bl[(k + 1) % mini(2, bl.size())], q.x, q.y, rng.randf_range(0.5, 1.2), 2.0)
 	# --- ground cover (knee-high, no obstacle): grass tufts everywhere (sparser + shorter in the corridor), heather on
 	# dry / rocky ground, pebbles round the rocks, juniper + logs at forest edges, reeds on the shore
 	var nc: FastNoiseLite = ctx["n_cover"]
-	var gc := 3.2
+	var gc: float = ctx["cover_cell"]
 	var gn := int(FIELD / gc)
 	var dry: float = ctx["dry"]
+	var cmain: String = ctx["cover_main"]; var acc: Array = ctx["accents"]
+	var cp: float = ctx["cover_p"]; var cin: float = ctx["cover_in"]
 	for j in gn:
 		for i in gn:
 			var x := -FIELD / 2 + (i + rng.randf()) * gc
@@ -312,7 +359,7 @@ static func plan(ctx: Dictionary) -> Dictionary:
 			var u := rng.randf()
 			var cv := nc.get_noise_2d(x, z) * 0.5 + 0.5
 			var inside := corridor_out(ctx, x, z) <= 0.0
-			var p := smoothstep(0.35, 0.7, cv) * (0.28 if inside else 0.85)
+			var p := smoothstep(0.35, 0.7, cv) * (cin if inside else cp)
 			if ctx["has_lake"] and lake_d(ctx, x, z) < 1.05:
 				continue
 			if u > p:
@@ -320,34 +367,54 @@ static func plan(ctx: Dictionary) -> Dictionary:
 			var tier := 0 if rng.randf() < 0.35 else (1 if rng.randf() < 0.55 else 2)
 			var dr := (Vector2(x, z) - rc).length() / rr
 			var w := rng.randf()
-			if dr < 1.2 and w < 0.35 or (w < 0.06 * (1.0 + dry * 2.0) and not inside):
-				cover.append(["env_heather", x, z, rng.randf_range(0.7, 1.4), rng.randf() * TAU, tier, rng.randf()])
-			elif w < 0.09 and dr < 1.6:
-				cover.append(["env_pebbles", x, z, rng.randf_range(0.6, 1.3), rng.randf() * TAU, tier, rng.randf()])
+			# accents {m, knoll, open, rock, s}: chance on the rocky knoll / in open dry ground off the corridor /
+			# round the rocks; first match wins, else the main grass
+			var am := ""
+			for ac in acc:
+				if (dr < 1.2 and w < float(ac.get("knoll", 0.0))) or (not inside and w < float(ac.get("open", 0.0)) * (1.0 + dry * 2.0)) or (dr < 1.6 and w < float(ac.get("rock", 0.0))) or (inside and w < float(ac.get("inside", 0.0))):
+					am = ac["m"]
+					var asc: Vector2 = ac.get("s", Vector2(0.7, 1.4))
+					cover.append([am, x, z, rng.randf_range(asc.x, asc.y), rng.randf() * TAU, tier, rng.randf()])
+					break
+			if am != "" or cmain == "":
+				continue
 			else:
 				# tint: 0 = green, 1 = straw; dry patches follow the cover noise + the variant's dryness
 				var dr2 := clampf(smoothstep(0.55 - dry * 0.5, 0.85, nc.get_noise_2d(x * 0.31, z * 0.31) * 0.5 + 0.5 + rng.randf() * 0.25), 0.0, 1.0)
-				cover.append(["env_grass_tuft", x, z, rng.randf_range(0.7, 1.4) * (0.75 if inside else 1.0), rng.randf() * TAU, tier, dr2])
-	for k in 260:
-		var x := rng.randf_range(-FIELD / 2, FIELD / 2); var z := rng.randf_range(-FIELD / 2, FIELD / 2)
-		var f := forest_f(ctx, x, z)
-		if f < 0.05 or f > 0.6 or not ok_obstacle.call(x, z, 1.5):
-			continue
-		var s := rng.randf_range(0.7, 1.4)
-		rocks.append(["env_juniper", x, z, s, rng.randf() * TAU, int(rng.randf() < 0.4), rng.randf()])
-		obst.append([Vector2(x, z), 0.8 * s])
-	for k in 70:
-		var x := rng.randf_range(-FIELD / 2, FIELD / 2); var z := rng.randf_range(-FIELD / 2, FIELD / 2)
-		if forest_f(ctx, x, z) < 0.3 or not ok_obstacle.call(x, z, 4.0):
-			continue
-		rocks.append(["env_log", x, z, rng.randf_range(0.7, 1.2), rng.randf() * TAU, 1, rng.randf()])
-		obst.append([Vector2(x, z), 3.5])
-	if ctx["has_lake"]:
-		for k in 420:
+				cover.append([cmain, x, z, rng.randf_range(0.7, 1.4) * (0.75 if inside else 1.0), rng.randf() * TAU, tier, dr2])
+	# shrubs / logs {m, n, fmin, fmax, r (obstacle radius per unit scale), s, tier}: forest edges (or open ground
+	# with fmin < 0), all obstacles -> kept out of the corridor
+	for sh in ctx["shrubs"]:
+		var ssc: Vector2 = sh.get("s", Vector2(0.7, 1.4))
+		var srad: float = sh.get("r", 0.8)
+		for k in int(sh["n"]):
+			var x := rng.randf_range(-FIELD / 2, FIELD / 2); var z := rng.randf_range(-FIELD / 2, FIELD / 2)
+			var f := forest_f(ctx, x, z)
+			var s := rng.randf_range(ssc.x, ssc.y)
+			if f < float(sh.get("fmin", 0.05)) or f > float(sh.get("fmax", 0.6)) or not ok_obstacle.call(x, z, maxf(1.5, srad * s + 0.5)):
+				continue
+			if ctx["has_lake"] and lake_d(ctx, x, z) < 1.15:
+				continue
+			rocks.append([sh["m"], x, z, s, rng.randf() * TAU, int(rng.randf() < float(sh.get("tier", 0.4))), rng.randf()])
+			obst.append([Vector2(x, z), srad * s])
+	var shore: String = ctx["shore"]
+	if ctx["has_lake"] and shore != "":
+		for k in int(ctx["shore_n"]):
 			var a := rng.randf() * TAU
 			var q := _lake_pt(ctx, a, rng.randf_range(0.9, 1.08))
-			cover.append(["env_reeds", q.x, q.y, rng.randf_range(0.7, 1.3), rng.randf() * TAU, 0 if k % 3 == 0 else 1, rng.randf()])
+			cover.append([shore, q.x, q.y, rng.randf_range(0.7, 1.3), rng.randf() * TAU, 0 if k % 3 == 0 else 1, rng.randf()])
 	return {"trees": trees, "far": far, "rocks": rocks, "cover": cover, "obstacles": obst}
+
+static func _pick(species: Array, edge: float, v: float) -> String:
+	var tot := 0.0
+	for sp in species:
+		tot += float(sp[1]) * maxf(0.0, 1.0 + float(sp[2]) * (edge * 1.4 - 0.4))
+	var acc := 0.0
+	for sp in species:
+		acc += float(sp[1]) * maxf(0.0, 1.0 + float(sp[2]) * (edge * 1.4 - 0.4))
+		if v * tot <= acc:
+			return sp[0]
+	return species[species.size() - 1][0]
 
 ## Regiment footprint vs obstacle check used by tests/test_env.gd (and debug): returns the closest clearance (m) of
 ## any obstacle to the regiment rectangle (negative = overlap).
@@ -434,6 +501,9 @@ static func build_ground(bv: Node) -> void:
 		w.rotation.y = -float(ctx["lake_rot"])
 		var wm := ShaderMaterial.new(); wm.shader = load("res://shaders/env_water.gdshader")
 		if mat is ShaderMaterial: wm.set_shader_parameter("noise_tex", (mat as ShaderMaterial).get_shader_parameter("noise_tex"))
+		var wp: Dictionary = ctx["water"]
+		for k in wp:
+			wm.set_shader_parameter(k, wp[k])
 		w.material_override = wm
 		w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		bv.add_child(w)
@@ -455,6 +525,10 @@ static func _terrain_material(ctx: Dictionary) -> Material:
 	m.set_shader_parameter("snow_h", float(ctx["snow_h"]))
 	m.set_shader_parameter("treeline", float(ctx["treeline"]))
 	m.set_shader_parameter("water_h", float(ctx["water_h"]))
+	var pal: Dictionary = ctx["palette"]   # biome ground palette (shader uniforms: grass_a, dry, earth, rock, ...)
+	for k in pal:
+		if k != "straw":
+			m.set_shader_parameter(k, pal[k])
 	# masks, baked from the same functions that place trees / rocks
 	var N := 192
 	var ne := 620.0; var fe := 3000.0
@@ -484,6 +558,7 @@ static func _terrain_material(ctx: Dictionary) -> Material:
 	m.set_shader_parameter("near_ext", ne); m.set_shader_parameter("far_ext", fe)
 	return m
 
+const DEF_TINT := [Color(0.88, 0.9, 0.86), Color(0.22, 0.18, 0.18)]
 static var _meshes := {}
 static func _mesh(model: String) -> Mesh:
 	if _meshes.has(model):
@@ -518,22 +593,32 @@ static func build_scenery(bv: Node) -> void:
 	var pl := plan(ctx)
 	ctx["plan"] = pl
 	ctx["mmis"] = []
-	var mats := {"tree": _foliage_mat(2.4, 1.0, false), "rock": _foliage_mat(1.3, 0.0, false), "cover": _foliage_mat(1.0, 1.0, true), "far": _foliage_mat(2.2, 0.0, false)}
+	var ma: Dictionary = ctx["mats"]   # per-biome albedo multipliers / wind
+	var mats := {"tree": _foliage_mat(float(ma.get("tree", 2.4)), float(ma.get("wind", 1.0)), false), "rock": _foliage_mat(float(ma.get("rock", 1.3)), 0.0, false),
+		"cover": _foliage_mat(float(ma.get("cover", 1.0)), float(ma.get("wind", 1.0)), true), "far": _foliage_mat(float(ma.get("far", 2.2)), 0.0, false)}
+	var pal: Dictionary = ctx["palette"]
+	if pal.has("straw"):
+		(mats["cover"] as ShaderMaterial).set_shader_parameter("straw", pal["straw"])
 	# near trees: 250 m tiles, detail mesh to ~330 m from the camera, then the far-LOD conifer
 	var dbg := _arg("env-dbg")
 	if "c" in dbg: pl["cover"] = []
 	if "f" in dbg: pl["far"] = []
 	_tiled(bv, ctx, pl["trees"], TREE_TILE, mats["tree"], not ("s" in dbg), 0.0, TREE_DETAIL, "T")
 	var lod: Array = []
+	var lodm: Dictionary = ctx["lod"]
 	for t in pl["trees"]:
 		var e: Array = (t as Array).duplicate()
-		e[0] = "env_conifer_far"
-		lod.append(e)
+		e[0] = lodm.get(str(t[0]), ctx["far_model"])
+		if str(e[0]) != "":
+			lod.append(e)
 	_tiled(bv, ctx, lod, TREE_TILE, mats["far"], false, TREE_DETAIL, 0.0, "L")
 	_tiled(bv, ctx, pl["far"], 900.0, mats["far"], false, 0.0, 0.0, "F")
 	var stones: Array = []; var shrubs: Array = []
+	var shm := {}
+	for sh in ctx["shrubs"]:
+		shm[str(sh["m"])] = true
 	for r in pl["rocks"]:
-		(shrubs if str(r[0]) in ["env_juniper", "env_log"] else stones).append(r)
+		(shrubs if shm.has(str(r[0])) else stones).append(r)
 	_tiled(bv, ctx, stones, 2000.0, mats["rock"], true, 0.0, 0.0, "R")
 	_tiled(bv, ctx, shrubs, 2000.0, mats["tree"], true, 0.0, 0.0, "S")
 	_tiled(bv, ctx, pl["cover"], COVER_TILE, mats["cover"], false, 0.0, 150.0, "C")
@@ -544,6 +629,7 @@ static func build_scenery(bv: Node) -> void:
 ## visible_instance_count (no extra nodes / draw calls per level).
 static func _tiled(bv: Node, ctx: Dictionary, items: Array, tile: float, mat: Material, shadow: bool, vis_begin: float, vis_end: float, tag: String) -> void:
 	var groups := {}
+	var tints: Dictionary = ctx["tints"]; var tuft_m: String = ctx["cover_main"]
 	for it in items:
 		var k := "%s|%d|%d" % [it[0], int(floor((float(it[1]) + 5000.0) / tile)), int(floor((float(it[2]) + 5000.0) / tile))]
 		if not groups.has(k):
@@ -567,19 +653,15 @@ static func _tiled(bv: Node, ctx: Dictionary, items: Array, tile: float, mat: Ma
 			var x: float = it[1]; var z: float = it[2]; var s: float = it[3]
 			var y = bv.h_at(x, z) if absf(x) < FIELD / 2 and absf(z) < FIELD / 2 else height(ctx, x, z)
 			var basis := Basis(Vector3.UP, float(it[4])).scaled(Vector3.ONE * s)
-			if model.begins_with("env_grass") or model == "env_reeds":
+			if model.begins_with("env_grass") or model == "env_reeds" or model == str(ctx["cover_main"]):
 				basis = basis.scaled(Vector3(1.0, 0.8 + float(it[6]) * 0.5, 1.0))
 			mm.set_instance_transform(n, Transform3D(basis, Vector3(x, y - (0.15 if not model.begins_with("env_boulder") else 0.25 * s), z)))
 			var v: float = it[6]
-			var col := Color(1, 1, 1)
-			if model.begins_with("env_birch"):
-				col = Color(0.35 + v * 0.05, 0.36 + v * 0.06, 0.3 + v * 0.05)   # (x2.4 tree albedo) muted summer birch
-			elif model == "env_conifer_far" and tag == "L":
-				col = Color(0.9 + v * 0.15, 0.95 + v * 0.1, 0.9)
-			else:
-				col = Color(0.88 + v * 0.22, 0.9 + v * 0.18, 0.86 + v * 0.18)
+			# per-biome tint [base, variation] by model ("L:<model>" for the LOD copies), default: mild jitter
+			var tk: Array = tints.get(("L:" + model) if tag == "L" else model, tints.get(model, DEF_TINT))
+			var col: Color = (tk[0] as Color) + (tk[1] as Color) * v
 			mm.set_instance_color(n, col)
-			mm.set_instance_custom_data(n, Color(0, 0, 0, v if model == "env_grass_tuft" else 0.0))
+			mm.set_instance_custom_data(n, Color(0, 0, 0, v if model == tuft_m else 0.0))
 			tiers[int(it[5])] += 1
 		var mmi := MultiMeshInstance3D.new()
 		mmi.name = "Env%s_%s" % [tag, str(k).replace("|", "_")]
@@ -613,49 +695,49 @@ static func apply_look(bv: Node) -> void:
 	var env: Environment = bv.environment
 	var sun: DirectionalLight3D = bv.sun
 	var ctx: Dictionary = bv.env
-	var north: float = clampf((float(ctx["lat"]) - 55.0) / 15.0, 0.0, 1.0)
+	var lk: Dictionary = ctx["look"]   # biome overrides; defaults = the reviewed Scandinavian summer afternoon
 	var sm := env.sky.sky_material as ProceduralSkyMaterial
 	if sm != null:
-		sm.sky_top_color = Color(0.22, 0.4, 0.68).lerp(Color(0.26, 0.43, 0.68), north)
-		sm.sky_horizon_color = Color(0.74, 0.77, 0.8)
+		sm.sky_top_color = lk.get("sky_top", Color(0.22, 0.4, 0.68))
+		sm.sky_horizon_color = lk.get("sky_horizon", Color(0.74, 0.77, 0.8))
 		sm.sky_curve = 0.12
-		sm.ground_horizon_color = Color(0.62, 0.66, 0.68)
-		sm.ground_bottom_color = Color(0.25, 0.27, 0.22)
+		sm.ground_horizon_color = lk.get("ground_horizon", Color(0.62, 0.66, 0.68))
+		sm.ground_bottom_color = lk.get("ground_bottom", Color(0.25, 0.27, 0.22))
 		sm.sun_angle_max = 24.0
 		sm.sun_curve = 0.12
-		sm.sky_energy_multiplier = 1.0
+		sm.sky_energy_multiplier = float(lk.get("sky_energy", 1.0))
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.85
+	env.ambient_light_energy = float(lk.get("ambient", 0.85))
 	env.ambient_light_sky_contribution = 0.85
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.04
+	env.tonemap_exposure = float(lk.get("exposure", 1.04))
 	env.tonemap_white = 6.0
 	env.adjustment_enabled = true
-	env.adjustment_contrast = 1.06
-	env.adjustment_saturation = 0.94
+	env.adjustment_contrast = float(lk.get("contrast", 1.06))
+	env.adjustment_saturation = float(lk.get("saturation", 0.94))
 	env.adjustment_brightness = 1.0
 	# aerial perspective: the field (< ~350 m) stays clear, hills turn blue-grey, the mountains sit in haze
 	env.fog_enabled = not ("--nofog" in OS.get_cmdline_user_args())
 	env.fog_mode = Environment.FOG_MODE_DEPTH
-	env.fog_depth_begin = 350.0
-	env.fog_depth_end = 5200.0
+	env.fog_depth_begin = float(lk.get("fog_begin", 350.0))
+	env.fog_depth_end = float(lk.get("fog_end", 5200.0))
 	env.fog_depth_curve = 1.25
-	env.fog_density = 0.62
-	env.fog_light_color = Color(0.66, 0.72, 0.8)
+	env.fog_density = float(lk.get("fog_density", 0.62))
+	env.fog_light_color = lk.get("fog_color", Color(0.66, 0.72, 0.8))
 	env.fog_light_energy = 1.0
-	env.fog_sun_scatter = 0.18
-	env.fog_sky_affect = 0.25
+	env.fog_sun_scatter = float(lk.get("fog_scatter", 0.18))
+	env.fog_sky_affect = float(lk.get("fog_sky", 0.25))
 	env.fog_height_density = 0.0
-	# warm afternoon sun from the south-west, ~30 deg high: long soft shadows across the line, lit faces toward
-	# the default camera
-	sun.rotation_degrees = Vector3(-31.0, 212.0, 0.0)
-	sun.light_color = Color(1.0, 0.9, 0.76)
-	sun.light_energy = 1.55
+	# default: warm afternoon sun from the south-west, ~30 deg high: long soft shadows across the line, lit faces
+	# toward the default camera (biomes change height / colour, e.g. a high harsh desert sun)
+	sun.rotation_degrees = lk.get("sun_rot", Vector3(-31.0, 212.0, 0.0))
+	sun.light_color = lk.get("sun_color", Color(1.0, 0.9, 0.76))
+	sun.light_energy = float(lk.get("sun_energy", 1.55))
 	sun.light_angular_distance = 0.6
 	sun.shadow_bias = 0.08
 	sun.shadow_normal_bias = 1.6
 	sun.shadow_blur = 0.8
-	sun.shadow_opacity = 0.86
+	sun.shadow_opacity = float(lk.get("shadow_opacity", 0.86))
 	sun.directional_shadow_fade_start = 0.75
 	var cam = bv.get("cam")
 	if cam is Camera3D:
