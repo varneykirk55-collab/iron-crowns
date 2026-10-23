@@ -66,6 +66,7 @@ varying float coat_k;   // 1 = mid / far set: lift dark coats
 #ifdef CHAR_NMAP
 uniform sampler2D v2_nmap : hint_default_white, filter_linear_mipmap, repeat_disable;
 uniform sampler2D v2_idmap : hint_default_black, filter_nearest, repeat_disable;
+uniform sampler2D v2_albmap : hint_default_black, filter_linear_mipmap, repeat_disable;   // painted skin / eye albedo (MH base), black = none
 uniform float nmap_strength = 1.0;
 uniform float nmap_ao = 0.85;
 varying vec2 atl_uv;
@@ -249,7 +250,11 @@ void fragment() {
 	if (id4.x >= 0.0) {   // painted detail: wool fibre / leather / skin variation, stubble + ruddy skin, eyes, edge wear
 		alb *= 0.55 + 0.9 * dlum;
 		float sid = floor(su * 32.0);
-		if (mi == 5.0) {
+		vec3 pa = (mi == 5.0) ? texture(v2_albmap, atl_uv).rgb : vec3(0.0);
+		if (mi == 5.0 && max(pa.r, max(pa.g, pa.b)) > 0.015) {   // painted skin / eye albedo from the base human (sRGB in a linear texture)
+			alb = pow(pa, vec3(2.2)) * (0.92 + 0.16 * dlum);
+			if (sid == 18.0) rough = 0.2;
+		} else if (mi == 5.0) {
 			if (sid == 18.0) { alb = mix(vec3(0.075, 0.048, 0.030), vec3(0.62, 0.60, 0.56), smoothstep(0.3, 0.7, dk)); rough = 0.25; }   // iris / sclera
 			else {
 				float stub = clamp((8.0 / 15.0 - dk) * 1.875, 0.0, 1.0); float rud = clamp((dk - 8.0 / 15.0) * 2.14, 0.0, 1.0);

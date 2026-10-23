@@ -532,8 +532,9 @@ static func _char_materials(bv: Node) -> void:
 			m.set_shader_parameter("die_b_row", float(cl["die_b"]["start"]))
 		if v2 and j.has("maps"):
 			var mt := _v2_maps(j["maps"])
-			if mt.size() == 2:
+			if mt.size() >= 2:
 				m.set_shader_parameter("v2_nmap", mt[0]); m.set_shader_parameter("v2_idmap", mt[1])
+				if mt.size() > 2: m.set_shader_parameter("v2_albmap", mt[2])
 		mmi.material_override = m
 
 ## Clip crossfade for the c19sr_* shader (char_vat.gdshader reads instance COLOR = prev clip + weight). Call once per
@@ -590,7 +591,7 @@ static func xfade_crew(v: Dictionary, k: int, q: int, cur: int, c: Vector2, ct: 
 ## Proto v2 maps: PNG bytes (.vtex, not imported) for the normal + AO map and the slot-id map (c19v2_line_lod0.json "maps").
 static var _v2_cache := {}
 static func _v2_maps(mj: Dictionary) -> Array:
-	var k := "%s|%s" % [mj.get("nrm", ""), mj.get("id", "")]
+	var k := "%s|%s|%s" % [mj.get("nrm", ""), mj.get("id", ""), mj.get("alb", "")]
 	if _v2_cache.has(k):
 		return _v2_cache[k]
 	var out := []
@@ -600,6 +601,11 @@ static func _v2_maps(mj: Dictionary) -> Array:
 		ni.convert(Image.FORMAT_RGBA8); ii.convert(Image.FORMAT_RGBA8)
 		ni.generate_mipmaps()
 		out = [ImageTexture.create_from_image(ni), ImageTexture.create_from_image(ii)]
+		var ap := "res://assets/vat/%s" % str(mj.get("alb", ""))
+		var ai := Image.new()
+		if mj.has("alb") and FileAccess.file_exists(ap) and ai.load_png_from_buffer(FileAccess.get_file_as_bytes(ap)) == OK:   # optional painted skin albedo
+			ai.convert(Image.FORMAT_RGBA8); ai.generate_mipmaps()
+			out.append(ImageTexture.create_from_image(ai))
 	_v2_cache[k] = out
 	return out
 

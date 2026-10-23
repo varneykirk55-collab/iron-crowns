@@ -81,8 +81,9 @@ func _make(m: String, pal: Texture2D, xf: Array) -> MultiMeshInstance3D:
 			mat.set_shader_parameter("char_mid_dist", BV.char_mid_dist())
 		if j.has("maps"):
 			var mt := BV._v2_maps(j["maps"])
-			if mt.size() == 2:
+			if mt.size() >= 2:
 				mat.set_shader_parameter("v2_nmap", mt[0]); mat.set_shader_parameter("v2_idmap", mt[1])
+				if mt.size() > 2: mat.set_shader_parameter("v2_albmap", mt[2])
 				mat.set_shader_parameter("nmap_strength", float(_arg("nmap", "1"))); mat.set_shader_parameter("nmap_ao", float(_arg("nao", "0.85")))
 		mat.set_shader_parameter("team_tint", float(_arg("teamtint", "0")))
 	mat.set_shader_parameter("vat_tex", vt)
