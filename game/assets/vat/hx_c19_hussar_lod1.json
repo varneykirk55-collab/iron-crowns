@@ -1,0 +1,197 @@
+{
+ "vertices": 856,
+ "fps": 24,
+ "frames": 673,
+ "aabb": [
+  [
+   -2.4267163276672363,
+   -0.12522439658641815,
+   -2.3044426441192627
+  ],
+  [
+   2.2559092044830322,
+   3.0169014930725098,
+   2.206467628479004
+  ]
+ ],
+ "clips": {
+  "hz_stand": {
+   "start": 0,
+   "count": 96,
+   "loop": true
+  },
+  "hz_walk": {
+   "start": 96,
+   "count": 26,
+   "loop": true,
+   "v_nom": 1.1
+  },
+  "hz_trot": {
+   "start": 122,
+   "count": 17,
+   "loop": true,
+   "v_nom": 2.2
+  },
+  "hz_canter": {
+   "start": 139,
+   "count": 14,
+   "loop": true,
+   "v_nom": 4.0
+  },
+  "hz_gallop": {
+   "start": 153,
+   "count": 12,
+   "loop": true,
+   "v_nom": 6.0
+  },
+  "hz_charge": {
+   "start": 165,
+   "count": 12,
+   "loop": true,
+   "v_nom": 6.0
+  },
+  "hz_idle_walk": {
+   "start": 177,
+   "count": 26,
+   "loop": false,
+   "v_nom": 0.55
+  },
+  "hz_walk_idle": {
+   "start": 203,
+   "count": 26,
+   "loop": false,
+   "v_nom": 0.55
+  },
+  "hz_walk_trot": {
+   "start": 229,
+   "count": 21,
+   "loop": false,
+   "v_nom": 1.65
+  },
+  "hz_trot_walk": {
+   "start": 250,
+   "count": 21,
+   "loop": false,
+   "v_nom": 1.65
+  },
+  "hz_trot_canter": {
+   "start": 271,
+   "count": 15,
+   "loop": false,
+   "v_nom": 3.1
+  },
+  "hz_canter_trot": {
+   "start": 286,
+   "count": 15,
+   "loop": false,
+   "v_nom": 3.1
+  },
+  "hz_canter_gallop": {
+   "start": 301,
+   "count": 13,
+   "loop": false,
+   "v_nom": 5.0
+  },
+  "hz_gallop_canter": {
+   "start": 314,
+   "count": 13,
+   "loop": false,
+   "v_nom": 5.0
+  },
+  "hz_gallop_charge": {
+   "start": 327,
+   "count": 12,
+   "loop": false,
+   "v_nom": 6.0
+  },
+  "hz_charge_gallop": {
+   "start": 339,
+   "count": 12,
+   "loop": false,
+   "v_nom": 6.0
+  },
+  "hz_melee_ready": {
+   "start": 351,
+   "count": 48,
+   "loop": true
+  },
+  "hz_draw": {
+   "start": 399,
+   "count": 24,
+   "loop": false
+  },
+  "hz_ready_idle": {
+   "start": 423,
+   "count": 16,
+   "loop": false
+  },
+  "hz_strike_a": {
+   "start": 439,
+   "count": 36,
+   "loop": false
+  },
+  "hz_strike_b": {
+   "start": 475,
+   "count": 36,
+   "loop": false
+  },
+  "hz_hit": {
+   "start": 511,
+   "count": 18,
+   "loop": false
+  },
+  "cv_die_a": {
+   "start": 529,
+   "count": 48,
+   "loop": false
+  },
+  "cv_die_b": {
+   "start": 577,
+   "count": 48,
+   "loop": false
+  },
+  "cv_die_c": {
+   "start": 625,
+   "count": 48,
+   "loop": false
+  },
+  "idle": {
+   "start": 0,
+   "count": 96,
+   "loop": true
+  },
+  "walk": {
+   "start": 96,
+   "count": 26,
+   "loop": true,
+   "v_nom": 1.1
+  },
+  "run": {
+   "start": 153,
+   "count": 12,
+   "loop": true,
+   "v_nom": 6.0
+  },
+  "melee": {
+   "start": 351,
+   "count": 48,
+   "loop": true
+  },
+  "fire": {
+   "start": 351,
+   "count": 48,
+   "loop": true
+  },
+  "die": {
+   "start": 529,
+   "count": 48,
+   "loop": false
+  }
+ },
+ "rig": "hx (HORSE_SKELETON_SPEC v1.1)",
+ "layers": [
+  "body",
+  "rider",
+  "tack"
+ ]
+}
