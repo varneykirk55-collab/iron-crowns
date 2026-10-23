@@ -1,6 +1,6 @@
 # c19v2_line: crowd bench (stage 4d)
 
-**Setup.** Run on Fri 2026-10-23, 13:2x to 14:31 EDT, on branch proto/c19-line-v2 at 990a1f7. Both arms use the same
+**Setup.** Run on Fri 2026-10-23, about 13:23 to 14:31 EDT, on branch proto/c19-line-v2 at 990a1f7. Both arms use the same
 build and the same command; only `--vx-proto` changes:
 
 ```

@@ -15,7 +15,7 @@
 - [x] 4c gameplay MP4 deliverables/proto_v2/proto_v2_gameplay.mp4 (00a4be3)
 - [x] 4d bench q0/q1/q2 x3 vs same-build --vx-proto=0 (FRA 1800 battle): docs/char/PROTO_BENCH.md (llvmpipe, shared-box contention noted; same draws, +17k prims, q1 close ~-40%)
 - [x] 4e tests 163/163, outcome hash 553cc500... = main; sim hashes = main (SWE1800 417a5300..., USA1914 4679c5a2..., JPN1500 e104d558...)
-- [ ] 4f push proto/c19-line-v2
+- [x] 4f push proto/c19-line-v2 (origin, branch only)
 
 ## 2a-2c notes (Oct 23, ~11:50 EDT)
 - Body: torso/neck/collar + arms (built spread +-6 cm) + legs/gaiters + shoes, unioned by 5 mm voxel remesh (hi ~92k verts);
