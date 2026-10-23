@@ -7,6 +7,9 @@
 - Mongolia and Inner Mongolia (lon 100–116, lat 42–50) are classified as `steppe`, not `east_asia`.
 - `BattleVisuals.apply()` re-applies the biome look when a biome is active, so calling the graphics pass again (as the visuals test does) keeps the regional light instead of reverting to the era look. Rendering only.
 
+### Region: tropical (env/tropical)
+- New `tropical` biome (Philippines, Indonesia, Amazon, Congo, Caribbean, Central America, Hawaii; 174 provinces). It has an open cogon-grass clearing on red laterite, multi-layer rainforest walls outside the fighting corridor (buttressed canopy trees, emergents, coconut palms, banana / fern / thicket understorey), mossy basalt and humid hazy light. All assets are procedural (`pipeline/blender/env_tropical.py`). Evidence: `evidence/env-tropical/`. Rendering only: sim hashes and BATTLERESULT are unchanged.
+
 ## v0.5.0 — 2026-10-23 (gameplay & AI refinement)
 ### Medieval combat: no more panic routs just before contact
 - **Diagnosis** (Sweden vs Norway 1300, real starting armies, 40 seeds): 15 of 80 spear regiments routed without ever reaching melee, and attackers won 40/40. The battle model has **no obstacles**; rocks are scenery only. The real causes were that a melee-only regiment on "hold" had no response to being shot, morale never recovered under the 4-second arrow cadence, and the 28-second "decisive phase" doubled arrow casualties right as the lines met. The Norwegian spearmen routed at a 4 m gap, wherever a rock happened to be.
