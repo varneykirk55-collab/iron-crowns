@@ -23,7 +23,7 @@ for d in glob.glob(f"{L}/shots/*/"):
 for f in glob.glob(f"{L}/rec/*.mp4"):
     shutil.copy(f, f"{D}/videos/")
 # project: exact tree of `main` (tracked files only)
-subprocess.run(["git", "archive", "--format=zip", "--prefix=IronCrowns_v0.2/", "-o", f"{D}/IronCrowns_v0.2_project.zip", "main"], check=True)
+subprocess.run(["git", "archive", "--format=zip", "--prefix=IronCrowns_v0.2/", "-o", f"{D}/IronCrowns_v0.2_project.zip", "main", "--", ".", ":!deliverables"], check=True)
 def zipdir(out, item, base):
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for root, _, files in os.walk(os.path.join(base, item)):
