@@ -1,7 +1,7 @@
 {
   "failed": 0,
   "godot": "4.7.2-stable (official)",
-  "passed": 61,
+  "passed": 127,
   "results": [
     {
       "detail": "durations=[42.5, 44.1, 43.7, 41.2, 44.9, 35.6, 46.0, 41.4] wins(att,def)=[6, 2]",
@@ -307,8 +307,338 @@
       "detail": "other battles resolved meanwhile: 1, log entries 115",
       "pass": true,
       "test": "other battles/events continued meanwhile (none skipped)"
+    },
+    {
+      "detail": "day 263 (21 Sep 1800), wars 7, battles in progress 1, armies 209, treaties 98, sieges 1",
+      "pass": true,
+      "test": "save: campaign state is non-trivial at save time"
+    },
+    {
+      "detail": "Saved \"test_slot\" (21 Sep 1800) size 987896 B",
+      "pass": true,
+      "test": "save: write user://saves/test_slot.save"
+    },
+    {
+      "detail": "{ \"magic\": \"IRONCROWNS\", \"version\": 1, \"player\": \"SWE\", \"nation\": \"Sweden\", \"date\": \"21 Sep 1800\", \"era\": \"Age of Revolutions\", \"saved_unix\": 1792716666 }",
+      "pass": true,
+      "test": "save: metadata header readable"
+    },
+    {
+      "detail": "Loaded \"test_slot\" (21 Sep 1800), 987660 bytes identical",
+      "pass": true,
+      "test": "save: loaded state deep-equals saved state"
+    },
+    {
+      "detail": "2 battles",
+      "pass": true,
+      "test": "save: in-progress battles restored as live BattleSim objects"
+    },
+    {
+      "detail": "both at 20 Mar 1801, 208 armies, 2 battles, 222 events",
+      "pass": true,
+      "test": "save: determinism, original and loaded runs identical after 180 more days"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "save: missing slot reports an error"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "save: slot appears in save list"
+    },
+    {
+      "detail": "winner 0, t=36.5s, 1145 frames; ",
+      "pass": true,
+      "test": "camera: battle under a live view (no toggles) == bare sim"
+    },
+    {
+      "detail": "steps 365/365, men [1200.0, 781.065035827416, 1200.0, 424.081798109027, 200.0, 886.805158205628, 402.889953040105, 415.657854190128, 854.878661388497, 571.374573550761, 581.975871185597] / [1200.0, 781.065035827416, 1200.0, 424.081798109027, 200.0, 886.805158205628, 402.889953040105, 415.657854190128, 854.878661388497, 571.374573550761, 581.975871185597] ",
+      "pass": true,
+      "test": "camera: 27 camera toggles + zoom input give an identical battle"
+    },
+    {
+      "detail": "min 0.000 max 1.000",
+      "pass": true,
+      "test": "camera: blend reached both overhead (0) and cinematic (1)"
+    },
+    {
+      "detail": "8 cuts, shot kinds [\"establishing\", \"flank\", \"low_angle\", \"aftermath\"]",
+      "pass": true,
+      "test": "camera: director cut between event-driven shots"
+    },
+    {
+      "detail": "[\"establishing\", \"flank\", \"low_angle\", \"aftermath\"]",
+      "pass": true,
+      "test": "camera: director switches to the aftermath shot when the battle ends"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "camera: no invalid (NaN/inf) camera positions"
+    },
+    {
+      "detail": "missing [], no-joy []",
+      "pass": true,
+      "test": "controls: 37 InputMap actions registered, gameplay actions all have gamepad bindings"
+    },
+    {
+      "detail": "focus @Button@1419:<Button#242564992436>, device joy",
+      "pass": true,
+      "test": "controls: gamepad focus lands on title-menu buttons"
+    },
+    {
+      "detail": "armies [51, 209] -> 51, 209",
+      "pass": true,
+      "test": "controls: RB cycles through own armies"
+    },
+    {
+      "detail": "343 -> 344",
+      "pass": true,
+      "test": "controls: D-pad up/down cycles own provinces"
+    },
+    {
+      "detail": "Y->2, right->3, Y->0",
+      "pass": true,
+      "test": "controls: Y pauses/unpauses, D-pad right raises speed"
+    },
+    {
+      "detail": "visible true, focus @Button@1862:<Button#282662540865> -> @Button@2366:<Button#304540031345>",
+      "pass": true,
+      "test": "controls: Back opens diplomacy with gamepad focus inside; D-pad navigates it"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "controls: B closes the window"
+    },
+    {
+      "detail": "econ true menu true",
+      "pass": true,
+      "test": "controls: L3 economy, Start game menu (focused), Start again closes"
+    },
+    {
+      "detail": "(800.0, 800.0) -> (875.1866, 800.0)",
+      "pass": true,
+      "test": "controls: left stick moves the map cursor reticle (no on-screen controller)"
+    },
+    {
+      "detail": "selected 51 want 51 at (800.0, 800.0001)",
+      "pass": true,
+      "test": "controls: A selects the army under the cursor"
+    },
+    {
+      "detail": "dest 343 goal 343",
+      "pass": true,
+      "test": "controls: X orders the selected army to the province under the cursor"
+    },
+    {
+      "detail": "selected 51",
+      "pass": true,
+      "test": "controls: touch tap selects the army"
+    },
+    {
+      "detail": "army -1 pid -1",
+      "pass": true,
+      "test": "controls: touch tap on the HUD bar does not select on the map"
+    },
+    {
+      "detail": "target moved 11.41",
+      "pass": true,
+      "test": "controls: one-finger drag pans the map (and is not a tap)"
+    },
+    {
+      "detail": "dist 30.0 -> 9.0, yaw 0.00 -> 0.79",
+      "pass": true,
+      "test": "controls: pinch out zooms in, two-finger twist rotates"
+    },
+    {
+      "detail": "dest 343 goal 343",
+      "pass": true,
+      "test": "controls: long-press marches the selected army to the pressed province"
+    },
+    {
+      "detail": "scale true big true perf 'FPS 49   frame 146.1 ms avg / 280.8 worst (2 s)' msaa 0",
+      "pass": true,
+      "test": "controls: UI scale, large touch targets, F3 perf overlay and quality settings apply"
+    },
+    {
+      "detail": "0 TouchScreenButton",
+      "pass": true,
+      "test": "controls: no virtual joystick / on-screen gamepad nodes in the scene tree"
+    },
+    {
+      "detail": "speed 2x stick true pinch 170->57 leave true",
+      "pass": true,
+      "test": "controls: battle view — RB speeds up, right stick orbits (leaves cinematic), pinch zooms, Back leaves"
+    },
+    {
+      "detail": "[]",
+      "pass": true,
+      "test": "medieval: units/models present and era-tagged (levy_spear, archers, knights, bombard)"
+    },
+    {
+      "detail": "men [3120.0, 3120.0] -> 2340/2525",
+      "pass": true,
+      "test": "medieval: full battle resolves (winner 1, 33.0s)"
+    },
+    {
+      "detail": "[\"medieval\"]",
+      "pass": true,
+      "test": "medieval: only medieval units fight"
+    },
+    {
+      "detail": "expected subset of [\"arrow\", \"stone_shot\"]",
+      "pass": true,
+      "test": "medieval: projectile types fit the era [\"arrow\", \"stone_shot\"]"
+    },
+    {
+      "detail": "[]",
+      "pass": true,
+      "test": "early_modern: units/models present and era-tagged (pike, musketeers, cuirassiers, culverins)"
+    },
+    {
+      "detail": "men [3850.0, 3850.0] -> 2704/3086",
+      "pass": true,
+      "test": "early_modern: full battle resolves (winner 1, 34.3s)"
+    },
+    {
+      "detail": "[\"early_modern\"]",
+      "pass": true,
+      "test": "early_modern: only early_modern units fight"
+    },
+    {
+      "detail": "expected subset of [\"musket_ball\", \"round_shot\"]",
+      "pass": true,
+      "test": "early_modern: projectile types fit the era [\"musket_ball\", \"round_shot\"]"
+    },
+    {
+      "detail": "[]",
+      "pass": true,
+      "test": "c19: units/models present and era-tagged (line_inf, grenadiers, hussars, field_guns)"
+    },
+    {
+      "detail": "men [4100.0, 4100.0] -> 2867/3186",
+      "pass": true,
+      "test": "c19: full battle resolves (winner 1, 30.7s)"
+    },
+    {
+      "detail": "[\"c19\"]",
+      "pass": true,
+      "test": "c19: only c19 units fight"
+    },
+    {
+      "detail": "expected subset of [\"musket_ball\", \"round_shot\"]",
+      "pass": true,
+      "test": "c19: projectile types fit the era [\"musket_ball\", \"round_shot\"]"
+    },
+    {
+      "detail": "[]",
+      "pass": true,
+      "test": "c20: units/models present and era-tagged (riflemen, tanks_c20, howitzers, trucks_inf)"
+    },
+    {
+      "detail": "men [5100.0, 5100.0] -> 3806/4369",
+      "pass": true,
+      "test": "c20: full battle resolves (winner 1, 30.2s)"
+    },
+    {
+      "detail": "[\"c20\"]",
+      "pass": true,
+      "test": "c20: only c20 units fight"
+    },
+    {
+      "detail": "expected subset of [\"rifle_tracer\", \"shell\", \"tank_round\"]",
+      "pass": true,
+      "test": "c20: projectile types fit the era [\"rifle_tracer\", \"tank_round\", \"shell\"]"
+    },
+    {
+      "detail": "[]",
+      "pass": true,
+      "test": "modern: units/models present and era-tagged (mech_inf, mbt, ifv, rocket_art)"
+    },
+    {
+      "detail": "men [3550.0, 3550.0] -> 2612/3045",
+      "pass": true,
+      "test": "modern: full battle resolves (winner 1, 30.1s)"
+    },
+    {
+      "detail": "[\"modern\"]",
+      "pass": true,
+      "test": "modern: only modern units fight"
+    },
+    {
+      "detail": "expected subset of [\"rifle_tracer\", \"shell\", \"tank_round\"]",
+      "pass": true,
+      "test": "modern: projectile types fit the era [\"rifle_tracer\", \"tank_round\", \"shell\"]"
+    },
+    {
+      "detail": "{ \"medieval\": 0.09765361506532, \"early_modern\": 0.00263919650533, \"c19\": 0.00201275300102, \"c20\": 0.0, \"modern\": 0.0 }",
+      "pass": true,
+      "test": "melee share of kills falls with era (medieval 0.10 > c19 0.00 > modern 0.00)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "medieval armour: archers kill fewer armoured knights than levy per volley (12.1 < 23.2 men)"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "modern armour: MBT rounds hurt MBTs more than infantry rifles do (0.1032 > 0.0029)"
+    },
+    {
+      "detail": "1300:archers, 1500:musketeers, 1800:line_inf, 1914:riflemen, 1980:mech_inf",
+      "pass": true,
+      "test": "USA: starting armies use the start era's units in every era"
+    },
+    {
+      "detail": "1300:archers, 1500:musketeers, 1800:line_inf, 1914:riflemen, 1980:mech_inf",
+      "pass": true,
+      "test": "SWE: starting armies use the start era's units in every era"
+    },
+    {
+      "detail": "1300:archers, 1500:musketeers, 1800:line_inf, 1914:riflemen, 1980:mech_inf",
+      "pass": true,
+      "test": "JPN: starting armies use the start era's units in every era"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: campaign started as Sweden in 20 Jul 1913"
+    },
+    {
+      "detail": "{ \"ok\": true, \"path\": [], \"days\": 13 }",
+      "pass": true,
+      "test": "gameplay: army 51 marched 344 -> 345"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: war declared on NOR"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: watched a battle in 3D (camera toggle true -> false), result true"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: captured enemy province(s) [328] by 30 Dec 1913"
+    },
+    {
+      "detail": "Loaded \"gameplay_test\" (30 Dec 1913)",
+      "pass": true,
+      "test": "gameplay: save/load restores 30 Dec 1913 exactly"
+    },
+    {
+      "detail": "",
+      "pass": true,
+      "test": "gameplay: era advanced to Age of Mechanised War on 1 Jan 1914 (game started 1913)"
     }
   ],
-  "seconds": 60.336,
-  "total": 61
+  "seconds": 70.523,
+  "total": 127
 }
