@@ -18,13 +18,15 @@ from char_v2 import V, ss, lerp, gauss, limb, ring, grid_sweep, superellipsoid, 
 
 C.KID = 'v3_c19_grenadier'
 C.SLOT_MAT.update({'fur': 'fur', 'gold': 'brass', 'scabbard': 'leather', 'sash': 'wool'})
+C.BODY_TRIS = 4700                       # LOD0 within 12k with the full grenadier kit
+C.HEAD_BOX = (0.15, -0.15, 0.17, 2.07)   # bearskin gets head-level texel density
 C.KIT_RULES = [(('bsk', 'mous'), 'head'), (('epaul', 'fringe'), 'transfer'),
                (('sabre', 'sbhilt', 'sbknot', 'bayscab', 'frog'), 'hips'), (('gpack', 'groll', 'gstrap'), 'chest'),
                (('gcart',), 'hips')]
 
 # ------------------------------------------------------------------ habit (body shell slots)
 LAP_W = 0.090            # square-cut lapels, constant width
-LAP_Z0, LAP_Z1 = 1.09, 1.41
+LAP_Z0, LAP_Z1 = 1.09, 1.475   # lapels run up to the collar
 
 def body_slot(p, part):
     x, y, z = p; ax = abs(x)
@@ -38,14 +40,15 @@ def body_slot(p, part):
         return 'coat'
     if part == 'leg':
         # knee gaiters: top higher at the back, heart-shaped dip at the front of the knee
-        top = 0.585 - 0.03 * ss(0.0, 0.05, y) * math.exp(-((x - math.copysign(0.10, x)) / 0.03) ** 2)
+        top = 0.555 - 0.02 * ss(0.0, 0.05, y) * math.exp(-((x - math.copysign(0.10, x)) / 0.03) ** 2)
         if z < top: return 'gaiter'
         return 'breeches'
     if z > 1.586: return 'skin'
     if z > 1.49: return 'stock'
     if y > 0.02:
-        if LAP_Z0 < z < LAP_Z1 + 0.02 and ax < LAP_W:
-            if ax > LAP_W - 0.007 or z < LAP_Z0 + 0.007: return 'piping'
+        lw = LAP_W + 0.012 * ss(1.36, LAP_Z1, z)   # slight flare at the top corners
+        if LAP_Z0 < z < LAP_Z1 + 0.02 and ax < lw:
+            if ax > lw - 0.007 or z < LAP_Z0 + 0.007: return 'piping'
             return 'lapel'
         cut = lerp(LAP_W, 0.175, ss(LAP_Z0, 0.90, z))   # skirts cut away below the lapels: waistcoat shows in a widening V
         if 0.90 < z <= LAP_Z0 + 0.001 and ax < cut: return 'waist'
@@ -153,7 +156,7 @@ def epaulettes(tree, hi=False):
     return out
 
 # ------------------------------------------------------------------ bearskin
-BSK_BASE = V(0, 0.030, 1.708)
+BSK_BASE = V(0, 0.026, 1.692)
 BSK_H = 0.300
 BSK_PROF = [(0.0, 0.086, 0.106, 0.098), (0.12, 0.096, 0.114, 0.106), (0.45, 0.110, 0.124, 0.118), (0.75, 0.114, 0.124, 0.120),
             (0.88, 0.104, 0.112, 0.110), (0.95, 0.080, 0.086, 0.086), (1.0, 0.0, 0.0, 0.0)]
@@ -164,6 +167,28 @@ def _bsk_T(p):
 
 def _plate(x, t):   # brass front plate region (front, lower half, arched top)
     return abs(x) < 0.062 * (1 - 0.35 * t) and t < 0.30 - 0.06 * (x / 0.06) ** 2
+
+def _front_y(x, t):
+    """front surface (fur-less) of the bearskin at local x, height fraction t (untilted, relative to BSK_BASE.y)"""
+    rx, rf, rb = C.interp_prof(BSK_PROF, t)
+    k = min(1.0, abs(x) / rx)
+    return rf * (1 - k ** 2.0) ** 0.5   # superellipse front half (exponent 2)
+
+def bsk_plate(hi=False):
+    """brass front plate as its own thin shell: clean arched outline, slightly proud of the fur."""
+    nu, nv = (28, 24) if hi else (6, 4)
+    secs = []
+    for i in range(nv + 1):
+        v = i / nv; row_o, row_i = [], []
+        for j in range(nu + 1):
+            u = -1 + 2 * j / nu
+            t = 0.012 + v * (0.30 - 0.012 - 0.06 * u * u)
+            x = u * 0.060 * (1 - 0.35 * t)
+            y = BSK_BASE.y + _front_y(x, t)
+            z = BSK_BASE.z + BSK_H * t
+            row_o.append(_bsk_T(V(x, y + 0.0045, z))); row_i.append(_bsk_T(V(x, y + 0.0005, z)))
+        secs.append(row_o + row_i[::-1])
+    return grid_sweep('bsk.plate', secs, closed_u=True, cap0=True, cap1=True, slot='metal')
 
 def bearskin(hi=False):
     nu = 200 if hi else 22
@@ -176,7 +201,7 @@ def bearskin(hi=False):
         def fur(p, a, t=t):
             if not hi or t < 0.01: return p
             q = p - V(0, BSK_BASE.y, p.z)
-            if _plate(q.x, t) and q.y > 0: return p + q.normalized() * 0.003   # smooth raised plate
+            if q.y > 0 and abs(q.x) < 0.075 and t < 0.32: return p   # under the plate: plain
             # downward-flowing fur clumps: |sin|^0.6 ridges, phase-warped
             u = a * 30 + 2.6 * math.sin(t * 9.0 + a * 3) + 1.5 * math.sin(a * 7 + t * 23)
             v = a * 71 + 4 * math.sin(t * 31 + a * 5)
@@ -188,13 +213,13 @@ def bearskin(hi=False):
     inv = BSK_TILT.inverted()
     def bslot(p):
         q = inv @ (p - BSK_BASE); t = q.z / BSK_H
-        if q.y > 0.04 and _plate(q.x, t): return 'metal'
+        if q.y > 0.04 and abs(q.x) < 0.058 and t < 0.27 and _plate(q.x, t): return 'metal'
         if t > 0.86 and q.y < -0.02 and abs(q.x) < 0.07:   # red top patch at the back, white cross
             if abs(q.x) < 0.007 or abs(t - 0.93) < 0.012: return 'lapel'
             return 'collar'
         return 'fur'
     set_slot(body, bslot)
-    out = [body]
+    out = [body, bsk_plate(hi)]
     # cords: festoon across the front above the plate, flounders + tassels on the right
     nseg = 40 if hi else 8
     path = []
@@ -206,7 +231,7 @@ def bearskin(hi=False):
         q = V(math.cos(a) * (rx + 0.004), BSK_BASE.y + math.sin(a) * -1 * (rf + 0.004), BSK_BASE.z + BSK_H * t)
         path.append((k / nseg, _bsk_T(q)))
     path = [(t, V(-p.x, p.y, p.z)) if False else (t, p) for t, p in path]
-    out.append(limb('bskcord', path, [(0, 0.0042, 0.0042, 0.0042)], 60 if hi else 8, 8 if hi else 4, fwd=V(0, 0, 1), slot='belt'))
+    out.append(limb('bskcord', path, [(0, 0.0042, 0.0042, 0.0042)], 60 if hi else 8, 8 if hi else 5, fwd=V(0, 0, 1), slot='belt'))
     rs = path[-1][1]
     for k, dz in enumerate((0.0, 0.012)):
         a = rs + V(0.006, -0.01 * k, -dz)
@@ -215,12 +240,12 @@ def bearskin(hi=False):
     # plume: red, on the left side, rising from a cockade
     pa = _bsk_T(V(-0.112, BSK_BASE.y + 0.020, BSK_BASE.z + 0.12))
     out.append(limb('bskplume', [(0, pa), (0.5, pa + V(-0.012, -0.006, 0.12)), (1, pa + V(-0.010, -0.012, 0.25))],
-                    [(0, 0.011, 0.011, 0.011), (0.25, 0.022, 0.022, 0.022), (0.7, 0.020, 0.020, 0.020), (1, 0.003, 0.003, 0.003)],
+                    [(0, 0.012, 0.012, 0.012), (0.25, 0.028, 0.028, 0.028), (0.7, 0.026, 0.026, 0.026), (1, 0.004, 0.004, 0.004)],
                     24 if hi else 6, 16 if hi else 6, fwd=V(1, 0, 0), slot='plume'))
     out.append(superellipsoid('bskcock', pa + V(-0.006, 0.004, -0.006), (0.006, 0.020, 0.020), e=(2, 2), n=(14, 6) if hi else (8, 3),
                               slot='lapel'))
     if hi:   # grenade relief on the plate
-        c = _bsk_T(V(0, BSK_BASE.y + 0.126, BSK_BASE.z + 0.050))
+        c = _bsk_T(V(0, BSK_BASE.y + _front_y(0.0, 0.16) + 0.0055, BSK_BASE.z + BSK_H * 0.16))
         out.append(superellipsoid('bskgren', c, (0.013, 0.004, 0.013), e=(2, 2), n=(16, 8), slot='metal'))
         for dx in (-0.007, 0.0, 0.007):
             out.append(limb('bskgren.f', [(0, c + V(dx, 0, 0.010)), (1, c + V(dx * 1.8, 0.0, 0.034 - abs(dx)))],
@@ -274,7 +299,7 @@ def sabre(hi=False):
     b0 = V(-0.150, 0.000, 0.975)
     out.append(limb('bayscab', [(0, b0), (1, b0 + V(-0.012, -0.040, -0.37))], [(0, 0.010, 0.012, 0.012), (1, 0.005, 0.006, 0.006)],
                     6 if hi else 2, 8 if hi else 4, fwd=V(1, 0, 0), slot='scabbard'))
-    out.append(superellipsoid('frog', V(-0.160, -0.018, 0.965), (0.010, 0.040, 0.030), e=(4, 4), n=(12, 6) if hi else (6, 3), slot='belt'))
+    out.append(superellipsoid('frog', V(-0.160, -0.018, 0.965), (0.010, 0.040, 0.030), e=(4, 4), n=(12, 6) if hi else (8, 4), slot='belt'))
     return out
 
 def cartbox(hi=False):

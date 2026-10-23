@@ -391,7 +391,7 @@ static func _swap_char(bv: Node) -> void:
 	var vat = bv.get("vat"); var mms = bv.get("mms")
 	if not (vat is Dictionary) or not (mms is Dictionary):
 		return
-	for orig in CHAR_MODEL:
+	for orig in _swap_ids():
 		if not vat.has(orig) or vat[orig].has("sr"):
 			continue
 		var d := sr_vat(_char_model(orig))
@@ -418,10 +418,34 @@ static func proto_on() -> bool:
 			if a == "--vx-proto" or (a.begins_with("--vx-proto=") and a.substr(11) != "0"): _proto_cmd = 1
 	return proto_v2 or _proto_cmd == 1
 
+## Eras v3 (docs/char/ERAS_PROGRESS.md, --vx-proto only): v3 kits swapped in under the existing unit ids (render only).
+const V3_MODEL := {"c19_grenadier": "v3_c19_grenadier", "c19_artillery": "v3_c19_artillery", "med_spear": "v3_med_pike",
+	"med_archer": "v3_med_archer", "em_musket": "v3_em_musket", "em_pike": "v3_em_pike", "c20_rifle": "v3_c20_rifle",
+	"mod_rifle": "v3_mod_rifle"}
+
 static func _char_model(orig: String) -> String:
 	if proto_on() and orig == "c19_line" and _has_vat("c19v2_line"):
 		return "c19v2_line"
-	return CHAR_MODEL[orig]
+	if proto_on() and V3_MODEL.has(orig) and _has_vat(V3_MODEL[orig]):
+		return V3_MODEL[orig]
+	return CHAR_MODEL.get(orig, "")
+
+## ids _swap_char may replace: the c19sr set always, the v3 ids only with --vx-proto
+static func _swap_ids() -> Array:
+	var r: Array = CHAR_MODEL.keys()
+	if proto_on():
+		for k in V3_MODEL:
+			if not r.has(k): r.append(k)
+	return r
+
+## per-kit palette: nation palette + the kit's era-fixed slot colours (json "pal", e.g. fur / brass / era cloth)
+static func kit_palette(p: Dictionary, j: Dictionary) -> Dictionary:
+	if not j.has("pal"):
+		return p
+	var q := p.duplicate()
+	for k in j["pal"]:
+		q[k] = Color(str(j["pal"][k]))
+	return q
 
 ## vat entry (BattleView vat[id] layout: mesh / tex / json per LOD, plus "sr") for a c19sr_* bake; {} if missing.
 static func sr_vat(sr: String) -> Dictionary:
@@ -501,7 +525,7 @@ static func _char_materials(bv: Node) -> void:
 		var mmi: MultiMeshInstance3D = mms[key]["mmi"]
 		var name := parts[0]; var side := int(parts[1]); var lod := int(parts[2])
 		var shader: Shader = shaders[clampi(lod, 0, 1)]
-		var v2 := str(vat[name]["sr"]).begins_with("c19v2_") and lod == 0
+		var v2 := (str(vat[name]["sr"]).begins_with("c19v2_") or str(vat[name]["sr"]).begins_with("v3_")) and lod == 0
 		if v2:
 			if v2_shader == null: v2_shader = load("res://shaders/char_vat_v2.gdshader")
 			shader = v2_shader
@@ -514,7 +538,7 @@ static func _char_materials(bv: Node) -> void:
 		m.set_shader_parameter("vat_tex", d["tex"][lod])
 		m.set_shader_parameter("vat_verts", int(j["vertices"]))
 		m.set_shader_parameter("vat_fps", float(j["fps"]))
-		m.set_shader_parameter("palette", ptex[side])
+		m.set_shader_parameter("palette", ptex[side] if not j.has("pal") else _palette_tex(kit_palette(pals[side], j)))
 		if sc is Array and side < sc.size(): m.set_shader_parameter("team_color", sc[side])
 		var nt := _vatn_tex(str(d["sr"]), lod, int(j["vertices"]), int(j["frames"]))
 		m.set_shader_parameter("has_normals", 1.0 if nt != null else 0.0)

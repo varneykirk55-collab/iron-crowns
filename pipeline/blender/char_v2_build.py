@@ -220,7 +220,8 @@ def unwrap(L):
     while len(me.uv_layers): me.uv_layers.remove(me.uv_layers[0])
     me.uv_layers.new(name='atlas')
     # temporarily enlarge the head + shako + hands so the area-proportional packer gives them more texels
-    hv = [v.index for v in me.vertices if (v.co.z > 1.545 and abs(v.co.x) < 0.13 and -0.13 < v.co.y < 0.16 and v.co.z < 2.0)
+    hx, hy0, hy1, hz = getattr(C, 'HEAD_BOX', (0.13, -0.13, 0.16, 2.0))   # kits with tall / wide headgear widen it
+    hv = [v.index for v in me.vertices if (v.co.z > 1.545 and abs(v.co.x) < hx and hy0 < v.co.y < hy1 and v.co.z < hz)
           or (v.co.z < 0.93 and 0.16 < abs(v.co.x) < 0.27 and v.co.z > 0.70)]
     orig = {i: me.vertices[i].co.copy() for i in hv}
     for i in hv:
