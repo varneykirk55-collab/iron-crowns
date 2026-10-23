@@ -15,9 +15,11 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
 
 ## Checklist
 - [x] infra: kit selector in char_v2_build.py (V3_KIT)
-- [x] 1 grenadier (1800)          kid v3_c19_grenadier   unit c19_grenadier   tris 11984 / 1997 / 685
-- [x] 2 artillery crewman (1800)  kid v3_c19_artillery   unit c19_artillery (rammer clips)   tris 11881 / 1997 / 693
+- [x] 1 grenadier (1800)          kid v3_c19_grenadier   unit c19_grenadier   tris 11946 / 1996 / 685
+- [x] 2 artillery crewman (1800)  kid v3_c19_artillery   unit c19_artillery (rammer clips)   tris 11993 / 1995 / 692
 - [x] push + report (after 2 kits): 9076875, tests 163/163, outcome + 3 sim hashes = main
+- [x] 5:11 decisions (c): grenadier left fist closed (relaxed v3 fist on the free hand), smooth hem bands on all kits,
+      fix_folds for decimation folds; (d) c19v2_line rebaked with the normal-bake fix (eras-v3 + proto/c19-line-v2)
 - [ ] 3 hussar rider (1800)       unit c19_hussar (cavalry rig: see blockers)
 - [ ] 4 medieval pikeman (1300)   unit med_spear
 - [ ] push + report
@@ -41,3 +43,9 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
   shako w/ lozenge plate + crossed cannons, red cords + plume), sabre-briquet crossbelt, small pouch, rammer / sponge (TIP (0,1.70,0)).
   Clip needs in docs/char/ROB_CLIP_REQUESTS.md.
 - 17:10 EDT pushed proto/eras-v3 at 9076875 (tests 163/163, outcome 553cc500..., SWE1800/USA1914/JPN1500 sim hashes = main). Next: kit 3 hussar.
+- 17:55 EDT (c) fixes: free left hand = v3 relaxed fist (HM.FIST per side, '.L' 0.007); breeches/gaiter edge is now a real
+  hem band (v3_parts.hem_band / leg_hems, slot boundary tucked under it) on grenadier + artillery, and every later kit uses
+  hem bands for garment edges; fix_folds (char_v2_build) relaxes folded decimation faces (removed the grenadier chest wedge).
+  Separate crossbelt group 'beltx' so the two belts bake apart. Residual: a few small grey/blue flecks on the skirt turnbacks
+  and crossbelts at close zoom (time-boxed; noted for later).
+  (d) c19v2_line rebaked with the shader-frame normal bake (tris 11670 / 2000 / 693).

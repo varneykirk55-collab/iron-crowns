@@ -14,11 +14,13 @@ import numpy as np
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
 import char_v2 as C
+import human_mh as HM, v3_parts as V3P
 from char_v2 import V, ss, lerp, gauss, limb, ring, grid_sweep, superellipsoid, set_slot
 
 C.KID = 'v3_c19_grenadier'
 C.SLOT_MAT.update({'fur': 'fur', 'gold': 'brass', 'scabbard': 'leather', 'sash': 'wool'})
-C.BODY_TRIS = 4400                       # LOD0 within 12k with the full grenadier kit
+C.BODY_TRIS = 4250                       # LOD0 within 12k with the full grenadier kit (+ gaiter hem bands)
+HM.FIST['.L'] = 0.007                    # empty left hand: relaxed fist (not the open 35 mm musket grip)
 C.HEAD_BOX = (0.15, -0.15, 0.17, 2.07)   # bearskin gets head-level texel density
 C.KIT_RULES = [(('bsk', 'mous'), 'head'), (('epaul', 'fringe'), 'transfer'),
                (('sabre', 'sbhilt', 'sbknot', 'bayscab', 'frog'), 'hips'), (('gpack', 'groll', 'gstrap'), 'chest'),
@@ -27,6 +29,10 @@ C.KIT_RULES = [(('bsk', 'mous'), 'head'), (('epaul', 'fringe'), 'transfer'),
 # ------------------------------------------------------------------ habit (body shell slots)
 LAP_W = 0.090            # square-cut lapels, constant width
 LAP_Z0, LAP_Z1 = 1.09, 1.475   # lapels run up to the collar
+
+def gaiter_top(x, y):
+    """knee gaiter top edge: heart-shaped dip at the front of the knee."""
+    return 0.555 - 0.02 * ss(0.0, 0.05, y) * math.exp(-((x - math.copysign(0.10, x)) / 0.03) ** 2)
 
 def body_slot(p, part):
     x, y, z = p; ax = abs(x)
@@ -40,8 +46,7 @@ def body_slot(p, part):
         return 'coat'
     if part == 'leg':
         # knee gaiters: top higher at the back, heart-shaped dip at the front of the knee
-        top = 0.555 - 0.02 * ss(0.0, 0.05, y) * math.exp(-((x - math.copysign(0.10, x)) / 0.03) ** 2)
-        if z < top: return 'gaiter'
+        if z < gaiter_top(x, y) - 0.014: return 'gaiter'   # shell boundary hidden under the hem band
         return 'breeches'
     if z > 1.586: return 'skin'
     if z > 1.49: return 'stock'
@@ -339,7 +344,9 @@ def build_kit(hi, body_tree):
     if not hi:
         cb = C.collar_band((2, 28)); set_slot(cb, 'collar'); parts.append(cb)
     parts += coat_tails(hi)
-    parts += [C.crossbelt(body_tree, 1, hi), C.crossbelt(body_tree, -1, hi, off=0.0105)]
+    parts += V3P.leg_hems(body_tree, gaiter_top, hi, z0=0.54)   # real gaiter top edge (smooth hem)
+    cb = C.crossbelt(body_tree, -1, hi, off=0.0105); cb.name = 'beltx'   # own bake group: the crossing belts must not catch each other's rays
+    parts += [C.crossbelt(body_tree, 1, hi), cb]
     parts += epaulettes(body_tree, hi)
     parts += knapsack(hi) + cartbox(hi) + sabre(hi) + bearskin(hi) + moustache(hi) + C.musket(hi)
     if hi: parts += buttons(body_tree)

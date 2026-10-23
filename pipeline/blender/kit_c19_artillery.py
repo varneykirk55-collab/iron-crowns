@@ -13,6 +13,7 @@ Only the base human, body cage, rig and material library are shared; every garme
 import math, bpy
 from mathutils import Matrix
 import char_v2 as C
+import human_mh as HM, v3_parts as V3P
 from char_v2 import V, ss, lerp, limb, ring, grid_sweep, superellipsoid, set_slot
 
 C.KID = 'v3_c19_artillery'
@@ -29,6 +30,9 @@ C.KIT_RULES = [(('ashako', 'apeak', 'aplume', 'acock', 'acord'), 'head'), (('aep
 LAP_W = 0.088
 LAP_Z0, LAP_Z1 = 1.09, 1.475
 
+GAITER_TOP = 0.470
+HM.FIST['.L'] = 0.007   # empty left hand: relaxed fist
+
 def body_slot(p, part):
     x, y, z = p; ax = abs(x)
     if part == 'shoe': return 'shoe'
@@ -42,7 +46,7 @@ def body_slot(p, part):
             return 'coat'
         return 'coat'
     if part == 'leg':
-        if z < 0.470: return 'gaiter'          # straight-topped gaiters just under the knee
+        if z < GAITER_TOP - 0.014: return 'gaiter'   # straight-topped gaiters just under the knee (edge = hem band)
         return 'breeches'
     if z > 1.586: return 'skin'
     if z > 1.49: return 'stock'
@@ -273,7 +277,9 @@ def build_kit(hi, body_tree):
     if not hi:
         cb = C.collar_band((2, 28)); set_slot(cb, 'coat'); parts.append(cb)
     parts += coat_tails(hi)
-    parts += [C.crossbelt(body_tree, -1, hi, width=0.056, off=0.0105), C.crossbelt(body_tree, 1, hi, width=0.040)]
+    parts += V3P.leg_hems(body_tree, lambda x, y: GAITER_TOP, hi, z0=0.46)   # real gaiter top edge (smooth hem)
+    cb = C.crossbelt(body_tree, -1, hi, width=0.056, off=0.0105); cb.name = 'beltx'   # own bake group at the crossing
+    parts += [cb, C.crossbelt(body_tree, 1, hi, width=0.040)]
     parts += epaulettes(body_tree, hi) + sabre(hi) + pouch(hi) + shako(hi) + rammer(hi)
     if hi: parts += buttons(body_tree)
     return parts

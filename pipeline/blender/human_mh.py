@@ -14,11 +14,13 @@ import mh_pose as MP, mh_base as MB, mh_clo as MC
 GRIP_OFF = (0.008, 0.0, 0.0)   # hand shifted 8 mm outward so the fist closes round the grip axis without cutting into it
 _cache = {}
 
+FIST = {}   # kits: {'.L': r} closes that (empty) hand into a relaxed fist round an r-radius virtual grip (v3 kits)
+
 def posed(spread=0.0):
-    k = ('p', spread)
+    k = ('p', spread, tuple(sorted(FIST.items())))
     if k not in _cache:
         h = _cache.get('h') or MB.Human(); _cache['h'] = h
-        _cache[k] = MP.PosedHuman(spread=spread, grip_off=GRIP_OFF, human=h)
+        _cache[k] = MP.PosedHuman(spread=spread, grip_off=GRIP_OFF, human=h, fist=FIST)
     return _cache[k]
 
 def _mesh(name, V, faces, uvs=None, uvname='mh'):

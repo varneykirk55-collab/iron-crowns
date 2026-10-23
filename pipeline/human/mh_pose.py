@@ -50,7 +50,8 @@ def axis_angle(ax, ang):
 def mir(p, s): return np.array([s * p[0], p[1], p[2]])
 
 class PosedHuman:
-    def __init__(self, curl=1.0, spread=0.0, grip_off=(0.0, 0.0, 0.0), human=None, **macro):
+    def __init__(self, curl=1.0, spread=0.0, grip_off=(0.0, 0.0, 0.0), human=None, fist=None, **macro):
+        self.fist = dict(fist or {})   # {'.L': r}: that hand closes round a thinner virtual grip (relaxed fist, empty hand)
         h = human or MB.Human(**macro); self.h = h
         body = sorted(h.gverts['body'])
         V = h.V.copy()
@@ -142,9 +143,10 @@ class PosedHuman:
         first, is turned (fingers: about +-y toward the palm; thumb: about the axis that moves its tip radially) by the
         angle that brings its tip to GRIP_R + finger radius from the grip axis without cutting into the grip."""
         R, P, bones, order = self.R, self.P, self.bones_, self.order
-        D = GRIP_R + rf
         for s_, sfx in ((1, '.R'), (-1, '.L')):
-            c = np.array([s_ * GRIP_C[0], 0.0, GRIP_C[1]])
+            r = self.fist.get(sfx, GRIP_R); D = r + rf
+            # thinner grip: its axis moves toward the palm (outward) so the palm still rests on it
+            c = np.array([s_ * (GRIP_C[0] + (GRIP_R - r)), 0.0, GRIP_C[1]])
             def dist(p): return math.hypot(p[0] - c[0], p[2] - c[2])
             def seg(n):
                 hd, tl = bones[n][0], bones[n][1]

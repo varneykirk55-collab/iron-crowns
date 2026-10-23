@@ -119,7 +119,7 @@ RULES = [  # object-name prefix -> weight rule ('own': MakeHuman weights mapped 
     (('mhhead', 'mheye', 'mhhandR', 'mhhandL'), 'own'),
     (('head', 'shako', 'peak', 'plume', 'cockade'), 'head'), (('handR',), 'hand.R'), (('handL',), 'hand.L'),
     (('pack', 'roll', 'strap'), 'chest'), (('stock', 'barrel', 'band', 'lock', 'socket', 'bayonet', 'sling'), 'prop'),
-    (('cart', 'scab', 'hilt'), 'hips'), (('tail',), 'tail'), (('belt', 'collar'), 'transfer')]
+    (('cart', 'scab', 'hilt'), 'hips'), (('tail',), 'tail'), (('belt', 'collar', 'hem'), 'transfer')]
 
 def rule_for(name):
     for pre, r in getattr(C, 'KIT_RULES', []) + RULES:
@@ -157,6 +157,31 @@ def relax(o, target, iters=6):
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.beautify_fill()
     bpy.ops.object.mode_set(mode='OBJECT')
 
+def fix_folds(o, ref, iters=6):
+    """Decimation can leave folded / flipped body triangles (normal far off the sculpt's): the bake then writes a
+    near-black, strongly tilted normal into them. Relax those vertices toward their neighbours and snap them back onto
+    the pre-decimation surface until every face agrees with it."""
+    rb = bmesh.new(); rb.from_mesh(ref.data); rt = BVHTree_from(rb)
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    for it in range(iters):
+        bm.normal_update()
+        bad = []
+        for f in bm.faces:
+            loc, n, fi, d = rt.find_nearest(f.calc_center_median())
+            if n is not None and f.normal.dot(n) < 0.5: bad.append(f)
+        log('fix_folds', it, 'bad faces', len(bad))
+        if not bad: break
+        vs = {v for f in bad for v in f.verts}
+        new = {}
+        for v in vs:
+            nb = [e.other_vert(v).co for e in v.link_edges]
+            if not nb: continue
+            p = sum(nb, Vector()) / len(nb)
+            loc = rt.find_nearest(p)[0]
+            new[v] = loc if loc is not None else p
+        for v, p in new.items(): v.co = p
+    bm.to_mesh(o.data); bm.free(); rb.free(); o.data.update()
+
 BODY_KEYS = ('collar', 'button')
 HEAD_PID = []   # pid of the MH head group (ear_uv)
 AO_AWAY = set()   # part groups moved out of the way for the AO bake (hands hang by the thighs in the rest pose)   # lo collar shell / hi-only buttons bake against the body group (pid 0)
@@ -172,8 +197,11 @@ def build_meshes():
     sm = lo.modifiers.new('sm', 'CORRECTIVE_SMOOTH'); sm.iterations = 4; sm.smooth_type = 'SIMPLE'; sm.use_only_smooth = True
     C.apply_mods(lo)
     joint_keep(lo, C.SPREAD)
+    ref = lo.copy(); ref.data = lo.data.copy()
     decimate(lo, BODY_TRIS, 'keep')
     lo.vertex_groups.remove(lo.vertex_groups['keep'])
+    if KID.startswith('v3_'): fix_folds(lo, ref)
+    rm = ref.data; bpy.data.objects.remove(ref); bpy.data.meshes.remove(rm)
     # skin the body while the arms are still spread (clean heat weights, no arm/rib bleeding), then move the arms back
     srig = build_rig('spread', C.SPREAD)
     auto_weights(lo, srig)
@@ -325,7 +353,7 @@ def bake_maps(H, L):
     sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
     sc.render.bake.use_selected_to_active = True
     sc.render.bake.cage_extrusion = 0.025; sc.render.bake.max_ray_distance = 0.06
-    if NRM_FRAME == 'shader': sc.render.bake.cage_extrusion = 0.035; sc.render.bake.max_ray_distance = 0.08   # v3 gear sits further off the low shells
+    if KID.startswith('v3_'): sc.render.bake.cage_extrusion = 0.035; sc.render.bake.max_ray_distance = 0.08   # v3 gear sits further off the low shells
     sc.render.bake.margin = 6
     if sc.world is None: sc.world = bpy.data.worlds.new('w')
     sc.world.light_settings.distance = 0.12
@@ -461,7 +489,7 @@ def detail_nodes(nt, df):
     cmb = N('ShaderNodeCombineXYZ'); L(lum, cmb.inputs[0]); L(d2, cmb.inputs[1])
     return cmb.outputs[0]
 
-NRM_FRAME = getattr(C, 'NRM_FRAME', 'mikk' if KID == 'c19v2_line' else 'shader')
+NRM_FRAME = getattr(C, 'NRM_FRAME', os.environ.get('NRM_FRAME', 'shader'))   # 'mikk' = old tangent-space bake (shards on uv seams)
 
 def shader_frame_nrm(L, nobj):
     """Re-express an OBJECT-space normal bake in the exact per-pixel frame char_vat.gdshaderinc rebuilds at runtime
