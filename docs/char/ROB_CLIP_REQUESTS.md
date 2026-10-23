@@ -24,4 +24,8 @@ so hands ride rigidly on the forearm bones and legs on the body bone. Needed (on
 
 ## Coming with later kits (filled in as each kit lands)
 - pike (1300 pikeman, 1500 pikeman): port, charge (level at shoulder and at hip), brace against cavalry (butt to the foot)
+  - v3_med_pike (kit 4) currently plays the musket clips: idle / walk shoulder the pike fine and melee (charge thrust)
+    reads as a pike thrust, but `fire` (prime / ram) makes no sense for a pikeman. Please give pike units a fire-row
+    replacement (e.g. `pike_brace` or a second thrust) and a pike `port` for run. Pike prop is 3.57 m (prop-local y
+    -0.45..3.12, tip 3.12), so the levelled pose needs the rear hand near the butt.
 - bow (1300 archer): nock, draw, loose, and an idle with the arrow in the bow; the left hand holds the bow grip

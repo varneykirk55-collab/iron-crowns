@@ -4,7 +4,7 @@ hands, ear fix), body cage, rig and material library are shared; every garment /
   * quilted gambeson (aketon) in the town / team colour: vertical quilting channels on the body, horizontal on the
     sleeves, low round collar; skirt to mid-thigh split front and back (quilted, rolled hem)
   * long narrow leather belt with a brass buckle and hanging strap end; leather purse; ballock dagger at the back
-  * wool hose (chausses) with leather garters below the knee; low leather turnshoes
+  * russet wool hose (chausses); low leather turnshoes
   * white linen coif (bonnet tied under the chin) under an iron kettle hat (chapel de fer: domed crown with a
     raised comb, wide sloping brim, riveted crown band)
   * ash pike (~3.5 m) with a socketed leaf head and iron langets (held with the musket clips: shouldered / levelled)"""
@@ -23,7 +23,7 @@ C.SLOT_MAT.update({'waist': 'canvas', 'cartbox': 'leather', 'scabbard': 'leather
 C.BODY_TRIS = 4800
 HM.FIST['.L'] = 0.007                   # empty left hand: relaxed fist
 C.HEAD_BOX = (0.20, -0.20, 0.21, 1.90)  # kettle hat brim gets head-level texel density
-C.KIT_PAL = {'breeches': '#5b4634', 'shoe': '#2c2119', 'cartbox': '#3a2a1c', 'waist': '#e6dfcc', 'felt': '#55595e',
+C.KIT_PAL = {'breeches': '#7a5236', 'shoe': '#2c2119', 'cartbox': '#3a2a1c', 'waist': '#e6dfcc', 'felt': '#55595e',
              'steel': '#a5abb1', 'metal': '#b8913a', 'scabbard': '#2a1f17', 'wood': '#9a7a52'}
 C.KIT_RULES = [(('pkcoif', 'pkhat', 'pktie'), 'head'), (('pkbelt', 'pkgart'), 'transfer'), (('pkskirt',), 'tail'),
                (('pkbuck', 'pkstrap', 'pkpurse', 'pkdag'), 'hips'), (('pkshaft', 'pkhead', 'pklang'), 'prop')]
@@ -100,7 +100,7 @@ def skirt(hi=False):
                 r = 1.0
                 if hi:
                     u = (a + math.pi / 2) / math.radians(13.0)
-                    r += (0.022 * (abs(math.sin(math.pi * u)) ** 0.45 - 0.62)) * ss(SK_Z0, SK_Z0 - 0.03, z)
+                    r += (0.014 * (abs(math.sin(math.pi * u)) ** 0.45 - 0.62)) * ss(SK_Z0, SK_Z0 - 0.03, z)
                     r += 0.030 * math.exp(-((z - SK_Z1 - 0.010) / 0.010) ** 2)
                 px, py = f(ca) * rx * r, f(sa) * (rf if sa > 0 else rb) * r
                 p = V(s * px, py + off, z)
@@ -291,7 +291,7 @@ def build_kit(hi, body_tree):
         fit_head(C.surface_tools([head]))
     if not hi:
         cb = C.collar_band((2, 28)); set_slot(cb, 'coat'); parts.append(cb)
-    parts += skirt(hi) + belt(body_tree, hi) + dagger(hi) + garters(body_tree, hi)
+    parts += skirt(hi) + belt(body_tree, hi) + dagger(hi)
     parts += coif(hi) + kettle_hat(hi) + pike(hi)
     return parts
 C.build_kit = build_kit
