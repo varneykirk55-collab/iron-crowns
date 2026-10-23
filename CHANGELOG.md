@@ -10,6 +10,9 @@
 ### Region: tropical (env/tropical)
 - New `tropical` biome (Philippines, Indonesia, Amazon, Congo, Caribbean, Central America, Hawaii; 174 provinces). It has an open cogon-grass clearing on red laterite, multi-layer rainforest walls outside the fighting corridor (buttressed canopy trees, emergents, coconut palms, banana / fern / thicket understorey), mossy basalt and humid hazy light. All assets are procedural (`pipeline/blender/env_tropical.py`). Evidence: `evidence/env-tropical/`. Rendering only: sim hashes and BATTLERESULT are unchanged.
 
+### Region: east_asia (env/east_asia)
+- New `east_asia` biome: East Asian hill-country biome (Japan, Taiwan, Korea, eastern / southern China): sugi, red pine, evergreen broadleaf, maple, bamboo, sasa, azalea, susuki, mossy andesite, humid light; latitude gradient Hokkaido -> Okinawa / Taiwan. Render only. Evidence: evidence/env-east_asia/.
+
 ## v0.5.0 — 2026-10-23 (gameplay & AI refinement)
 ### Medieval combat: no more panic routs just before contact
 - **Diagnosis** (Sweden vs Norway 1300, real starting armies, 40 seeds): 15 of 80 spear regiments routed without ever reaching melee, and attackers won 40/40. The battle model has **no obstacles**; rocks are scenery only. The real causes were that a melee-only regiment on "hold" had no response to being shot, morale never recovered under the 4-second arrow cadence, and the 28-second "decisive phase" doubled arrow casualties right as the lines met. The Norwegian spearmen routed at a 4 m gap, wherever a rock happened to be.
