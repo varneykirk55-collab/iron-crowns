@@ -18,3 +18,7 @@ __pycache__/
 
 # audio preview / local renders
 out/
+
+# split transfer parts
+deliverables/**/*.zip.0*
+deliverables/**/laptop_xfer/
