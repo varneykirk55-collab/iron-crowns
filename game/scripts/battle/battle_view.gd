@@ -1280,6 +1280,8 @@ func _update_units(dt: float) -> void:
 			if dk < 0.0 and (v["kind"] == "cav" or v["kind"] == "veh") and r["moving"] and rng.randf() < dt * (0.6 if v["kind"] == "cav" else 2.0):
 				puff("mix", Vector3(p.x, y + 0.4, p.y), Vector3(0, 0.6, 0), 2.5, 1.0, 3.5, Color(0.55, 0.47, 0.36, 0.45))
 		v["pos"] = pos; v["yaw"] = yaw; v["clip"] = clip; v["clip_t"] = clip_t
+		if ac_done and v.has("ac_vis_c"):   # --anim-v1 retreat walks at normal pace: officer/banner follow the visual centre
+			center = v["ac_vis_c"]; facing = v["ac_vis_f"]; hidden = v["ac_vis_hidden"]
 		if officers_on and v.has("officer"):
 			_put_officer(v, r, center, facing, st, hidden, alive.size(), spd_base, cpos, vt, dt)
 		# banner follows the regiment's centre

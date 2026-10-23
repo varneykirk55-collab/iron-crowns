@@ -41,9 +41,9 @@ It is presentation only. Nothing here changes BattleSim, stats, rng order or out
 | med_spear | pk_recover | 264 | 12 | no | recover to guard |
 | med_spear | pk_hit | 276 | 14 | no | hit reaction (stagger) |
 | med_spear | pk_collapse | 290 | 38 | no | knee buckle → fall (alternative to `die`) |
-| med_spear | pk_withdraw | 328 | 24 | yes | retreat: forward-facing hurried jog, spear sloped on the shoulder |
-| med_spear | pk_flee | 352 | 16 | yes | full run (panicked share of a rout) |
-| med_spear | pk_withdraw_look | 368 | 24 | yes | retreat jog with a glance back over the left shoulder |
+| med_spear | pk_withdraw | 328 | 24 | yes | retreat at normal pace: forward-facing walk, same leg cycle/cadence as pk_advance, spear sloped on the shoulder |
+| med_spear | pk_flee | 352 | 16 | yes | full run. Row kept, no longer used by the renderer (the retreat never exceeds normal pace) |
+| med_spear | pk_withdraw_look | 368 | 24 | yes | retreat walk with a glance back over the left shoulder |
 
 ## 4. Weapon tip socket
 - Per-clip json `weapon_tip` or `prop_tip` is a list of `[x, y, z]`, one per frame, in Godot model space.
@@ -68,13 +68,15 @@ It is presentation only. Nothing here changes BattleSim, stats, rng order or out
 
 ## 7. Rout presentation (flag on)
 - When the sim sets `rout`, each soldier first holds a staggered moment: 0.1–0.95 s, with rear ranks going first.
-- He then turns ~180° in 0.3–0.6 s (per-soldier turn rate π/turn_d, turning left or right by hash) and jogs away. His yaw follows his rendered velocity.
-- The formation loosens: up to ±1.6 m lateral and ±0.8 m depth scatter grows over 3 s, with ±10 % speed jitter.
-- About 12 % of soldiers are stragglers: they start late, run 18 % slower and lag up to 2.8 m behind. About 18 % (45 % of stragglers) use `pk_withdraw_look`. About 28 % switch to `pk_flee`.
-- Muskets use the same timing with the legacy `run` clip.
-- All of this is hash-driven (no rng). Regiment centres come from the sim, so outcomes are unchanged.
+- He then turns ~180° in 0.3–0.6 s (per-soldier turn rate π/turn_d, turning left or right by hash) and **walks** away at the regiment's normal marching speed `def.speed`, with the normal cadence (`pk_advance` leg cycle, playback `speed/1.4` like the advance). His yaw follows his rendered velocity.
+- Speed: ±3 % per soldier around normal; stragglers 4–8 % slower; never faster. Each step is hard-capped at 1.02 × the soldier's own pace. The ease from rest is 0.35 s; there is no build-up beyond normal. Measured in the spear demo (`ANIMSPEED`, def.speed 1.40 m/s): mean 1.39, p95 1.44, max 1.47 m/s. Flag off (legacy, following the sim's 2.4× rout): mean 5.2, max 9.8 m/s.
+- The view no longer follows the sim's 2.4× rout centre. A visual centre starts where the line broke and walks away at `def.speed`. Soldiers keep their pre-rout slots around it. The banner and officer follow that centre (`v.ac_vis_c`, 2-line hook in battle_view). Hiding uses the visual centre (fled and > 260 m).
+- The formation loosens: up to ±1.2 m lateral scatter, growing over 8 s (adds < 1 % speed).
+- About 12 % of soldiers are stragglers: they start 0.6–1.3 s late and walk slower. About 18 % (45 % of stragglers) use `pk_withdraw_look`. `pk_flee` is no longer used: the panicked share is remapped to `pk_withdraw`.
+- Muskets use the same timing with `mk_march` at the normal march cadence.
+- All of this is hash-driven (no rng). The sim is only read, so outcomes are unchanged.
 
 ## 8. Known limits
 - Only `med_spear` (1300 spear levy) and `c19sr_line` (line_inf) have the new clips. Archers keep the legacy clips, but the arrow now leaves the bow hand at the release frame (0.9 s into `fire`).
 - The melee contact gap is visual only (2.7 m, shared half and half when both sides are spears). The sim still uses its own `_front_gap ≤ 1.6`.
-- When a routed regiment's battle ends, the sim freezes positions. AC visually extrapolates the flight for up to 9 s (the sim's rout limit).
+- The retreat is visual-time driven, so it carries on after the battle ends. Because it walks at normal pace, the rendered rout lags the sim's (faster) rout centre.

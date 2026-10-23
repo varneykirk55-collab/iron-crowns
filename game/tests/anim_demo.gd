@@ -13,6 +13,8 @@ var ft: Array = []
 var units_us: Array = []
 var last := 0
 var cam_c := Vector2.ZERO
+var sp_prev := PackedVector2Array()
+var sp_log := {"rout": [], "walk": []}   # rendered ground speed (m/s) of the --focus regiment's living soldiers
 
 func _ready() -> void:
 	for s in OS.get_cmdline_user_args():
@@ -87,6 +89,21 @@ func _cam() -> void:
 		bv.cam_dist = float(cv[0]); bv.cam_pitch = float(cv[1]); bv.cam_yaw = float(cv[2])
 		if cv.size() > 3: bv.cam_target += Vector3(float(cv[3]), 0, float(cv[4]))
 
+func _speed_log(delta: float) -> void:
+	if not a.has("focus") or delta <= 0.0:
+		return
+	var fi := int(a["focus"])
+	var v: Dictionary = bv.rv[fi]; var r: Dictionary = bv.sim.regs[fi]
+	var pv: PackedVector2Array = v["pos"]; var dead: PackedFloat32Array = v["dead"]
+	var st: String = r["state"]
+	var key := "rout" if (st == "rout" or st == "fled") else ("walk" if st == "advance" and not r["running"] else "")
+	if sp_prev.size() == pv.size() and key != "":
+		for k in pv.size():
+			var d := (pv[k] - sp_prev[k]).length() / delta
+			if dead[k] < 0.0 and d > 0.15:   # moving soldiers only
+				sp_log[key].append(d)
+	sp_prev = pv.duplicate()
+
 func _process(delta: float) -> void:
 	if bv == null:
 		return
@@ -96,6 +113,7 @@ func _process(delta: float) -> void:
 	if t > 1.0:
 		ft.append((now - last) / 1000.0); units_us.append(float(bv.perf.get("units_us", 0)))
 	last = now
+	_speed_log(delta)
 	if not shots.is_empty() and t >= float(shots[0][0]):
 		var sh: Array = shots.pop_front()
 		get_viewport().get_texture().get_image().save_png(out.path_join("%s_%s.png" % [tag, sh[1]]))
@@ -105,6 +123,13 @@ func _process(delta: float) -> void:
 		var u := units_us.duplicate(); u.sort()
 		if s.size() > 0:
 			print("ANIMPERF tag=%s frames=%d median_ms=%.2f p95_ms=%.2f units_us_median=%.0f units_us_p95=%.0f" % [tag, s.size(), s[s.size() / 2], s[int(s.size() * 0.95)], u[u.size() / 2], u[int(u.size() * 0.95)]])
+		if a.has("focus"):
+			var r: Dictionary = bv.sim.regs[int(a["focus"])]
+			for key in sp_log:
+				var l: Array = sp_log[key]; l.sort()
+				if l.size() > 0:
+					print("ANIMSPEED reg=%s %s def_speed=%.2f n=%d mean=%.2f p50=%.2f p95=%.2f p99=%.2f max=%.2f" % [a["focus"], key, float(r["def"]["speed"]), l.size(),
+						l.reduce(func(x, y): return x + y, 0.0) / l.size(), l[l.size() / 2], l[int(l.size() * 0.95)], l[int(l.size() * 0.99)], l[l.size() - 1]])
 		var st: Dictionary = bv.sim.to_dict()
 		print("ANIMDEMO result=", bv.sim.result(), " t=", bv.sim.t, " hash=", str(st["regs"] if st.has("regs") else st).md5_text())
 		get_tree().quit()

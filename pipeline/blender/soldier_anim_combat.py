@@ -111,24 +111,26 @@ def clip_pk_collapse(t):
               '_loc': (-0.1, -0.05, 0.13)})
     return keys(t, [(0.0, guard(0)), (0.1, rec), (0.42, kneel), (0.8, down), (1.0, down)])
 
-def _jog(t):
-    """hurried jog AWAY from the enemy (soldier faces his direction of travel): forward lean, spear sloped back over
-    the right shoulder (point high behind), shield arm loose and pumping"""
-    p = soldiers.legs(t, 34, 58, 0.05, 12)
-    p.update({'upper_arm.R': (22 + 6 * S(t), 0, -8), 'forearm.R': (122, 0, 0),
-              'upper_arm.L': (8 - 22 * S(t), 0, -10), 'forearm.L': (-34, 0, 0),
-              'hips': (0, 0, 8 * S(t)), 'chest': (-4, 0, -6 * S(t))})
+def _walk_away(t):
+    """walk AWAY from the enemy at the normal marching pace (soldier faces his direction of travel): exactly the
+    pk_advance leg cycle (same stride / cadence, so no foot slide at the same ground speed), spear sloped back over
+    the right shoulder (point high behind), shield arm hanging and swinging, slight slump"""
+    p = soldiers.legs(t, 24, 36, 0.035, 3)
+    p.update({'upper_arm.R': (20 + 4 * S(t), 0, -8), 'forearm.R': (126, 0, 0),
+              'upper_arm.L': (10 - 12 * S(t), 0, -10), 'forearm.L': (-24, 0, 0),
+              'hips': (0, 3 * S(t, 0.25), 7 * S(t)), 'spine': (-6, 0, -4 * S(t)), 'chest': (-2, -2 * S(t, 0.25), -4 * S(t))})
+    p['_loc'] = (0.028 * S(t, 0.25), 0.0, p['_loc'][2])
     return p
 
 def clip_pk_withdraw(t):
-    """retreat: forward-facing hurried jog (the renderer turns the soldier ~180 deg to his velocity first)"""
-    p = _jog(t)
+    """retreat at the normal pace: forward-facing walk (the renderer turns the soldier ~180 deg to his velocity first)"""
+    p = _walk_away(t)
     p['head'] = (6, 0, 2 * S(t))
     return p
 
 def clip_pk_withdraw_look(t):
-    """retreat jog, glancing back over the left shoulder mid-cycle (chest + neck twist, eased in and out)"""
-    p = _jog(t)
+    """retreat walk, glancing back over the left shoulder mid-cycle (chest + neck twist, eased in and out)"""
+    p = _walk_away(t)
     g = ss(min(1.0, max(0.0, (0.5 - abs(t - 0.5)) * 3.2)))   # 0 at the cycle ends, 1 through the middle
     p['chest'] = (-4 + 4 * g, 0, -6 * S(t) * (1 - g) + 24 * g)
     p['head'] = (6 - 10 * g, 8 * g, 2 * S(t) * (1 - g) + 62 * g)

@@ -8,7 +8,8 @@ extends RefCounted
 ##  * 1300 spears: formation stops at a contact gap (no interpenetration), front two ranks run a per-soldier
 ##    guard -> thrust -> recover cycle (hash-desynced), neighbours of a casualty flinch (pk_hit), deaths alternate
 ##    die / pk_collapse, a broken regiment holds for a staggered moment, each soldier turns ~180 deg in 0.3-0.6 s and
-##    jogs away facing his velocity (pk_withdraw / pk_withdraw_look glance, some pk_flee), formation loosening, stragglers lag; advance = pk_advance (no foot slide at 1.4 m/s), charge = pk_charge.
+##    walks away at the regiment's normal pace and cadence facing his velocity (pk_withdraw / pk_withdraw_look glance;
+##    the view no longer follows the sim's 2.4x rout speed), formation loosening, stragglers lag; advance = pk_advance (no foot slide at 1.4 m/s), charge = pk_charge.
 ##  * c19 muskets: front ranks bring the musket up (mk_aim) as the sim's fire cooldown runs out, each shot plays
 ##    mk_fire with the flash / smoke / ball spawned from the baked muzzle position at the shot frame, then mk_reload
 ##    (speed fitted to the unit's fire interval) and back to shoulder arms; march = mk_march.
@@ -104,12 +105,6 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 		v["ac_face"] = facing
 	elif v.has("ac_face"):
 		facing = v["ac_face"]
-	if routing and bv.finished:
-		# battle over: the sim no longer moves the broken side, keep them running off visually (presentation only)
-		if not v.has("ac_fin_t"):
-			v["ac_fin_t"] = vt
-		var run_t := clampf(vt - float(v["ac_fin_t"]), 0.0, maxf(9.0 - (bv.sim.t - float(r["rout_t"])), 0.0))
-		center += Vector2(0, 1 if r["side"] == 0 else -1) * float(r["def"]["speed"]) * 2.4 * run_t
 	var hidden: bool = st == "fled" and center.length() > 260.0
 	var spd_base: float = float(r["def"]["speed"]) * (2.6 if r["running"] else 1.0)
 	var enemy_pos := center + facing * 3.0
@@ -141,9 +136,21 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 	# ---- rout bookkeeping
 	if routing and float(v["ac_rout_t"]) < 0.0:
 		v["ac_rout_t"] = vt
+		v["ac_rc"] = v.get("ac_lastc", center); v["ac_rshift"] = shift
 	elif not routing:
-		v["ac_rout_t"] = -1.0
+		v["ac_rout_t"] = -1.0; v["ac_lastc"] = center
+		v.erase("ac_vis_c"); v.erase("ac_vis_f")
 	var rt: float = vt - float(v["ac_rout_t"])
+	# retreat at the regiment's NORMAL marching pace (the sim's rout runs at 2.4x; the view does not follow it):
+	# a visual centre walks away from where the line broke at def.speed, soldiers keep their slots around it
+	var walk_v: float = float(r["def"]["speed"])
+	var rc: Vector2 = v.get("ac_rc", center)
+	var rshift: Vector2 = v.get("ac_rshift", Vector2.ZERO)
+	if routing:
+		var vis_c := rc - facing * walk_v * maxf(rt - 0.9, 0.0)
+		v["ac_vis_c"] = vis_c; v["ac_vis_f"] = -facing
+		hidden = st == "fled" and vis_c.length() > 260.0
+		v["ac_vis_hidden"] = hidden
 	# ---- casualties seen this frame -> neighbours flinch
 	if kind == 1:
 		for k in n:
@@ -169,8 +176,9 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 			var face := facing
 			var hk := h(fi * 131.0 + float(k), 1.0)
 			if routing:
-				# real retreat: hold a staggered moment, turn ~180 deg (0.3-0.6 s), then jog/run away facing the
-				# direction of travel; formation loosens (lateral scatter, depth jitter), a few glance back, stragglers lag
+				# real retreat at normal pace: hold a staggered moment, turn ~180 deg (0.3-0.6 s), then WALK away at the
+				# regiment's normal speed and cadence (+-3 %, stragglers 4-8 % slower, never faster), facing the direction
+				# of travel; formation loosens slowly (lateral scatter), a few glance back, stragglers start late
 				var hs := h(float(k), fi + 31.0)
 				var straggler := hs < 0.12
 				var nranks := maxf(ceilf(float(n) / float(files)), 1.0)
@@ -180,40 +188,45 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 				var turn_d := 0.3 + h(float(k), fi + 41.0) * 0.3
 				var away := -facing
 				var et := rt - delay   # time since this soldier started to turn
+				var jit := 0.97 + h(float(k), fi + 71.0) * 0.06
+				if straggler: jit = 0.92 + hs * 0.33
+				var vs := walk_v * jit   # this soldier's ground speed, <= 1.03 x normal
 				if et < 0.0:
 					face = toward if toward.length() > 0.5 else facing
 					cname = "pk_guard" if kind == 1 else "idle"; ct = -phase[k] * 2.0; cur = 12 if kind == 1 else 0
 				else:
+					# distance walked: starts as the turn completes, short ease from rest (0.35 s), then constant vs
+					var tw := et - turn_d * 0.7
+					var dist_w := 0.0
+					if tw > 0.0:
+						dist_w = vs * (tw * tw / 0.7 if tw < 0.35 else tw - 0.175)
 					var lat := Vector2(-away.y, away.x)
-					var loosen := clampf(et / 3.0, 0.0, 1.0)
-					var tgt_p := slot + lat * (h(float(k), fi + 51.0) - 0.5) * 3.2 * loosen \
-						+ away * (h(float(k), fi + 61.0) - 0.5) * 1.6 * loosen
-					if straggler:
-						tgt_p -= away * 2.8 * loosen
+					var loosen := clampf(et / 8.0, 0.0, 1.0)
+					var slot0: Vector2 = bv._slot_world(r, v, k, rc, facing) + rshift
+					var tgt_p := slot0 + away * dist_w + lat * (h(float(k), fi + 51.0) - 0.5) * 2.4 * loosen
 					var dv2 := tgt_p - p
 					var d2v := dv2.length()
-					var jit := 0.9 + h(float(k), fi + 71.0) * 0.2
-					if straggler: jit *= 0.82
-					var ramp := clampf(et / turn_d, 0.0, 1.0)
-					var vmax := maxs * 1.3 * jit * (0.25 + 0.75 * ramp * ramp)
 					var p0 := p
 					if d2v > 0.001:
-						p += dv2 / d2v * minf(d2v, vmax)
+						p += dv2 / d2v * minf(d2v, vs * 1.02 * dt)   # hard cap: never above this soldier's pace
 					var vel := (p - p0) / maxf(dt, 1e-4)
 					var sp := vel.length()
 					# heading: the flight direction (with a per-soldier bias so they turn both ways), then the velocity
 					face = away.rotated((h(float(k), fi + 81.0) - 0.5) * 0.5)
-					if et > turn_d and sp > 0.5:
+					if et > turn_d and sp > 0.3:
 						face = vel / sp
-					var panic := h(float(k), fi + 91.0) > 0.72 and not straggler
+					var cad := clampf(vs / 1.4, 0.6, 1.8)   # same cadence law as the normal advance (pk_advance / mk_march)
 					if kind == 2:
-						cname = "run"; ct = -phase[k] * 3.0; spd = clampf(sp / 3.4, 0.6, 1.3); cur = 2
-					elif panic and et > turn_d:
-						cname = "pk_flee"; ct = -phase[k]; spd = clampf(sp / 3.4, 0.8, 1.35); cur = 18
+						cname = "mk_march"; ct = -phase[k] * 3.0; spd = cad; cur = 20
+						if sp < 0.2:
+							cname = "idle"; spd = 1.0; cur = 0
 					else:
+						# pk_flee is no longer used for the retreat (it read as a sprint): everyone walks
 						var look := h(float(k), fi + 101.0) < (0.45 if straggler else 0.18)
 						cname = "pk_withdraw_look" if look else "pk_withdraw"; cur = 19 if look else 17
-						ct = -phase[k]; spd = clampf(maxf(sp, 0.8) / 2.6, 0.55, 1.45)
+						ct = -phase[k]; spd = cad
+						if sp < 0.2:
+							cname = "pk_guard"; ct = -phase[k] * 2.0; spd = 1.0; cur = 12
 				turn[k] = PI / turn_d
 			else:
 				var moving := dist > 0.35
