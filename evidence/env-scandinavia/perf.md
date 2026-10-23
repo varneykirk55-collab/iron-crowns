@@ -32,7 +32,7 @@ Setup: `tests/env_shots.tscn`, Battle of Malmö at t = 14 s, 1600x900, the same 
 
 ## Reading
 - **q0 (Low):** +10% to +34% CPU. No shadows, and only tier-0 instances (about a third of the cover and far trees).
-- **q1 (Medium) and q2 (High):** +40% to +60% CPU on wide views and +100% to +170% on the views that look into the forest (forest_edge, rocky). Most of that is shaded foliage overdraw from shadow-casting detail trees under 190 m. Draw calls rise from about 57–87 to about 100–139. The env uses one MultiMesh per model per tile, with LOD by visibility range.
+- **q1 (Medium) and q2 (High):** +40% to +60% CPU on wide views and +100% to +170% on the views that look into the forest (forest_edge, rocky). Profiling with debug toggles put most of it on the forest: the far conifer belt (the biggest single item), detail-tree shadows, and then the terrain shader. Draw calls rise from about 57–87 to about 100–139. The env uses one MultiMesh per model per tile, with LOD by visibility range.
 - The top-down view is cheaper than legacy (−5% to −13%).
 - On a real GPU this fill-rate-type cost is far smaller than on llvmpipe, but **I could not measure on a GPU**.
 
