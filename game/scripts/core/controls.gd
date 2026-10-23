@@ -56,6 +56,8 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	register_actions()
 	load_settings()
+	for a in OS.get_cmdline_user_args():   # session-only override for benches/recordings; not saved unless changed in Options
+		if a.begins_with("--quality="): quality = clampi(int(a.substr(10)), 0, 2)
 	large_targets = large_targets or DisplayServer.is_touchscreen_available()
 	apply_settings.call_deferred()
 

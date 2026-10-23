@@ -855,10 +855,15 @@ func test_visuals_hook() -> void:
 		BattleView.BattleVisuals.apply(bv)   # idempotent by contract
 		looks[bv.era_id] = [look, _bv_look(bv)]
 		if bv.era_id == "c19":
-			Controls.quality = 0; bv.apply_quality()
-			var low_shadow := bv.sun.shadow_enabled
+			# Controls.quality -> BattleView.apply_quality() -> battle_visuals.apply_quality(q) (INTEGRATION.md 3b)
+			var got := []
+			for q in [0, 1, 2]:
+				Controls.quality = q; bv.apply_quality()
+				got.append([get_viewport().msaa_3d, bv.sun.shadow_enabled, snappedf(bv.sun.directional_shadow_max_distance, 1.0), snappedf(bv.LOD_DIST, 1.0)])
 			Controls.quality = 1; bv.apply_quality()
-			check("visuals: Controls quality still owns battle shadows with the pass applied (low off, medium on)", not low_shadow and bv.sun.shadow_enabled, "")
+			var want := [[Viewport.MSAA_DISABLED, false, 260.0, 45.0], [Viewport.MSAA_2X, true, 260.0, 75.0], [Viewport.MSAA_4X, true, 300.0, 120.0]]
+			check("visuals: quality q0/q1/q2 forwards to battle_visuals (MSAA off/2x/4x, shadows off/on/on 300 m, LOD 45/75/120) %s" % str(got),
+				got == want and BattleView.BattleVisuals.get_quality() == 1 and get_viewport().msaa_3d == Viewport.MSAA_2X, str(got))
 		remove_child(bv)
 		bv.free()
 	check("visuals: c19 battle gets the graphics pass at setup (look differs from legacy) %s" % str(looks.get("c19", [[]])[0]),

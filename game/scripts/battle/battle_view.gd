@@ -9,29 +9,16 @@ const FIELD := 1000.0
 const GRID := 161
 var LOD_DIST := 75.0
 var _lod_forced := false
-const QUALITY_LOD := [45.0, 75.0, 120.0]
+var _lod_forced_dist := 75.0
 
-## Quality setting (Controls.quality). Medium = the shipped defaults; Low trades shadows/LOD distance for CPU time.
+## Quality setting (Controls.quality owns the value + UI). The rendering values per level (MSAA, sun shadows +
+## distance, LOD distance, glow, anisotropy) are owned by the graphics pass: battle_visuals.apply_quality(q).
 func apply_quality() -> void:
-	var q: int = Controls.quality
-	if not _lod_forced:
-		LOD_DIST = QUALITY_LOD[q]
-	if sun:
-		sun.shadow_enabled = q > 0
-	# Graphics pass (BJORN, battle_visuals.gd): Controls owns the quality setting + UI, the visual pass only
-	# receives it. Forwarded only once his script provides apply_quality(q) (agreed contract, q = 0/1/2).
-	if _visuals_has("apply_quality"):
-		(load(VISUALS_PATH) as Script).call("apply_quality", q)
+	BattleVisuals.apply_quality(Controls.quality)
+	if _lod_forced:
+		LOD_DIST = _lod_forced_dist   # debug --lod-dist= overrides the preset
 
-const VISUALS_PATH := "res://scripts/battle/battle_visuals.gd"
-const BattleVisuals := preload(VISUALS_PATH)
-
-static func _visuals_has(m: String) -> bool:
-	var scr := load(VISUALS_PATH) as Script
-	for d in scr.get_script_method_list():
-		if d["name"] == m:
-			return true
-	return false
+const BattleVisuals := preload("res://scripts/battle/battle_visuals.gd")
 const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_musket", "c19": "c19_line", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
@@ -84,7 +71,7 @@ var player_side := 0
 # ======================================================================== setup
 func setup(battle_id: int) -> void:
 	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--lod-dist="): LOD_DIST = float(a.substr(11)); _lod_forced = true
+		if a.begins_with("--lod-dist="): LOD_DIST = float(a.substr(11)); _lod_forced = true; _lod_forced_dist = LOD_DIST
 	add_to_group("battle_view")
 	bid = battle_id
 	b = Sim.battles[bid]
@@ -105,7 +92,8 @@ func setup(battle_id: int) -> void:
 	_build_fx()
 	_build_camera()
 	_build_hud()
-	BattleVisuals.apply(self)   # graphics pass hook (rendering only; idempotent; c19 only for now)
+	BattleVisuals.apply_quality(Controls.quality)   # store the level first: apply() uses it even if we're not in the tree yet
+	BattleVisuals.apply(self)   # graphics pass (rendering only; idempotent; c19 look only, quality presets all eras)
 	apply_quality()
 	Controls.settings_changed.connect(apply_quality)
 
