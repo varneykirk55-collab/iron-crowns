@@ -67,7 +67,9 @@ func build() -> void:
 	back.mesh = bp
 	var bm := StandardMaterial3D.new(); bm.albedo_color = Color(0.028, 0.095, 0.19); bm.roughness = 0.5
 	back.material_override = bm
-	back.position = Vector3(180, -0.12, 90)
+	# -1.5, not -0.12: at world zoom (cam 200+, near 0.05) depth resolution is ~0.1 world units, so a backdrop only 0.06
+	# below the ocean surface (-0.06) z-fought with it -> horizontal streaks over the far ocean (v0.2/v0.3)
+	back.position = Vector3(180, -1.5, 90)
 	add_child(back)
 	_std_scene = load("res://assets/models/army_standard.glb")
 	_battle_scene = load("res://assets/models/battle_marker.glb")
