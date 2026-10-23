@@ -17,6 +17,9 @@
 ### Region: east_asia (env/east_asia)
 - New `east_asia` biome: East Asian hill-country biome (Japan, Taiwan, Korea, eastern / southern China): sugi, red pine, evergreen broadleaf, maple, bamboo, sasa, azalea, susuki, mossy andesite, humid light; latitude gradient Hokkaido -> Okinawa / Taiwan. Render only. Evidence: evidence/env-east_asia/.
 
+### Region: savanna (env/savanna; branch only, NOT on main until all regions are complete)
+- New `savanna` biome (sub-Saharan Africa outside the rainforest and desert belts, the Indian Deccan, Brazilian campos / NE Argentina, Madagascar): open grass on red-brown laterite with trees standing apart. Sub-regions from province data: bushveld (umbrella thorn, candelabra euphorbia, baobab, granite kopjes), miombo woodland, Sudan / Sahel savanna, Deccan dry-deciduous woodland, campos / cerrado, montane highland grass, Madagascar. Termite mounds, thorn scrub, tall bunchgrass. Wet / dry season from the battle month and hemisphere (`--env-season=wet|dry`). 14 procedural models in `pipeline/blender/env_savanna.py`; no shader changes. Rendering only; sim hashes and BATTLERESULT unchanged. Evidence: `evidence/env-savanna/`.
+
 ## v0.6.0 — 2026-10-23 (UI and main menu refinement)
 Presentation only: battle logic, movement, reinforcement, AI, economy and diplomacy calculations are unchanged (`sim_hash` fingerprints are identical to v0.5.0).
 ### Design system
