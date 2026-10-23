@@ -1,6 +1,4 @@
-Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-
-[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 117 ms
+[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 266 ms
 == Audio: buses & assets ==
   [PASS] buses Master/Music/SFX/Ambience/UI exist  -- ["Master", "Music", "SFX", "Ambience", "UI"]
   [PASS] SFX bus has compressor + hard limiter, Master has limiter  -- SFX ["AudioEffectCompressor", "AudioEffectHardLimiter"], Master ["AudioEffectHardLimiter"]
@@ -17,26 +15,26 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] settings reload restores saved values
   [PASS] settings sliders drive and persist Music/SFX volume  -- music 0.80 sfx 0.65
 == Audio: music playback & crossfades ==
-  [PASS] campaign music plays and advances  -- pos 1.77 s
-  [PASS] mixer output is audible (Master capture)  -- 131072 samples, RMS -28.0 dBFS, peak 0.183
+  [PASS] campaign music plays and advances  -- pos 1.67 s
+  [PASS] mixer output is audible (Master capture)  -- 131072 samples, RMS -28.1 dBFS, peak 0.183
   [PASS] crossfade mid-point: both tracks playing, equal power  -- in 0.65 out 0.76 (sum sq 1.00)
   [PASS] crossfade completes: old track stopped, battle at full level  -- battle -3.0 dB (track trim -3.0)
-  [PASS] campaign resumes where it left off  -- pos 2.33
+  [PASS] campaign resumes where it left off  -- pos 2.15
   [PASS] music loops seamlessly past the end  -- pos after wrap 0.53 of 101.8
   [PASS] sting plays and ducks music  -- duck -9.0 dB
 == Audio: SFX polyphony & limiting ==
   [PASS] musket voices capped (900 requested)  -- max musket 6 / cap 6
   [PASS] global voice cap holds  -- max 14 / 24
-  [PASS] mass gunfire does not clip (limiters)  -- peak 0.716 (-2.90 dBFS), RMS -17.6 dBFS
+  [PASS] mass gunfire does not clip (limiters)  -- peak 0.551 (-5.17 dBFS), RMS -17.2 dBFS
   [PASS] distant variant chosen beyond 260 m  -- musket_volley_1 / musket_volley_far_1
 == Audio: live battle hookup (read-only) ==
 BATTLERESULT {"battle_s":39.0,"codes":["SWE","RUS"],"end_men":[5101,2385],"era":"c19","melee_share":0.278,"projectiles":{"musket_ball":45,"round_shot":8},"render_models":["c19_line","c19_officer","c19_grenadier","c19_hussar","art_cannon","c19_artillery"],"start_men":[5600.0,3600.0],"units":[{"armor":0.0,"era":"c19","id":"line_inf","kills":217,"men":1200,"men0":1200,"mkills":0,"model":"c19_line","role":"ranged","side":0},{"armor":0.0,"era":"c19","id":"grenadiers","kills":36,"men":814,"men0":900,"mkills":0,"model":"c19_grenadier","role":"inf","side":0},{"armor":0.0,"era":"c19","id":"line_inf","kills":246,"men":1200,"men0":1200,"mkills":0,"model":"c19_line","role":"ranged","side":0},{"armor":0.1,"era":"c19","id":"hussars","kills":113,"men":413,"men0":600,"mkills":113,"model":"c19_hussar","role":"cav","side":0},{"armor":0.0,"era":"c19","id":"field_guns","kills":401,"men":200,"men0":200,"mkills":0,"model":"art_cannon","role":"art","side":0},{"armor":0.0,"era":"c19","id":"grenadiers","kills":56,"men":884,"men0":900,"mkills":0,"model":"c19_grenadier","role":"inf","side":0},{"armor":0.1,"era":"c19","id":"hussars","kills":106,"men":388,"men0":600,"mkills":106,"model":"c19_hussar","role":"cav","side":0},{"armor":0.1,"era":"c19","id":"hussars","kills":6,"men":415,"men0":600,"mkills":6,"model":"c19_hussar","role":"cav","side":1},{"armor":0.0,"era":"c19","id":"line_inf","kills":250,"men":834,"men0":1200,"mkills":103,"model":"c19_line","role":"ranged","side":1},{"armor":0.0,"era":"c19","id":"grenadiers","kills":30,"men":582,"men0":900,"mkills":0,"model":"c19_grenadier","role":"inf","side":1},{"armor":0.0,"era":"c19","id":"grenadiers","kills":165,"men":553,"men0":900,"mkills":123,"model":"c19_grenadier","role":"inf","side":1}],"winner":0}
-  [PASS] watched c19 battle drives SFX (volleys, cannon, signal)  -- { "signal": 1, "musket": 33, "cannon": 8, "impact": 8, "crowd": 4, "hooves": 2, "melee": 4 }
+  [PASS] watched c19 battle drives SFX (volleys, cannon, signal)  -- { "signal": 1, "musket": 33, "cannon": 8, "impact": 8, "crowd": 4, "hooves": 2, "melee": 3 }
   [PASS] battle music during battle, ambience beds ran  -- beds seen 4
-   SFX env p50 -23.3 p90 -18.1 max -16.2 | music p50 -31.3 p90 -28.2
-  [PASS] battle SFX stand out over battle music (mix balance)  -- SFX-only p90 -18.1 / max -16.2 dBFS vs battle music median -31.3 dBFS (177 / 79 windows)
+   SFX env p50 -23.6 p90 -17.9 max -16.1 | music p50 -31.1 p90 -28.2
+  [PASS] battle SFX stand out over battle music (mix balance)  -- SFX-only p90 -17.9 / max -16.1 dBFS vs battle music median -31.1 dBFS (177 / 78 windows)
 BATTLERESULT {"battle_s":39.0,"codes":["SWE","RUS"],"end_men":[5101,2385],"era":"c19","melee_share":0.278,"projectiles":{"musket_ball":45,"round_shot":8},"render_models":["c19_line","c19_officer","c19_grenadier","c19_hussar","art_cannon","c19_artillery"],"start_men":[5600.0,3600.0],"units":[{"armor":0.0,"era":"c19","id":"line_inf","kills":217,"men":1200,"men0":1200,"mkills":0,"model":"c19_line","role":"ranged","side":0},{"armor":0.0,"era":"c19","id":"grenadiers","kills":36,"men":814,"men0":900,"mkills":0,"model":"c19_grenadier","role":"inf","side":0},{"armor":0.0,"era":"c19","id":"line_inf","kills":246,"men":1200,"men0":1200,"mkills":0,"model":"c19_line","role":"ranged","side":0},{"armor":0.1,"era":"c19","id":"hussars","kills":113,"men":413,"men0":600,"mkills":113,"model":"c19_hussar","role":"cav","side":0},{"armor":0.0,"era":"c19","id":"field_guns","kills":401,"men":200,"men0":200,"mkills":0,"model":"art_cannon","role":"art","side":0},{"armor":0.0,"era":"c19","id":"grenadiers","kills":56,"men":884,"men0":900,"mkills":0,"model":"c19_grenadier","role":"inf","side":0},{"armor":0.1,"era":"c19","id":"hussars","kills":106,"men":388,"men0":600,"mkills":106,"model":"c19_hussar","role":"cav","side":0},{"armor":0.1,"era":"c19","id":"hussars","kills":6,"men":415,"men0":600,"mkills":6,"model":"c19_hussar","role":"cav","side":1},{"armor":0.0,"era":"c19","id":"line_inf","kills":250,"men":834,"men0":1200,"mkills":103,"model":"c19_line","role":"ranged","side":1},{"armor":0.0,"era":"c19","id":"grenadiers","kills":30,"men":582,"men0":900,"mkills":0,"model":"c19_grenadier","role":"inf","side":1},{"armor":0.0,"era":"c19","id":"grenadiers","kills":165,"men":553,"men0":900,"mkills":123,"model":"c19_grenadier","role":"inf","side":1}],"winner":0}
   [PASS] battle outcome identical with audio on/off  -- winner 0/0 steps 390/390
   [PASS] music returns to campaign after battle  -- campaign
 
-==== 28 / 28 audio checks passed (61.7 s) ====
+==== 28 / 28 audio checks passed (62.9 s) ====

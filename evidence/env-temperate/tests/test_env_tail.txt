@@ -1,6 +1,6 @@
 Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 
-[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 100 ms
+[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 239 ms
 == Biome selection (present biome files: ["boreal", "temperate", "east_asia", "tropical"]) ==
   [PASS] every province maps to a known biome profile  -- 0 unknown
   [PASS] every Nordic province (Norway/Sweden/Denmark/Finland/Åland) gets the boreal biome  -- 21/21

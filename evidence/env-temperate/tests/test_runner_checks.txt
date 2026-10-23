@@ -1,7 +1,3 @@
-Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-
-[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 114 ms
-== Battle model ==
   [PASS] battle duration medieval mean 40.1s (target 25-50s)  -- durations=[40.3, 37.0, 41.1, 41.9, 44.9, 40.7, 37.9, 36.7] wins(att,def)=[8, 0]
   [PASS] battle duration early_modern mean 41.1s (target 25-50s)  -- durations=[41.6, 41.2, 42.2, 41.8, 43.0, 39.8, 36.5, 42.8] wins(att,def)=[7, 1]
   [PASS] battle duration c19 mean 36.6s (target 25-50s)  -- durations=[40.4, 39.1, 29.0, 35.7, 41.1, 31.2, 36.1, 40.1] wins(att,def)=[6, 2]
@@ -9,7 +5,6 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] battle duration modern mean 38.6s (target 25-50s)  -- durations=[40.2, 39.3, 31.4, 37.4, 46.5, 32.5, 36.4, 45.2] wins(att,def)=[3, 5]
   [PASS] watched vs unwatched battle give identical outcome  -- winner 0/0, steps 301/301, t=30.1s
   [PASS] watched battle emitted visual events (volleys/charges)  -- 48 events
-== Nation playtest: USA ==
   [PASS] USA: new game started as player  -- 53 provinces, capital Maryland
   [PASS] USA: time advances (31 days, monthly economy)  -- date 1 Feb 1800, income 767/mo, expenses 286/mo, funds 4310 -> 4791
   [PASS] USA: buy units (instant procurement)  -- bought 6 units, funds 4791 -> 3711
@@ -24,8 +19,6 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] USA: AI nations declare war / make peace  -- AI wars 18, AI peace 4, captures total 20, nations eliminated 15
   [PASS] USA: AI nations recruit armies  -- 757 units bought by AI
   [PASS] USA: AI majors expand territory  -- 13 AI majors gained provinces
-  final date 17 Jun 1803; USA funds 28482, stability 0.61, provinces 51
-== Nation playtest: SWE ==
   [PASS] SWE: new game started as player  -- 8 provinces, capital Stockholm
   [PASS] SWE: time advances (31 days, monthly economy)  -- date 1 Feb 1800, income 84/mo, expenses 58/mo, funds 490 -> 516
   [PASS] SWE: buy units (instant procurement)  -- bought 3 units, funds 516 -> 96
@@ -40,8 +33,6 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] SWE: AI nations declare war / make peace  -- AI wars 25, AI peace 6, captures total 29, nations eliminated 22
   [PASS] SWE: AI nations recruit armies  -- 840 units bought by AI
   [PASS] SWE: AI majors expand territory  -- 17 AI majors gained provinces
-  final date 8 Jul 1803; SWE funds 2172, stability 0.75, provinces 9
-== Nation playtest: JPN ==
   [PASS] JPN: new game started as player  -- 9 provinces, capital Tokyo
   [PASS] JPN: time advances (31 days, monthly economy)  -- date 1 Feb 1800, income 174/mo, expenses 97/mo, funds 948 -> 1025
   [PASS] JPN: buy units (instant procurement)  -- bought 5 units, funds 1025 -> 105
@@ -57,57 +48,54 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] JPN: AI nations declare war / make peace  -- AI wars 25, AI peace 7, captures total 24, nations eliminated 22
   [PASS] JPN: AI nations recruit armies  -- 773 units bought by AI
   [PASS] JPN: AI majors expand territory  -- 18 AI majors gained provinces
-  final date 25 Nov 1803; JPN funds 6256, stability 0.52, provinces 9
-== Era progression ==
   [PASS] era advances with sim time (1913 -> 1914)  -- Age of Revolutions -> Age of Mechanised War on 6 Jan 1914
   [PASS] existing armies keep their old-era equipment  -- unit line_inf era c19
   [PASS] procurement offers only the new era's equipment  -- line_inf: Only current-era equipment can be procured. / riflemen: true
   [PASS] refit upgrades army to current era  -- cost 1332, changed 7 units -> riflemen
   [PASS] buying/refitting does not change the era
   [PASS] all start years (1300/1500/1800/1914/1980) start in their era  -- [1300.0, 1500.0, 1800.0, 1914.0, 1980.0]
-== Continuity while watching a battle ==
   [PASS] player battle awaits deployment orders
   [PASS] watched battle is not stepped by the strategic clock  -- steps 0
   [PASS] strategic sim keeps running during watched battle  -- day 59 -> 89
   [PASS] watched battle resolves in real time (15-85 s)  -- 35.2 s of real time, winner side 0
   [PASS] other battles/events continued meanwhile (none skipped)  -- other battles resolved meanwhile: 0, log entries 42
-== Save / load ==
   [PASS] save: campaign state is non-trivial at save time  -- day 241 (30 Aug 1800), wars 6, battles in progress 1, armies 206, treaties 81, sieges 1
   [PASS] save: write user://saves/test_slot.save  -- Saved "test_slot" (30 Aug 1800) size 985632 B
-  [PASS] save: metadata header readable  -- { "magic": "IRONCROWNS", "version": 1, "player": "SWE", "nation": "Sweden", "date": "30 Aug 1800", "era": "Age of Revolutions", "saved_unix": 1792786887 }
+  [PASS] save: metadata header readable  -- { "magic": "IRONCROWNS", "version": 1, "player": "SWE", "nation": "Sweden", "date": "30 Aug 1800", "era": "Age of Revolutions", "saved_unix": 1792794262 }
   [PASS] save: loaded state deep-equals saved state  -- Loaded "test_slot" (30 Aug 1800), 985396 bytes identical
   [PASS] save: in-progress battles restored as live BattleSim objects  -- 2 battles
   [PASS] save: determinism, original and loaded runs identical after 180 more days  -- both at 26 Feb 1801, 206 armies, 2 battles, 237 events
   [PASS] save: missing slot reports an error
   [PASS] save: slot appears in save list
-== Battle camera ==
   [PASS] camera: battle under a live view (no toggles) == bare sim  -- winner 0, t=39.0s, 1223 frames; 
   [PASS] camera: 29 camera toggles + zoom input give an identical battle  -- steps 390/390, men [1200.0, 814.401771198146, 1200.0, 413.576606546261, 200.0, 884.944719478126, 388.730904205488, 415.657854190128, 834.146600012338, 582.510076339224, 553.112171345769] / [1200.0, 814.401771198146, 1200.0, 413.576606546261, 200.0, 884.944719478126, 388.730904205488, 415.657854190128, 834.146600012338, 582.510076339224, 553.112171345769] 
   [PASS] camera: blend reached both overhead (0) and cinematic (1)  -- min 0.000 max 1.000
   [PASS] camera: director cut between event-driven shots  -- 8 cuts, shot kinds ["establishing", "flank", "low_angle", "aftermath"]
   [PASS] camera: director switches to the aftermath shot when the battle ends  -- ["establishing", "flank", "low_angle", "aftermath"]
   [PASS] camera: no invalid (NaN/inf) camera positions
-== Graphics pass hook ==
   [PASS] visuals: quality q0/q1/q2 forwards to battle_visuals (MSAA off/2x/4x, shadows off/on/on 300 m, LOD 45/75/120) [[0, false, 260.0, 45.0], [1, true, 260.0, 75.0], [2, true, 300.0, 120.0]]  -- [[0, false, 260.0, 45.0], [1, true, 260.0, 75.0], [2, true, 300.0, 120.0]]
   [PASS] visuals: c19 battle gets the graphics pass at setup (look differs from legacy) [2, 1.08, 0.75, 1.45, true]  -- { "medieval": [[2, 1.0, 0.86, 1.3, true], [2, 1.0, 0.86, 1.3, true]], "c19": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]] }
   [PASS] visuals: apply() is idempotent on a set-up c19 battle  -- { "medieval": [[2, 1.0, 0.86, 1.3, true], [2, 1.0, 0.86, 1.3, true]], "c19": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]] }
   [PASS] visuals: medieval battle gets the era pass at setup (look differs from legacy, apply() idempotent) [2, 1.0, 0.86, 1.3, true]  -- { "medieval": [[2, 1.0, 0.86, 1.3, true], [2, 1.0, 0.86, 1.3, true]], "c19": [[2, 1.08, 0.75, 1.45, true], [2, 1.08, 0.75, 1.45, true]] }
-== Polish pass (grenadiers, gun crews, snow) ==
+  [PASS] anim-v1: ON by default (no args, no env var, no setting)
+  [PASS] anim-v1: --no-anim-v1 / --anim-v1=off|0|false disable it [false, false, false, false]  -- [false, false, false, false]
+  [PASS] anim-v1: legacy --anim-v1 and --anim-v1=on keep it on  -- [true, true]
+  [PASS] anim-v1: env var IRONCROWNS_ANIM_V1=0 and setting false disable it; command line wins [false, false, true, false, true]  -- [false, false, true, false, true]
+  [PASS] anim-v1: BattleView.setup applies the switch (AC.on=true, expected true from this run's args/env)
   [PASS] polish: c19 grenadiers drawn with c19_grenadier, gun crews with c19_artillery (grenadier regs [4, 4], guns [1, 1], multimesh rows { "c19_grenadier": 1024, "c19_artillery": 24 })  -- [[4, 4], [1, 1], { "c19_grenadier": 1024, "c19_artillery": 24 }]
   [PASS] polish: c19 re-apply() adds no multimeshes (20 == 20)
   [PASS] polish: early-modern gun crews drawn with em_gunner (guns [1, 1], rows { "em_gunner": 24 })  -- [[0, 0], [1, 1], { "em_gunner": 24 }]
   [PASS] polish: early_modern re-apply() adds no multimeshes (14 == 14)
   [PASS] polish: depth-range fog (field < 260 m clear) on plains and tundra; tundra exposure lower, contrast higher { "plains": [1, 260.0, 1.08, 1.08], "tundra": [1, 260.0, 0.98, 1.12] }  -- { "plains": [1, 260.0, 1.08, 1.08], "tundra": [1, 260.0, 0.98, 1.12] }
-== Controls: InputMap, gamepad, touch ==
   [PASS] controls: 37 InputMap actions registered, gameplay actions all have gamepad bindings  -- missing [], no-joy []
-  [PASS] controls: gamepad focus lands on title-menu buttons  -- focus @Button@1996:<Button#438589984759>, device joy
+  [PASS] controls: gamepad focus lands on title-menu buttons  -- focus @Button@2066:<Button#468738641915>, device joy
   [PASS] controls: RB cycles through own armies  -- armies [51, 209] -> 51, 209
   [PASS] controls: D-pad up/down cycles own provinces  -- 343 -> 344
   [PASS] controls: Y pauses/unpauses, D-pad right raises speed  -- Y->2, right->3, Y->0
-  [PASS] controls: Back opens diplomacy with gamepad focus inside; D-pad navigates it  -- visible true, focus @Button@2444:<Button#485364865326> -> @Button@2958:<Button#508232211569>
+  [PASS] controls: Back opens diplomacy with gamepad focus inside; D-pad navigates it  -- visible true, focus @Button@2514:<Button#515513522480> -> @Button@3028:<Button#538414423156>
   [PASS] controls: B closes the window
   [PASS] controls: L3 economy, Start game menu (focused), Start again closes  -- econ true menu true
-  [PASS] controls: left stick moves the map cursor reticle (no on-screen controller)  -- (800.0, 800.0) -> (884.2095, 800.0)
+  [PASS] controls: left stick moves the map cursor reticle (no on-screen controller)  -- (800.0, 800.0) -> (875.1836, 800.0)
   [PASS] controls: A selects the army under the cursor  -- selected 51 want 51 at (800.0, 800.0001)
   [PASS] controls: X orders the selected army to the province under the cursor  -- dest 343 goal 343
   [PASS] controls: touch tap selects the army  -- selected 51
@@ -115,15 +103,13 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] controls: one-finger drag pans the map (and is not a tap)  -- target moved 11.41
   [PASS] controls: pinch out zooms in, two-finger twist rotates  -- dist 30.0 -> 9.0, yaw 0.00 -> 0.79
   [PASS] controls: long-press marches the selected army to the pressed province  -- dest 343 goal 343
-  [PASS] controls: UI scale, large touch targets, F3 perf overlay and quality settings apply  -- scale true big true perf 'FPS 105   frame 166.7 ms avg / 300.0 worst (2 s)' msaa 0
+  [PASS] controls: UI scale, large touch targets, F3 perf overlay and quality settings apply  -- scale true big true perf 'FPS 20   frame 156.0 ms avg / 292.4 worst (2 s)' msaa 0
   [PASS] controls: no virtual joystick / on-screen gamepad nodes in the scene tree  -- 0 TouchScreenButton
   [PASS] controls: battle view — RB speeds up, right stick orbits (leaves cinematic), pinch zooms, Back leaves  -- speed 2x stick true pinch 170->57 leave true
-== Overworld army markers (map_visuals hook, R5) ==
   [PASS] markers: MapVisuals is hooked into the WorldMap and every army standard shows map_marker_c19 (208/208)  -- [208, 208]
   [PASS] markers: re-swapping changes no army position/scale/visibility/ring/label and army_at_screen picks the same armies (208 armies, 129 self-picks)  -- before [(195.161, 0.033735, 30.454), (0.6, 0.6, 0.6), true, false, "5.6k ", true, 51] after [(195.161, 0.033735, 30.454), (0.6, 0.6, 0.6), true, false, "5.6k ", true, 51]
   [PASS] markers: mouse left-click on a swapped marker selects the army, right-click orders the march (army 51 -> 343)  -- selected 51 goal 343
   [PASS] markers: era change re-swaps markers (medieval 208/208) and click-select still works  -- selected 51
-== Era battle verification ==
   [PASS] medieval: units/models present and era-tagged (levy_spear, archers, knights, bombard)  -- []
   [PASS] medieval: full battle resolves (winner 0, 39.6s)  -- men [3120.0, 3120.0] -> 2183/2224
   [PASS] medieval: only medieval units fight  -- ["medieval"]
@@ -150,16 +136,13 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
   [PASS] USA: starting armies use the start era's units in every era  -- 1300:archers, 1500:musketeers, 1800:line_inf, 1914:riflemen, 1980:mech_inf
   [PASS] SWE: starting armies use the start era's units in every era  -- 1300:archers, 1500:musketeers, 1800:line_inf, 1914:riflemen, 1980:mech_inf
   [PASS] JPN: starting armies use the start era's units in every era  -- 1300:archers, 1500:musketeers, 1800:line_inf, 1914:riflemen, 1980:mech_inf
-== Scripted gameplay ==
   [PASS] gameplay: campaign started as Sweden in 20 Jul 1913
   [PASS] gameplay: army 51 marched 344 -> 345  -- { "ok": true, "path": [], "days": 13 }
   [PASS] gameplay: war declared on NOR
   [PASS] gameplay: watched a battle in 3D (camera toggle true -> false), result true
-GPDBG at_war true sieges {  } armies ["51@345 idle men5600 path0", "209@328 idle men11454 path0"]
   [PASS] gameplay: captured enemy province(s) [328] by 15 Oct 1913
   [PASS] gameplay: save/load restores 15 Oct 1913 exactly  -- Loaded "gameplay_test" (15 Oct 1913)
   [PASS] gameplay: era advanced to Age of Mechanised War on 1 Jan 1914 (game started 1913)
-== Medieval morale, obstacles and ranged vs melee (v0.5) ==
   [PASS] medieval: marching over any terrain without enemy fire never costs morale or causes a rout (scenery is not an obstacle)  -- []
   [PASS] medieval SWE vs NOR 1300: spearmen reach melee instead of breaking under arrows (40/40 made contact, 0 routed before contact; v0.4.0 had 15/80 pre-contact routs)
   [PASS] medieval: archers stay dangerous (83% of kills are missiles)
@@ -168,7 +151,6 @@ GPDBG at_war true sieges {  } armies ["51@345 idle men5600 path0", "209@328 idle
   [PASS] medieval: levy charged by three knight regiments still routs after melee losses (8/8)
   [PASS] medieval: a holding spear regiment sniped by archers out of reach does not stand still forever — it counter-charges (left_line=true, contact at -1.0s, winner side 0)
   [PASS] battle scenery: no rocks inside the (190.0, 240.0) m fighting area (covers every era's deployment depth)
-== Strategic AI targeting (v0.5) ==
   [PASS] AI 1800: attacks stay regional (18 orders, median 1147 km, max 2566 km)
   [PASS] AI 1300: attacks stay regional (19 orders, median 1391 km, max 2780 km)
   [PASS] AI: Saudi Arabia (24k men) at war with Japan in 1800 sends no army to the Japanese home islands (8,000+ km away) in 240 days  -- orders toward Japan: 0
@@ -176,7 +158,6 @@ GPDBG at_war true sieges {  } armies ["51@345 idle men5600 path0", "209@328 idle
   [PASS] AI: Finland, facing a large Swedish army within reach, keeps its armies on guard (guard home)
   [PASS] AI: a full-strength army campaigns (campaign), the same army at 40% strength does not start a new offensive (hold)
   [PASS] AI: no special protection — a strong Finland at war with a weakened player Sweden marches on Swedish land (after 1 days)
-== Detection and invasion warnings (v0.5) ==
   [PASS] detection 1300: a Norwegian army is hidden until scouts spot it, then a warning names Sundsvall, its size and ETA (187 km out, 10 days' warning, ETA 10)  -- Scouts and watch posts report: Norway army of about 5,000 men on the march, heading for Sundsvall — arrival in about 10 days. Our forces nearby are outnumbered (0 men).
   [PASS] detection 1980: radar spots the same kind of force much further out (747 km vs 187 km in 1300; 6 days' warning)  -- Radar report: Norway army of roughly 6,000 men on the march, heading for Northeastern Sweden II — arrival in about 6 days. Our forces nearby are outnumbered (0 men).
   [PASS] detection 1800: an undeclared invasion force is reported before it crosses the border ('Pickets and coastal observers report: Finland army of roughly 6,500 men on the march, head')
@@ -185,7 +166,6 @@ GPDBG at_war true sieges {  } armies ["51@345 idle men5600 path0", "209@328 idle
   [PASS] detection: an enemy army far outside our detection is not shown on the map or in the province panel; a neutral army there still is  -- hidden visible false, neutral visible true
   [PASS] detection: the warning appears in the HUD and the clock drops to Normal speed (speed Normal, toast '⚠ Pickets and coastal observers report: Finland army of roug')
   [PASS] detection: save/load keeps what was already reported (no duplicate warning)
-== Mid-battle reinforcements (v0.5) ==
   [PASS] reinforce: a 5k army in the next province (6 days' march) arrives on day 6 and joins the battle of Sapporo in progress (15 regiments -> 19)
   [PASS] reinforce: the reinforcement changes the fight (defender win false -> false; attacker losses 801 -> 1606)
   [PASS] reinforce: no duplicated troops (18400 men before, 4109 lost, 14290 after) and the reinforcement's casualties persist
@@ -197,7 +177,6 @@ GPDBG at_war true sieges {  } armies ["51@345 idle men5600 path0", "209@328 idle
   [PASS] reinforce: AI vs AI (1914) — Germany attacks Lyon; the second French army 291 km away marches in on its own and fights in the battle  -- battle 1
   [PASS] reinforce: works in all five eras ["medieval", "early_modern", "c19", "c20", "modern"]
   [PASS] reinforce: player presses 'Reinforce' on the army panel; while the battle is watched in 3D the army arrives and its regiments appear on the field (15 -> 19 regiments drawn)  -- pressed true
-== Diplomatic inbox (v0.5) ==
   [PASS] inbox: 5 routine trade offers arrive without a single popup; the top bar shows '✉ Inbox (5)'
   [PASS] inbox: the same offer repeated 6 times while pending stays one entry (5 pending)
   [PASS] inbox: the Inbox lists the offers grouped by kind and 'Set aside all routine' clears them in one click (relations +16 -> +15)  -- Routine proposals (5) Set aside all routine Trade agreements (5) Accept all Decline all Russia — trade agreement · relat
@@ -206,7 +185,6 @@ GPDBG at_war true sieges {  } armies ["51@345 idle men5600 path0", "209@328 idle
   [PASS] inbox: after declining, the enemy does not ask again for 120 days ('Needs attention' listed: true)
   [PASS] inbox: save/load keeps pending offers and cooldowns; an unanswered offer lapses after 90 days
   [PASS] inbox: 8-year campaign, envoys ignored: 12 new offers, 0 waiting, no duplicates, nothing older than 121 days
-== Offensive warfare & territorial conquest ==
   [PASS] offensive: player selects an army by click, right-clicks Mariehamn (FIN) and confirms 'Invade' — no declaration required  -- selected true asked true pressed true path [100343, 408]
   [PASS] offensive: the army marches on the map day by day (16 days, max 46 km/day, speed cap 46) and never teleports  -- node 408
   [PASS] offensive: crossing the border starts an UNDECLARED conflict; FIN's allies are not called in  -- allies [] enemies ["FIN"]
@@ -230,5 +208,4 @@ GPDBG at_war true sieges {  } armies ["51@345 idle men5600 path0", "209@328 idle
   [PASS] offensive: SWE's invasion of Northeastern Greenland wins a battle on the way at Faeroe Is., then marches on and captures the objective (140 days)
   [PASS] offensive: invasion -> capture works in all five eras ["1300:Mariehamn@63d", "1500:Mariehamn@48d", "1800:Mariehamn@39d", "1914:Mariehamn@25d", "1980:Mariehamn@17d"]
   [PASS] offensive: 4-year AI run still conquers (22 captures, 0 recaptures, 33 wars, 22 nations eliminated) and leaves no landless nation without an army  -- []
-
-==== 205 / 205 checks passed (203.5 s) ====
+==== 210 / 210 checks passed (263.3 s) ====
