@@ -128,6 +128,17 @@ func _snap(name: String) -> void:
 func _run() -> void:
 	var views := [["front", 0.0], ["34", 35.0], ["side", 90.0], ["back", 180.0]]
 	var xs := {"c19_line": -1.25, "c19sr_line": 0.0, "c19v2_line": 1.25}
+	if _arg("orbit", "0") == "1":   # slow orbit of the v3 idle model only (run with --fixed-fps 30 --write-movie <avi>)
+		_show(["c19v2_line"], "solo")
+		var om: ShaderMaterial = groups["c19v2_line"]["solo"].material_override
+		var nf := int(_arg("frames", "360"))
+		for f in nf:
+			om.set_shader_parameter("battle_time", float(f) / 30.0)
+			var k := float(f) / float(nf)
+			_look(Vector3(1.25, lerpf(1.0, 1.3, 0.5 - 0.5 * cos(TAU * k)), 0), 20.0 + 360.0 * k, lerpf(3.2, 2.2, 0.5 - 0.5 * cos(TAU * k)), 0.15)
+			await get_tree().process_frame
+		get_tree().quit()
+		return
 	if _arg("close", "0") == "1":   # before/after close-ups only (v2): bust both sides + both hands
 		var tg := _arg("tag", "")
 		_show(["c19v2_line"], "solo")

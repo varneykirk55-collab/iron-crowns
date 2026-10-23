@@ -2,7 +2,9 @@
 """Compose the proto v2 compare sheets from tests/proto_shots.tscn output (out/proto/engine):
   compare_sheet.png  : columns = v0.2.1 blocky c19_line | c19sr_line (v0.4 semi-real) | c19v2_line (proto), rows = views
   distance_sheet.png : the gameplay-distance block shots, each block captioned via labels.json (screen x of each model)
-usage: python3 tools/proto_sheet.py [engine_dir] [out_dir]"""
+  stage 5: pass a third arg (dir with the stage-4 c19v2_line_<view>.png stills, e.g. deliverables/proto_v2/stills) to get
+  blocky | c19sr | PROTO v2 (stage 4) | PROTO v3 (current c19v2_line)
+usage: python3 tools/proto_sheet.py [engine_dir] [out_dir] [v2_stills_dir]"""
 import sys, os, json
 from PIL import Image, ImageDraw, ImageFont
 
@@ -11,6 +13,13 @@ dst = sys.argv[2] if len(sys.argv) > 2 else 'out/proto'
 COLS = [('c19_line', 'v0.2.1 blocky (c19_line)'), ('c19sr_line', 'v0.4 c19sr_line'), ('c19v2_line', 'PROTO v2 (c19v2_line)')]
 ROWS = [('front', 'FRONT'), ('34', '3/4'), ('side', 'SIDE'), ('back', 'REAR'), ('bust', 'BUST'), ('bust_l', 'BUST (L)')]
 NICK = {'c19_line': 'v0.2.1 blocky', 'c19sr_line': 'c19sr', 'c19v2_line': 'PROTO v2'}
+V2DIR = sys.argv[3] if len(sys.argv) > 3 else None
+if V2DIR:
+    COLS = COLS[:2] + [('v2old', 'PROTO v2 (stage 4)'), ('c19v2_line', 'PROTO v3 (MakeHuman base)')]
+    ROWS = ROWS[:5]
+    NICK['c19v2_line'] = 'PROTO v3'
+def spath(m, v):
+    return os.path.join(V2DIR, f'c19v2_line_{v}.png') if m == 'v2old' else os.path.join(src, f'{m}_{v}.png')
 
 def font(sz):
     for p in ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf'):
@@ -26,13 +35,13 @@ def cell(path, bust):
 
 def compare():
     F, f2 = font(26), font(20)
-    cells = [[cell(os.path.join(src, f'{m}_{v}.png'), v.startswith('bust')) for m, _ in COLS] for v, _ in ROWS]
+    cells = [[cell(spath(m, v), v.startswith('bust')) for m, _ in COLS] for v, _ in ROWS]
     lw, th = 130, 60
     W = lw + 360 * len(COLS); H = th + sum(r[0].size[1] for r in cells)
     S = Image.new('RGB', (W, H), (236, 232, 222)); d = ImageDraw.Draw(S)
     d.text((10, 16), 'FRA 1800', font=f2, fill=(30, 30, 30))
     for j, (_, t) in enumerate(COLS):
-        d.text((lw + 360 * j + 12, 16), t, font=f2, fill=(160, 20, 20) if j == 2 else (30, 30, 30))
+        d.text((lw + 360 * j + 12, 16), t, font=f2, fill=(160, 20, 20) if j == len(COLS) - 1 else (30, 30, 30))
     y = th
     for i, (_, t) in enumerate(ROWS):
         rh = cells[i][0].size[1]
