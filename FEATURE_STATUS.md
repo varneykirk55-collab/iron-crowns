@@ -1,4 +1,4 @@
-# Feature status (v0.5.0): honest accounting
+# Feature status (v0.6.0): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -6,6 +6,17 @@ Status labels:
 - **MISSING**: not implemented.
 
 All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
+
+## Interface (v0.6)
+| Feature | Status | Evidence / notes |
+|---|---|---|
+| Title screen (Continue / New Campaign / Load / Settings / Credits / Quit) | VERIFIED | `ui` suite; screenshots in `evidence/ui-v0.6/` |
+| New Campaign: five ages, playable nations only, Start Campaign | VERIFIED | `ui` suite starts a campaign by mouse in all five eras |
+| Campaign HUD at 1920×1080 and 1366×768 | VERIFIED | screenshots at both resolutions; same 1600×900 logical layout |
+| Military alerts, Dispatches, Inbox reachable from the dock | VERIFIED | `ui` + `inbox` suites |
+| Confirmation dialogs (disband, declare war, cancel treaty, load, quit) | VERIFIED (disband by test), PARTIAL (others seen in screenshots / code) | |
+| Gamepad navigation of the new title screen | VERIFIED | `controls` suite (focus lands on a title button) |
+| Background motion on the title | PARTIAL | slow camera drift only; no cinematic intro (separate task) |
 
 ## Campaign / strategic layer
 | Feature | Status | Evidence / notes |
