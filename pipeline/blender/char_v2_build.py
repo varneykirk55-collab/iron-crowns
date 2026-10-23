@@ -26,7 +26,7 @@ TEX = int(os.environ.get('V2_TEX', '2048'))
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUTP = os.path.join(ROOT, 'out', 'proto', 'bake') if KID == 'c19v2_line' else os.path.join(ROOT, 'out', 'eras_v3', 'bake', KID)
 LO_VOXEL = float(os.environ.get('V2_LO_VOXEL', '0.013'))
-BODY_TRIS = int(os.environ.get('V2_BODY_TRIS', '5200'))   # LOD0 budget raised to ~8-12k (Kirk, 12:33 EDT)
+BODY_TRIS = int(os.environ.get('V2_BODY_TRIS', str(getattr(C, 'BODY_TRIS', 5200))))   # LOD0 ~8-12k (Kirk 12:33 EDT); a kit may set C.BODY_TRIS
 MID_TRIS = int(os.environ.get('V2_MID_TRIS', '2000'))
 FAR_TRIS = int(os.environ.get('V2_FAR_TRIS', '700'))
 TIP_LOCAL = getattr(C, 'TIP_LOCAL', (0.02, 1.52, -0.006))    # bayonet tip in prop-local coordinates (char_body.build_musket / char_v2.musket)
@@ -533,6 +533,7 @@ def bake_vat(o, rig, lod, extra):
             'weapon_tip_note': "per clip, per frame position of the unweighted 'weapon_tip' bone (child of prop, bayonet tip) "
                                "in the same Godot model space as the .vat rows"}
     meta.update(extra)
+    if getattr(C, 'KIT_PAL', None): meta['pal'] = C.KIT_PAL   # era-fixed slot colours (battle_visuals.kit_palette)
     row = 0; worst = 1.0
     tipb = rig.pose.bones['weapon_tip']
     for cn, nf, loop, fn in A.CLIPS:
