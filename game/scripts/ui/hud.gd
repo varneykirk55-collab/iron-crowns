@@ -524,7 +524,7 @@ func _build_right_column() -> void:
 	log_text.bbcode_enabled = true
 	log_text.scroll_following = true
 	log_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_text.custom_minimum_size = Vector2(SIDE_W - 28.0, 210)
+	log_text.custom_minimum_size = Vector2(SIDE_W - 28.0, 150)
 	v.add_child(log_text)
 
 const LOG_COL := {"war": "#e07060", "peace": "#8fcf83", "battle": "#e2b35f", "capture": "#eaa15a", "era": "#e9cc8a",

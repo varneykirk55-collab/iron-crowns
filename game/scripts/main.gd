@@ -105,57 +105,27 @@ func _build_fade() -> void:
 func _build_menu() -> void:
 	menu_layer = CanvasLayer.new(); menu_layer.layer = 20
 	add_child(menu_layer)
-	var root := Control.new(); root.set_anchors_preset(Control.PRESET_FULL_RECT); root.theme = Hud.make_theme()
-	menu_layer.add_child(root)
-	var shade := ColorRect.new(); shade.color = Color(0.03, 0.03, 0.04, 0.55); shade.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(shade)
-	var pc := PanelContainer.new(); pc.set_anchors_preset(Control.PRESET_CENTER); pc.custom_minimum_size = Vector2(620, 0); pc.position = Vector2(-310, -230)
-	root.add_child(pc)
-	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 12); pc.add_child(v)
-	var t := Label.new(); t.text = "IRON CROWNS"; t.add_theme_font_size_override("font_size", 46); t.add_theme_color_override("font_color", Hud.GOLD); t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(t)
-	var st := Label.new(); st.text = "Real-time grand strategy · vertical slice"; st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; st.add_theme_color_override("font_color", Hud.DIM)
-	v.add_child(st)
-	var yl := Label.new(); yl.text = "Start year"; v.add_child(yl)
-	var years := OptionButton.new()
-	for y in [1300, 1500, 1800, 1913, 1980]:
-		var ei := GameData.era_for_year(y)
-		years.add_item("%d — %s" % [y, GameData.eras[ei]["name"]], y)
-	years.select(2)
-	v.add_child(years)
-	var nl := Label.new(); nl.text = "Choose your nation"; v.add_child(nl)
-	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); h.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_child(h)
-	for code in GameData.playable:
-		var c: String = code
-		var b := Button.new(); b.custom_minimum_size = Vector2(180, 110)
-		var bv := VBoxContainer.new(); bv.alignment = BoxContainer.ALIGNMENT_CENTER; bv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bv.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var f = FlagRect.new(); f.custom_minimum_size = Vector2(72, 46); f.set_nation_static(c); f.size_flags_horizontal = Control.SIZE_SHRINK_CENTER; f.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bv.add_child(f)
-		var l := Label.new(); l.text = GameData.country_name(c); l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bv.add_child(l)
-		b.add_child(bv)
-		b.pressed.connect(func(): _start_game(c, years.get_selected_id()))
-		h.add_child(b)
-		if menu_first_btn == null:
-			menu_first_btn = b
-	var saves := Sim.list_saves()
-	if not saves.is_empty():
-		var ll := Label.new(); ll.text = "Load a saved campaign"; v.add_child(ll)
-		for m in saves.slice(0, 4):
-			var slot: String = m["slot"]
-			var lb := Button.new(); lb.text = "Load  %s — %s, %s (%s)" % [slot, m["nation"], m["date"], m["era"]]
-			lb.pressed.connect(func(): load_slot(slot))
-			v.add_child(lb)
-	var help := Label.new()
-	help.text = "Mouse: left-drag pan · wheel zoom · middle-drag or Q/E orbit · click select · right-click move · Space pause · 1-5 speed · F1/F2 panels · F5/F9 save/load\nGamepad: D-pad/stick navigate menus, A choose, B back · Touch: tap, drag, pinch, long-press to march"
-	help.add_theme_font_size_override("font_size", 12); help.add_theme_color_override("font_color", Hud.DIM); help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(help)
-	cam.look_at_world(Vector3(180 + 10, 0, 90 - 45), 200.0, true)
+	var ts := TitleScreen.new()
+	ts.main = self
+	menu_layer.add_child(ts)
+	menu_first_btn = ts.first_btn
 	cam.input_enabled = false
 	if Controls.last_device == "joy":
 		menu_first_btn.grab_focus.call_deferred()
+
+## Screenshot tour hook (tests/ui_shots.gd): the New Campaign page with an era and a nation picked, then Load.
+func ui_tour_new_game(tour: Node) -> void:
+	var ts: TitleScreen = menu_layer.get_child(0)
+	ts.show_page("new")
+	await tour.shot("02_new_campaign")
+	ts.sel_year = 1300; ts.sel_nation = "JPN"; ts._rebuild_new()
+	await tour.shot("02b_new_campaign_1300")
+	ts.sel_year = 1800; ts.sel_nation = "SWE"; ts._rebuild_new()
+	if not Sim.list_saves().is_empty():
+		ts.show_page("load")
+		await tour.shot("02c_load")
+	ts.show_page("credits")
+	await tour.shot("02d_credits")
 
 func _on_device_changed(kind: String) -> void:
 	if kind == "joy" and menu_layer != null and is_instance_valid(menu_first_btn) and get_viewport().gui_get_focus_owner() == null:

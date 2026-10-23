@@ -62,6 +62,8 @@ func _run() -> void:
 		await test_inbox()
 	if only == "" or only == "offensive":
 		await test_offensive()
+	if only == "" or only == "ui":
+		await test_ui()
 	if only == "bench":
 		await bench_cpu()
 	var summary := {"passed": results.size() - fails, "failed": fails, "total": results.size(), "seconds": (Time.get_ticks_msec() - t0) / 1000.0,
@@ -2262,3 +2264,134 @@ func test_inbox() -> void:
 	check("inbox: 8-year campaign, envoys ignored: %d new offers, %d waiting, no duplicates, nothing older than %d days" % [emits["n"], Sim.pending_offers.size(), Sim.OFFER_TTL + 31],
 		not dup and Sim.pending_offers.all(func(o): return Sim.day - int(o["day"]) <= Sim.OFFER_TTL + 31), "")
 	Sim.auto_respond_player = "decline"
+
+
+# ---------------------------------------------------------------- v0.6 UI: title screen, new campaign, HUD controls
+func _click(c: Control) -> void:
+	await _mouse_click(c.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
+
+## A button whose own text, or the text of a label inside it, equals `needle`.
+func _btn_with(n: Node, needle: String) -> Button:
+	for c in n.get_children():
+		if c is Button and c.is_visible_in_tree():
+			if c.text == needle:
+				return c
+			for l in _texts(c, []):
+				if l == needle:
+					return c
+		var r := _btn_with(c, needle)
+		if r != null:
+			return r
+	return null
+
+func test_ui() -> void:
+	print("== v0.6 UI: title screen, new campaign in every era, HUD controls ==")
+	Controls.last_device = "kbm"
+	Sim.auto_respond_player = ""
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(6)
+	var ts: TitleScreen = m.menu_layer.get_child(0)
+	var navs := ["New Campaign", "Load Campaign", "Settings", "Credits", "Quit"]
+	var have_navs := navs.all(func(t): return ts.nav_btns.has(t))
+	await _click(ts.nav_btns["New Campaign"])
+	await _frames(3)
+	var eras_shown: Array = []
+	for y in GameData.start_years:
+		if _btn_with(ts.page_body, str(int(y))) != null: eras_shown.append(int(y))
+	var nations_shown: Array = []
+	for code in Sim.nations.keys() if not Sim.nations.is_empty() else GameData.countries.keys():
+		if _btn_with(ts.page_body, GameData.country_name(code)) != null: nations_shown.append(code)
+	nations_shown.sort()
+	var pl: Array = GameData.playable.duplicate(); pl.sort()
+	check("ui: title screen has New Campaign / Load / Settings / Credits / Quit; New Campaign shows the 5 start ages %s and only the playable nations %s" % [str(eras_shown), str(nations_shown)],
+		have_navs and ts.page.visible and eras_shown == [1300, 1500, 1800, 1914, 1980] and nations_shown == pl, "")
+	# every era, by mouse: age card -> nation card -> Start Campaign; then back to the title through the menu
+	var started: Array = []
+	var i := 0
+	for y in [1300, 1500, 1800, 1914, 1980]:
+		var code: String = GameData.playable[i % GameData.playable.size()]
+		i += 1
+		ts = m.menu_layer.get_child(0)
+		if not ts.page.visible:
+			await _click(ts.nav_btns["New Campaign"])
+			await _frames(3)
+		await _click(_btn_with(ts.page_body, str(y)))
+		await _frames(2)
+		await _click(_btn_with(ts.page_body, GameData.country_name(code)))
+		await _frames(2)
+		var summary_ok := " ".join(_texts(ts.page_body, [])).find("%s  ·  %d" % [GameData.country_name(code), y]) >= 0
+		await _click(_btn_with(ts.page_body, "Start Campaign"))
+		await _frames(4)
+		var ok: bool = summary_ok and m.menu_layer == null and m.hud != null and Sim.running and Sim.player == code and Sim.start_year == y \
+			and Sim.era == GameData.era_for_year(y) and m.hud.lbl_nation.text == Sim.nations[code]["name"]
+		started.append("%d:%s:%s" % [y, code, "ok" if ok else "FAIL"])
+		Sim.set_speed(0)
+		m.hud.toggle_game_menu()
+		await _frames(2)
+		_press(m.hud.menu_box, "Return to title")
+		await _frames(2)
+		_press(m.hud.popup_box, "Return to title")
+		await _frames(4)
+	check("ui: a campaign starts by mouse in every era and nation, and the menu returns to the title %s" % str(started),
+		started.all(func(s): return s.ends_with(":ok")) and m.menu_layer != null and m.hud == null, "")
+	# HUD controls on a live campaign
+	m._start_game("SWE", 1800, 5)
+	await _frames(4)
+	var h: Hud = m.hud
+	await _click(h.speed_btns[3])
+	var sp3 := Sim.speed_idx
+	await _click(h.speed_btns[0])
+	var dock_ok := true
+	for pair in [["Diplomacy", "diplo_win"], ["Economy", "econ_win"], ["✉ Inbox", "inbox_win"], ["Menu", "menu_win"]]:
+		var b := _btn_with(h.dock, pair[0])
+		if b == null:
+			dock_ok = false; continue
+		await _click(b)
+		await _frames(2)
+		var w: Control = h.get(pair[1])
+		var opened := w.visible and h.dim.visible
+		await _mouse_click(Vector2(20, 880), MOUSE_BUTTON_LEFT)   # click the dimmed map: closes the window
+		await _frames(2)
+		dock_ok = dock_ok and opened and not w.visible
+	check("ui: speed buttons set the clock (%d then %d); Diplomacy, Economy, Inbox and Menu open from the dock and close by clicking the map" % [sp3, Sim.speed_idx],
+		sp3 == 3 and Sim.speed_idx == 0 and dock_ok, "")
+	# confirmations: disbanding asks first; Cancel keeps the regiment
+	var a: Dictionary = {}
+	for x in Sim.armies.values():
+		if x["owner"] == "SWE": a = x; break
+	m.select_army(a["id"])
+	await _frames(2)
+	var n0: int = a["units"].size()
+	var xb := _btn_with(h.sel_box, "×")
+	await _click(xb)
+	await _frames(2)
+	var asked: bool = h.popup.visible and h.popup_box.get_child(0).text == "Disband regiment?"
+	_press(h.popup_box, "Cancel")
+	await _frames(2)
+	check("ui: disbanding a regiment asks for confirmation; Cancel keeps it (%d regiments)" % a["units"].size(), asked and a["units"].size() == n0 and not h.popup.visible, "")
+	# long panels scroll inside the screen: a 40-regiment army
+	for k in 33:
+		a["units"].append(a["units"][0].duplicate())
+	h.refresh_selection()
+	await _frames(3)
+	var vs := h.get_viewport_rect().size
+	check("ui: a 40-regiment army panel stays on screen and scrolls (panel bottom %.0f of %.0f)" % [h.sel_panel.get_global_rect().end.y, vs.y],
+		h.sel_panel.get_global_rect().end.y <= vs.y and h.sel_scroll.get_v_scroll_bar().max_value > h.sel_scroll.size.y, "")
+	# save feedback and Continue from the title
+	var r: Dictionary = m.save_slot("ui_test")
+	var toast_txt: String = h.toast.text
+	var toast_ok: bool = r["ok"] and h.toast_panel.visible and toast_txt != ""
+	var date0 := Sim.date_string()
+	m.return_to_title()
+	await _frames(4)
+	ts = m.menu_layer.get_child(0)
+	var cont: Button = ts.nav_btns.get("Continue")
+	var cont_ok := cont != null and not cont.disabled
+	await _click(cont)
+	await _frames(4)
+	check("ui: saving shows a notice ('%s'); Continue on the title resumes the newest save (%s)" % [toast_txt, date0],
+		toast_ok and cont_ok and m.menu_layer == null and Sim.player == "SWE" and Sim.date_string() == date0, "")
+	DirAccess.remove_absolute(Sim.save_path("ui_test"))
+	m.queue_free()
+	await _frames(2)

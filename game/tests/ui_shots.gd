@@ -102,4 +102,18 @@ func _run() -> void:
 	# warning toast
 	m.hud._on_invasion_warning({"text": "Pickets and coastal observers report: Finland army of roughly 6,500 men on the march, heading for Northeastern Sweden — arrival in about 10 days.", "army": 0})
 	await shot("14_warning")
+	# watch the battle: live overlay, then the result card
+	m._on_deploy_chosen(bid, {"objective": "assault", "formation": "line"}, true)
+	for k in 60:
+		await get_tree().create_timer(0.1).timeout
+		if m.battle_view != null and m.in_battle and not m.transitioning: break
+	if m.battle_view != null:
+		await get_tree().create_timer(3.0).timeout
+		await shot("15_battle")
+		m.battle_view.skip()
+		for k in 50:
+			await get_tree().create_timer(0.1).timeout
+			if m.battle_view.result_shown: break
+		await get_tree().create_timer(0.5).timeout
+		await shot("16_battle_result")
 	get_tree().quit()
