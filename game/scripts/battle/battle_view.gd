@@ -19,6 +19,7 @@ func apply_quality() -> void:
 		LOD_DIST = _lod_forced_dist   # debug --lod-dist= overrides the preset
 
 const BattleVisuals := preload("res://scripts/battle/battle_visuals.gd")
+const AC := preload("res://scripts/battle/anim_combat.gd")   # combat animation v1 (Rob), off unless --anim-v1
 const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_gunner", "c19": "c19_artillery", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
@@ -72,6 +73,7 @@ var player_side := 0
 func setup(battle_id: int) -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--lod-dist="): LOD_DIST = float(a.substr(11)); _lod_forced = true; _lod_forced_dist = LOD_DIST
+		if a == "--anim-v1": AC.on = true
 	add_to_group("battle_view")
 	bid = battle_id
 	b = Sim.battles[bid]
@@ -1062,6 +1064,8 @@ func _fx_volley(si: int, di: int) -> void:
 	var pcls := projectile_class(r)
 	proj_stats[pcls] = proj_stats.get(pcls, 0) + 1
 	var alive := _alive_idx(v)
+	if AC.on and AC.volley(self, si, r, v, tv, targets, era, powder):   # same rng draws, effects at the weapon tip
+		return
 	if r["kind"] == "vat":
 		var nshoot := mini(alive.size(), 14)
 		var files: int = v["files"]
@@ -1181,7 +1185,8 @@ func _update_units(dt: float) -> void:
 		var model: String = v["model"]
 		var is_vat: bool = v["kind"] == "vat" or v["kind"] == "cav"
 		var side: int = r["side"]
-		for k in n:
+		var ac_done: bool = AC.on and AC.update_soldiers(self, i, v, r, dt, vt, cpos)   # presentation only, no rng
+		for k in (0 if ac_done else n):
 			var p: Vector2 = pos[k]
 			var dk := dead[k]
 			if dk < 0.0:
