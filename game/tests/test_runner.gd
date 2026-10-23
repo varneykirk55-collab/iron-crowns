@@ -41,6 +41,7 @@ func _run() -> void:
 		test_camera_determinism()
 	if only == "" or only == "camera" or only == "visuals":
 		test_visuals_hook()
+		test_anim_default()
 		test_polish()
 	if only == "" or only == "controls":
 		await test_controls()
@@ -961,6 +962,31 @@ func test_era_battles() -> void:
 				if u["era"] != e2: ok_n = false
 			info.append("%d:%s" % [y, a["units"][0]["type"] if not a.is_empty() and a["units"].size() > 0 else "-"])
 		check("%s: starting armies use the start era's units in every era" % code, ok_n, ", ".join(info))
+
+# ---------------------------------------------------------------- combat animation v1 default (Rob; ON by default since 2026-10-23)
+func test_anim_default() -> void:
+	print("== Combat animation v1 default ==")
+	var AC = BattleView.AC
+	var none := PackedStringArray()
+	check("anim-v1: ON by default (no args, no env var, no setting)", AC.resolve_on(none, "", null) == true)
+	var offs := []
+	for a in ["--no-anim-v1", "--anim-v1=off", "--anim-v1=0", "--anim-v1=false"]:
+		offs.append(AC.resolve_on(PackedStringArray([a]), "", null))
+	check("anim-v1: --no-anim-v1 / --anim-v1=off|0|false disable it %s" % str(offs), offs == [false, false, false, false], str(offs))
+	var ons := [AC.resolve_on(PackedStringArray(["--anim-v1"]), "", null), AC.resolve_on(PackedStringArray(["--anim-v1=on"]), "", null)]
+	check("anim-v1: legacy --anim-v1 and --anim-v1=on keep it on", ons == [true, true], str(ons))
+	var ev := [AC.resolve_on(none, "0", null), AC.resolve_on(none, "off", null), AC.resolve_on(none, "1", false),
+		AC.resolve_on(none, "", false), AC.resolve_on(PackedStringArray(["--anim-v1"]), "0", false)]
+	check("anim-v1: env var %s=0 and setting false disable it; command line wins %s" % [AC.ENV_VAR, str(ev)], ev == [false, false, true, false, true], str(ev))
+	var bid := _cam_battle_setup(1300)
+	var bv := BattleView.new()
+	add_child(bv)
+	AC.on = not AC.resolve_from_runtime()   # setup() must (re)apply the switch, whatever the previous value
+	bv.setup(bid)
+	check("anim-v1: BattleView.setup applies the switch (AC.on=%s, expected %s from this run's args/env)" % [AC.on, AC.resolve_from_runtime()],
+		AC.on == AC.resolve_from_runtime())
+	remove_child(bv)
+	bv.free()
 
 # ---------------------------------------------------------------- graphics pass integration (BJORN's battle_visuals.gd)
 func _bv_look(bv: BattleView) -> Array:

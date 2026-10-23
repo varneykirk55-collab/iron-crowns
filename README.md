@@ -80,6 +80,8 @@ xvfb-run -a godot --path game -- --demo=campaign --nation=USA     # scripted dem
                                  --demo=reinforce            (1800 Japan: a second army reinforces a watched battle)
                                  --demo=alerts               (an approaching force is spotted; the Inbox)
 ```
+Combat animations (v1) are on by default. To troubleshoot, disable them with `-- --no-anim-v1` (or `--anim-v1=off`, or the env var `IRONCROWNS_ANIM_V1=0`); see `ANIM_INTERFACE.md`. Battle outcomes are the same either way.
+
 Profiling: add `-- --perfout=/abs/out.json` to any demo and summarise with `python3 tools/perf_summary.py out.json`. `tools/rec.sh` / `tools/rec_eras.sh` record demos to MP4.
 Add `--write-movie /abs/path/out.avi --fixed-fps 30` to record a video. Note that `--reinforce=1` is a **demo-only scenario setup**: it gives the defender a field army on the invasion route so that a large battle happens quickly.
 
