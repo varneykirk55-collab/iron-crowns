@@ -116,14 +116,14 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 		"rock": (Color(0.56, 0.4, 0.3) if red else (Color(0.48, 0.45, 0.41) if grey else Color(0.6, 0.53, 0.43))),
 		"scree": soil * Color(0.78, 0.74, 0.72), "snow_col": soil * 1.2, "far_forest": soil * Color(0.7, 0.72, 0.62), "straw": Color(0.76, 0.68, 0.48),
 		"lichen": soil * 0.7, "lichen_amt": 0.2}
-	var leaf := [Color(1.0, 0.84, 0.82), Color(0.16, 0.14, 0.1)]      # dusty olive / grey-green desert foliage
+	var leaf := [Color(0.96, 0.76, 0.7), Color(0.16, 0.14, 0.1)]      # dusty olive / grey-green desert foliage
 	var rk := [Color(1.25, 1.2, 1.15), Color(0.2, 0.18, 0.16)]
 	if red: rk = [Color(1.05, 0.8, 0.68), Color(0.16, 0.1, 0.08)]          # red Navajo / Hejaz sandstone
 	elif grey: rk = [Color(0.86, 0.88, 0.92), Color(0.14, 0.14, 0.14)]     # grey-brown gravel / volcanic
 	else: rk = [Color(1.06, 1.02, 0.96), Color(0.14, 0.12, 0.1)]          # pale buff sandstone / limestone
 	b["tints"] = {"env_mesquite": leaf, "env_acacia_a": leaf, "env_acacia_b": leaf, "env_date_palm": leaf, "env_poplar": leaf,
 		"env_tamarisk": leaf, "env_saxaul": leaf, "env_creosote": leaf, "env_saltbush": leaf, "env_prickly": leaf,
-		"env_saguaro_a": [Color(0.98, 0.8, 0.82), Color(0.1, 0.1, 0.08)], "env_saguaro_b": [Color(0.98, 0.8, 0.82), Color(0.1, 0.1, 0.08)],
+		"env_saguaro_a": [Color(0.92, 0.74, 0.7), Color(0.1, 0.1, 0.08)], "env_saguaro_b": [Color(0.92, 0.74, 0.7), Color(0.1, 0.1, 0.08)],
 		"env_juniper": [Color(0.8, 0.86, 0.74), Color(0.16, 0.14, 0.1)],
 		"env_spinifex": [Color(0.95, 0.95, 0.85), Color(0.14, 0.12, 0.06)], "env_dry_tuft": [Color(0.95, 0.92, 0.85), Color(0.12, 0.1, 0.06)],
 		"env_grass_dry": [Color(0.9, 0.86, 0.72), Color(0.12, 0.1, 0.06)], "env_reeds": [Color(0.85, 0.85, 0.7), Color(0.16, 0.12, 0.08)],
