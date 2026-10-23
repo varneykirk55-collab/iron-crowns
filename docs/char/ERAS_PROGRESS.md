@@ -14,7 +14,7 @@ Stills: `tools/eras_shots.sh <kid> <kit>` -> deliverables/eras_v3/<kit>/.
 
 ## Checklist
 - [x] infra: kit selector in char_v2_build.py (V3_KIT)
-- [ ] 1 grenadier (1800)          kid v3_c19_grenadier   unit c19_grenadier
+- [x] 1 grenadier (1800)          kid v3_c19_grenadier   unit c19_grenadier   tris 11984 / 1997 / 685
 - [ ] 2 artillery crewman (1800)  kid v3_c19_artillery   unit c19_artillery (rammer clips)
 - [ ] push + report (after 2 kits)
 - [ ] 3 hussar rider (1800)       unit c19_hussar (cavalry rig: see blockers)
@@ -30,3 +30,8 @@ Stills: `tools/eras_shots.sh <kid> <kit>` -> deliverables/eras_v3/<kit>/.
 - [ ] push + report; remove /tmp worktrees
 
 ## Log
+- 16:59 EDT grenadier done: bearskin (brass plate w/ grenade relief, cords, plume, red top patch + cross), long-tailed habit w/ red
+  turnbacks + grenade badges, red fringed epaulettes, sabre-briquet + bayonet frog, cartridge box, knapsack + greatcoat roll, moustache.
+  Normals: v3 kits bake OBJECT space and re-express per texel in the runtime shader frame (char_v2_build.shader_frame_nrm);
+  removes the uv-seam shards / decimation facets (the line model still uses the Mikk bake and keeps them). Bake cage 0.035 / ray 0.08 for v3.
+  Known minor: a few dark flecks on the lower right crossbelt at close zoom; id-map staircase on waistcoat hem at extreme zoom.

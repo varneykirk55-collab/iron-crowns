@@ -325,6 +325,7 @@ def bake_maps(H, L):
     sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
     sc.render.bake.use_selected_to_active = True
     sc.render.bake.cage_extrusion = 0.025; sc.render.bake.max_ray_distance = 0.06
+    if NRM_FRAME == 'shader': sc.render.bake.cage_extrusion = 0.035; sc.render.bake.max_ray_distance = 0.08   # v3 gear sits further off the low shells
     sc.render.bake.margin = 6
     if sc.world is None: sc.world = bpy.data.worlds.new('w')
     sc.world.light_settings.distance = 0.12

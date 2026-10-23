@@ -18,7 +18,7 @@ from char_v2 import V, ss, lerp, gauss, limb, ring, grid_sweep, superellipsoid, 
 
 C.KID = 'v3_c19_grenadier'
 C.SLOT_MAT.update({'fur': 'fur', 'gold': 'brass', 'scabbard': 'leather', 'sash': 'wool'})
-C.BODY_TRIS = 4700                       # LOD0 within 12k with the full grenadier kit
+C.BODY_TRIS = 4400                       # LOD0 within 12k with the full grenadier kit
 C.HEAD_BOX = (0.15, -0.15, 0.17, 2.07)   # bearskin gets head-level texel density
 C.KIT_RULES = [(('bsk', 'mous'), 'head'), (('epaul', 'fringe'), 'transfer'),
                (('sabre', 'sbhilt', 'sbknot', 'bayscab', 'frog'), 'hips'), (('gpack', 'groll', 'gstrap'), 'chest'),
@@ -246,10 +246,10 @@ def bearskin(hi=False):
                               slot='lapel'))
     if hi:   # grenade relief on the plate
         c = _bsk_T(V(0, BSK_BASE.y + _front_y(0.0, 0.16) + 0.0055, BSK_BASE.z + BSK_H * 0.16))
-        out.append(superellipsoid('bskgren', c, (0.013, 0.004, 0.013), e=(2, 2), n=(16, 8), slot='metal'))
+        out.append(superellipsoid('bsk.gren', c, (0.014, 0.006, 0.014), e=(2, 2), n=(16, 8), slot='metal'))
         for dx in (-0.007, 0.0, 0.007):
-            out.append(limb('bskgren.f', [(0, c + V(dx, 0, 0.010)), (1, c + V(dx * 1.8, 0.0, 0.034 - abs(dx)))],
-                            [(0, 0.004, 0.0025, 0.0025), (1, 0.0008, 0.0008, 0.0008)], 6, 6, fwd=V(0, 1, 0), slot='metal'))
+            out.append(limb('bsk.grenf', [(0, c + V(dx, 0, 0.010)), (1, c + V(dx * 1.8, 0.0, 0.034 - abs(dx)))],
+                            [(0, 0.0045, 0.0035, 0.0035), (1, 0.0012, 0.0012, 0.0012)], 6, 6, fwd=V(0, 1, 0), slot='metal'))
     return out
 
 # ------------------------------------------------------------------ moustache
