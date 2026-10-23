@@ -1,5 +1,12 @@
 # Changelog
 
+## Battlefield environment: biome framework + regions (merged to main 2026-10-23, Kirk approved)
+- The battlefield environment engine is now biome-driven. Every province maps to one of nine biome profiles (boreal, tundra, temperate, east_asia, tropical, savanna, arid, mediterranean, steppe) from its terrain and lat / lon. Each profile lives in its own file, `game/scripts/battle/biomes/<id>.gd`, and supplies species, rocks, ground cover, palette, water and light. A biome without a file keeps the legacy ground. This branch ships only `boreal.gd`, which reproduces the merged Scandinavian look and now also covers the taiga of Russia and Canada. Other biomes land on their own `env/<biome>` branches.
+- The environment is now enabled in every era, not only medieval, so modern battles in North America and elsewhere get it too.
+- `test_env` covers every present biome: selection, model existence, determinism, and obstacle clearance in all eras. `tests/biome_census.tscn` prints the province-to-biome census. See `docs/BIOMES.md`. It is rendering only: sim hashes are unchanged.
+- Mongolia and Inner Mongolia (lon 100–116, lat 42–50) are classified as `steppe`, not `east_asia`.
+- `BattleVisuals.apply()` re-applies the biome look when a biome is active, so calling the graphics pass again (as the visuals test does) keeps the regional light instead of reverting to the era look. Rendering only.
+
 ## v0.5.0 — 2026-10-23 (gameplay & AI refinement)
 ### Medieval combat: no more panic routs just before contact
 - **Diagnosis** (Sweden vs Norway 1300, real starting armies, 40 seeds): 15 of 80 spear regiments routed without ever reaching melee, and attackers won 40/40. The battle model has **no obstacles**; rocks are scenery only. The real causes were that a melee-only regiment on "hold" had no response to being shot, morale never recovered under the 4-second arrow cadence, and the 28-second "decisive phase" doubled arrow casualties right as the lines met. The Norwegian spearmen routed at a 4 m gap, wherever a rock happened to be.
@@ -42,7 +49,7 @@
 - The AI's own threat assessment still sees every enemy army; detection limits what the player sees.
 - The Windows build is exported but not run on Windows.
 
-## Unreleased (branch env/scandinavia-medieval, not on main, awaiting Kirk's approval)
+## env/scandinavia-medieval (merged to main in 8f2681f)
 - Medieval battles in Scandinavian provinces (Norway, Sweden, Denmark, Finland) get a data-driven boreal battlefield. It has rolling relief that stays flat in the engagement corridor, multi-layer terrain (grass, dry grass, earth, rock, scree, snow, shore), spruce, pine and birch forest edges with a far forest belt, natural rocks kept out of the formation lanes, ground cover, an optional lake, distant mountains driven by the data, and a warm summer sun with aerial fog. It is rendering only: sim hashes are unchanged. Evidence is in `evidence/env-scandinavia/`.
 
 ## v0.4.0 — 2026-10-23 (offensive warfare and territorial conquest)
