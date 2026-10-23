@@ -151,8 +151,10 @@ alb = alb * np.clip(var, 0.85, 1.15)
 forest = ndimage.gaussian_filter(smoothstep(0.03, 0.11, gr) * (1 - w_ice), 1.0)
 forest = np.clip(forest * 1.2, 0, 1); forest[~land] = 0
 glacier = w_ice
-snowline = 4.9 - 4.3 * smoothstep(18.0, 66.0, alat)
-snow = np.maximum(glacier, smoothstep(snowline - 0.2, snowline + 0.9, land_e) * smoothstep(0.02, 0.25, slope + 0.05))
+snowline = 6.0 - 5.1 * smoothstep(18.0, 66.0, alat)
+prom = land_e - ndimage.gaussian_filter(land_e, 10.0)      # local prominence: peaks snow, high plateaus mostly don't
+snow_e = land_e + 1.5 * np.maximum(prom, 0.0)
+snow = np.maximum(glacier, smoothstep(snowline - 0.2, snowline + 0.9, snow_e) * smoothstep(0.02, 0.25, slope + 0.05))
 snow = np.clip(ndimage.gaussian_filter(snow, 0.8), 0, 1); snow[~land] = 0
 rock = np.clip(smoothstep(0.5, 1.6, slope) * 0.55 + smoothstep(2.0, 4.0, land_e) * 0.45, 0, 0.8) * (1 - snow)
 rockc = col([0.45, 0.42, 0.38])

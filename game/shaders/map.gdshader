@@ -16,7 +16,7 @@ uniform float height_scale = 0.42;
 uniform vec2 map_size = vec2(360.0, 180.0);
 uniform vec3 era_tint = vec3(1.0);
 uniform float era_sepia = 0.0;
-uniform float political = 0.66;     // political tint at world zoom; fades toward terrain when zoomed in
+uniform float political = 0.72;     // political tint at world zoom; fades toward terrain when zoomed in
 uniform float time_s = 0.0;
 uniform float cam_dist = 60.0;
 uniform int quality = 1;            // 0 low (simple path), 1 medium, 2 high
@@ -157,9 +157,9 @@ void fragment() {
 		float bdist = dat.g * dat.g * BORDER_R;                     // texels to nearest province border
 		bool owned = own.a > 0.5;
 		bool country_b = nb != 0 && distance(own, own_n) > 0.004;
-		float pol = owned ? political * mix(0.32, 1.0, zoom_far) : 0.0;
+		float pol = owned ? political * mix(0.46, 1.0, smoothstep(12.0, 150.0, cam_dist)) : 0.0;
 		float tl = dot(terrain, vec3(0.333));
-		vec3 tint = own.rgb * (0.55 + 0.6 * tl);
+		vec3 tint = own.rgb * (0.72 + 0.5 * tl);
 		vec3 col = mix(terrain, tint, pol);
 		// soft colour band inside country borders (Victoria-style edge emphasis)
 		if (owned && country_b && quality > 0) {
