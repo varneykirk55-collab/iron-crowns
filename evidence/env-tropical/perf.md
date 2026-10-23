@@ -6,55 +6,58 @@ Same method as evidence/env-scandinavia/perf.md: `tests/env_shots.tscn`, 1600x90
 
 | q | view | CPU ms before -> after | dCPU | min wall ms before -> after | draws before -> after |
 |---|---|---|---|---|---|
-| q0 | overview | 435 -> 590 | +36% | 201 -> 221 | 63 -> 116 |
-| q0 | formation | 319 -> 443 | +39% | 130 -> 184 | 53 -> 93 |
-| q0 | forest_edge | 276 -> 480 | +74% | 128 -> 219 | 49 -> 99 |
-| q0 | rocky | 302 -> 456 | +51% | 114 -> 180 | 49 -> 92 |
-| q0 | water | 287 -> 358 | +25% | 119 -> 167 | 49 -> 80 |
-| q0 | horizon | 358 -> 504 | +41% | 144 -> 280 | 63 -> 112 |
-| q0 | top | 432 -> 465 | +8% | 164 -> 177 | 63 -> 77 |
-| q1 | overview | 1358 -> 2768 | +104% | 640 -> 1020 | 85 -> 140 |
-| q1 | formation | 1106 -> 2174 | +97% | 536 -> 801 | 63 -> 111 |
-| q1 | forest_edge | 860 -> 4031 | +369% | 332 -> 1605 | 57 -> 125 |
-| q1 | rocky | 864 -> 3038 | +251% | 368 -> 1213 | 57 -> 115 |
-| q1 | water | 816 -> 1880 | +130% | 305 -> 656 | 57 -> 108 |
-| q1 | horizon | 1283 -> 2774 | +116% | 591 -> 1070 | 87 -> 140 |
-| q1 | top | 1238 -> 1376 | +11% | 477 -> 624 | 83 -> 100 |
-| q2 | overview | 1327 -> 2786 | +110% | 644 -> 1269 | 85 -> 142 |
-| q2 | formation | 1056 -> 2218 | +110% | 519 -> 1031 | 61 -> 109 |
-| q2 | forest_edge | 847 -> 4529 | +435% | 308 -> 1538 | 59 -> 127 |
-| q2 | rocky | 855 -> 3422 | +300% | 335 -> 1289 | 57 -> 117 |
-| q2 | water | 785 -> 1970 | +151% | 312 -> 1014 | 57 -> 108 |
-| q2 | horizon | 1293 -> 2914 | +125% | 569 -> 1464 | 87 -> 140 |
-| q2 | top | 1232 -> 1344 | +9% | 480 -> 780 | 85 -> 103 |
+| q0 | overview | 426 -> 563 | +32% | 225 -> 269 | 63 -> 114 |
+| q0 | formation | 326 -> 429 | +32% | 172 -> 218 | 53 -> 91 |
+| q0 | forest_edge | 294 -> 470 | +60% | 218 -> 234 | 49 -> 98 |
+| q0 | rocky | 313 -> 442 | +41% | 192 -> 240 | 49 -> 90 |
+| q0 | water | 302 -> 360 | +19% | 176 -> 200 | 49 -> 79 |
+| q0 | horizon | 360 -> 490 | +36% | 217 -> 256 | 63 -> 112 |
+| q0 | top | 438 -> 456 | +4% | 237 -> 252 | 63 -> 77 |
+| q1 | overview | 1404 -> 2504 | +78% | 327 -> 408 | 85 -> 138 |
+| q1 | formation | 1151 -> 1976 | +72% | 271 -> 391 | 63 -> 106 |
+| q1 | forest_edge | 912 -> 3498 | +284% | 228 -> 628 | 57 -> 124 |
+| q1 | rocky | 916 -> 2572 | +181% | 212 -> 490 | 57 -> 115 |
+| q2 | overview | 1390 -> 2708 | +95% | 304 -> 484 | 85 -> 140 |
+| q2 | formation | 1102 -> 2108 | +91% | 299 -> 439 | 61 -> 104 |
+| q2 | forest_edge | 886 -> 4010 | +353% | 224 -> 639 | 59 -> 127 |
+| q2 | rocky | 893 -> 2978 | +233% | 232 -> 505 | 57 -> 117 |
+| q2 | water | 809 -> 1786 | +121% | 204 -> 363 | 57 -> 110 |
+| q2 | horizon | 1366 -> 2756 | +102% | 312 -> 498 | 87 -> 141 |
+| q2 | top | 1274 -> 1360 | +7% | 243 -> 298 | 85 -> 103 |
 
 ## prov 518 Iloilo
 
 | q | view | CPU ms before -> after | dCPU | min wall ms before -> after | draws before -> after |
 |---|---|---|---|---|---|
-| q0 | overview | 396 -> 518 | +31% | 211 -> 232 | 63 -> 115 |
-| q0 | formation | 294 -> 403 | +37% | 178 -> 146 | 53 -> 92 |
-| q0 | forest_edge | 261 -> 448 | +72% | 146 -> 168 | 49 -> 99 |
-| q0 | rocky | 291 -> 414 | +42% | 160 -> 168 | 49 -> 89 |
-| q0 | water | 276 -> 320 | +16% | 134 -> 163 | 49 -> 80 |
-| q0 | horizon | 328 -> 454 | +39% | 210 -> 191 | 63 -> 112 |
-| q0 | top | 414 -> 420 | +2% | 213 -> 156 | 63 -> 77 |
-| q1 | overview | 1308 -> 2460 | +88% | 389 -> 684 | 85 -> 138 |
-| q1 | formation | 1065 -> 2064 | +94% | 376 -> 490 | 63 -> 107 |
-| q1 | forest_edge | 860 -> 3758 | +337% | 491 -> 683 | 57 -> 128 |
-| q1 | rocky | 920 -> 2718 | +195% | 422 -> 636 | 57 -> 115 |
-| q1 | water | 824 -> 1598 | +94% | 398 -> 462 | 57 -> 107 |
-| q1 | horizon | 1296 -> 2516 | +94% | 561 -> 667 | 87 -> 141 |
-| q1 | top | 1252 -> 1292 | +3% | 492 -> 396 | 83 -> 100 |
-| q2 | overview | 1362 -> 2756 | +102% | 797 -> 1061 | 85 -> 140 |
-| q2 | formation | 1092 -> 2228 | +104% | 703 -> 847 | 61 -> 105 |
-| q2 | forest_edge | 894 -> 4754 | +432% | 506 -> 1568 | 59 -> 130 |
-| q2 | rocky | 914 -> 3340 | +265% | 584 -> 1132 | 57 -> 117 |
-| q2 | water | 926 -> 1810 | +95% | 498 -> 772 | 57 -> 108 |
-| q2 | horizon | 1403 -> 2842 | +103% | 760 -> 1055 | 87 -> 141 |
-| q2 | top | 1306 -> 1310 | +0% | 756 -> 580 | 85 -> 103 |
+| q0 | overview | 414 -> 536 | +29% | 164 -> 154 | 63 -> 116 |
+| q0 | formation | 306 -> 414 | +35% | 130 -> 132 | 53 -> 94 |
+| q0 | forest_edge | 310 -> 450 | +45% | 104 -> 134 | 49 -> 100 |
+| q0 | rocky | 281 -> 416 | +48% | 138 -> 135 | 49 -> 90 |
+| q0 | water | 278 -> 323 | +16% | 114 -> 117 | 49 -> 82 |
+| q0 | horizon | 345 -> 450 | +31% | 162 -> 141 | 63 -> 111 |
+| q0 | top | 414 -> 446 | +8% | 164 -> 148 | 63 -> 77 |
+| q1 | overview | 1421 -> 2363 | +66% | 302 -> 623 | 85 -> 139 |
+| q1 | formation | 1092 -> 1904 | +74% | 235 -> 524 | 63 -> 109 |
+| q1 | forest_edge | 882 -> 3412 | +287% | 186 -> 506 | 57 -> 127 |
+| q1 | rocky | 894 -> 2514 | +181% | 184 -> 404 | 57 -> 113 |
+| q1 | water | 840 -> 1698 | +102% | 166 -> 316 | 57 -> 107 |
+| q1 | horizon | 1294 -> 2438 | +88% | 256 -> 399 | 87 -> 140 |
+| q1 | top | 1258 -> 1350 | +7% | 246 -> 258 | 83 -> 100 |
+| q2 | overview | 1384 -> 2688 | +94% | 295 -> 444 | 85 -> 141 |
+| q2 | formation | 1138 -> 2079 | +83% | 245 -> 411 | 61 -> 107 |
+| q2 | forest_edge | 901 -> 3978 | +342% | 175 -> 1216 | 59 -> 129 |
+| q2 | rocky | 932 -> 2948 | +216% | 178 -> 992 | 57 -> 115 |
+| q2 | water | 878 -> 1742 | +99% | 162 -> 682 | 57 -> 109 |
+| q2 | horizon | 1354 -> 2708 | +100% | 278 -> 926 | 87 -> 140 |
+| q2 | top | 1294 -> 1306 | +1% | 238 -> 602 | 85 -> 103 |
+
 
 ## Reading
-- q0 (Low): +2% to +74% CPU, in the same range as Scandinavia (+10% to +34%) apart from the forest-facing views.
-- q1/q2: the forest-facing views (forest_edge, rocky) cost about 2-3x more than Scandinavia's increase. The multi-layer jungle wall is the reason: canopy, emergents, palms, a 3200-instance thicket, ferns and bananas, all shadow-casting at q1/q2, are fill-bound on llvmpipe. Wide views are +90% to +125%. Top-down is unchanged.
+These numbers were re-shot at 4c0cd68 (perf trim) merged with framework 64c912d.
+- **q0 (Low):** +29..+60 % CPU. Wide views are in the same range as Scandinavia.
+- **q1 / q2 forest-facing views (forest_edge, rocky):** still the most expensive at about 3.8-4.5x legacy. The cause is the multi-layer jungle wall (canopy, emergents, palms, thicket, ferns, bananas), which casts shadows at q1/q2 and is fill-bound on llvmpipe.
+- **Effect of the trim** (tree_cell 6.4 -> 7.0, thicket 3200 -> 2400), absolute after-CPU on forest_edge versus the pre-trim run:
+  - Manila q1: 4031 -> 3498 ms (-13 %); q2: 4529 -> 4010 ms (-11 %).
+  - Iloilo q1: 3758 -> 3412 ms (-9 %); q2: 4754 -> 3978 ms (-16 %).
+- **Wide views:** +66..+95 %. Top-down is unchanged.
 - I could not measure on a GPU. On a real GPU this overdraw cost is far smaller.

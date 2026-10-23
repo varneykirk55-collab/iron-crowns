@@ -16,7 +16,7 @@ Built on `env/biome-framework`. It uses the Scandinavian build as the design lan
 - `keyframes/`: frames from the battle video at video time NN s.
 - `battle_result/`: the `BATTLERESULT` line from the video run, plus the legacy `--env=0` reference from `env-scandinavia`.
 - `ASSETS.md`: provenance (all procedural and original).
-- **Video** (not in git, 34 MB, H.264 1600x900 at 30 fps, 51.6 s): `/workspace/ic_env_tropical/out/video/env-tropical-battle.mp4`. The demo battle was recorded with `--env-prov=517` (Manila dressing).
+- **Video** (not in git, 34 MB, H.264 1600x900 at 30 fps, 51.6 s): `/workspace/ic_env_tropical/out/video/env-tropical-battle.mp4`. The demo battle was recorded with `--env-prov=517` (Manila dressing). The video and keyframes were recorded at 14:34 EDT, before the 4c0cd68 perf trim, which put about 25 % fewer thicket and slightly fewer trees outside the corridor. The compare images and perf numbers are post-trim.
 
 ## How the previews were made
 The demo battle (`--demo=battle --year=1300 --nation=SWE`, Battle of Malmö) is used with `--env-prov=<id>`, which dresses the same battle with another province's environment. Cameras, units and battle time are therefore identical between before and after, and between regions. The HUD still says "Malmö"; only the scenery is from the named province.
@@ -24,5 +24,5 @@ The demo battle (`--demo=battle --year=1300 --nation=SWE`, Battle of Malmö) is 
 ## Combat / sim untouched
 - `BATTLERESULT` from the tropical video run is **byte-identical** to the legacy `--env=0` run: md5 `f09210137aaecedfefe8512f38e7d609`, 33.4 s, winner 1, end men 1232 / 4176.
 - sim_hash matches main: SWE 1800 `417a53009d4b9c30b4c938a756b33f78`, USA 1914 `4679c5a24c8d055f95c9ea95ff868193`, JPN 1500 `e104d558aa9370b28c02ca58db54ae33`.
-- test_runner, test_audio and test_env all pass (test_env includes corridor clearance over 24 real battles).
+- test_runner (163/163), test_audio (28/28) and test_env (0 failures; includes corridor clearance over 24 real battles) all pass, re-run at 4c0cd68 + framework 64c912d (`tests/`).
 - No morale, pathfinding, combat, soldier-model or rules files are touched. The diff is limited to `biomes/tropical.gd`, the Blender script, the generated models and the docs.
