@@ -10,6 +10,7 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 ## Campaign / strategic layer
 | Feature | Status | Evidence / notes |
 |---|---|---|
+| Scandinavian medieval battlefield environment (data-driven biome, rocks kept out of the formation corridor, forest, lake, mountains) | PROTOTYPE (branch `env/scandinavia-medieval`, not merged) | `evidence/env-scandinavia/` before/after q0–q2, `tests/test_env.tscn`; costs +10–34% CPU at q0 and +40–170% at q1/q2 on llvmpipe |
 | 3D world map with real coastlines, relief and political colouring | VERIFIED | `campaign_*_world/region/close.png`. Built from Natural Earth 50m data. |
 | Selectable countries and provinces, with borders | VERIFIED | Province panel and highlight in screenshots. 641 provinces. Small countries are a single province. |
 | Camera pan / zoom / orbit, smooth fly-to | VERIFIED (scripted) | Demo fly-to/zoom; `--only=controls` drives keyboard, gamepad and touch with synthesized input events. Not played by a human. |

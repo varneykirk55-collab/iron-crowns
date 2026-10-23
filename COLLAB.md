@@ -51,6 +51,18 @@
   - `main.gd` input handling changed a lot (actions via `Controls` autoload). Your PREVIEW-ONLY hook in `main.gd` (2a36972) will conflict; prefer a one-line hook I add myself — just say which call you need.
 
 ## Handoffs
+- **READY (review only, NOT for main until Kirk approves): 2026-10-23 13:30 EDT, environment bot, Scandinavian medieval battlefield prototype**
+  - **MERGED to `main` 2026-10-23 ~13:45 EDT (Kirk approved).** `origin/main` had not moved past a3f4f35, so there were no conflicts. Before merging I re-ran the checks on 774aee5: test_runner 163/163, test_audio 28/28, test_env 0 failures, and sim_hash identical to a fresh origin/main worktree (SWE 417a5300…, USA 4679c5a2…, JPN e104d558…). Only Scandinavia (medieval) is covered; other regions go on separate `env/<biome>` branches and wait for approval.
+  - Branch `env/scandinavia-medieval` (from `main` a3f4f35). Worktree `/workspace/ic_env`. Evidence is in `evidence/env-scandinavia/` (README, perf, ASSETS.md, before/after compare, key frames). The MP4 is in `/workspace/ic_env/out/video/`.
+  - Scope: rendering only. The new `game/scripts/battle/battle_environment.gd` and the shaders `battle_terrain`, `env_foliage` and `env_water` add procedural env glbs (`pipeline/blender/env_nordic.py`). `battle_view.gd` gets +17 lines of hooks. The province must be in Norway, Sweden, Denmark or Finland, and the era must be medieval. Everything else keeps the legacy ground.
+  - Verified: sim_hash is identical to main (SWE 417a5300…, USA 4679c5a2…, JPN e104d558…); test_runner 163/163, test_audio 28/28 and the new `tests/test_env.tscn` all pass.
+  - **Note for Claude (offensive warfare / battle sim), on obstacles and collision.** I did not touch your branch or any sim code.
+    - None of the environment props (trees, boulders, outcrops, junipers, logs, lake) have collision. They do not feed `BattleSim`, which stays 2-D, and the sim inputs (`b.terrain`, seed, units) are unchanged.
+    - The legacy `_scatter` placed rocks at up to 3.5x scale anywhere, including under formations. The new placement keeps every solid prop out of an *engagement corridor*. The corridor is the deployed x extent of both lines + 70 m (clamped 160 to 430 m half-width) by the z extent + 220 m (clamped 260 to 360 m half-depth). A prop is only placed if `|x| > cw + r + 10` or `|z| > cz + r + 10`, where `r` is its footprint radius. Only knee-high cover (grass, heather, pebbles) appears inside the corridor.
+    - `BattleEnvironment.plan(ctx)["obstacles"]` returns `[Vector2 pos, radius]` for every solid prop, and `BattleEnvironment.clearance(obst, pos, half_extents)` gives regiment-vs-obstacle clearance. If you ever want sim-side obstacles (forest slowing movement, blocked lanes), use that list as the single source of truth. That would change battle results and hashes, so it needs its own approval.
+    - `tests/test_env.gd` runs 24 real BattleSims (5 or 7 regiments a side, x1 and x2.5 men, all objectives, routs included) and checks every regiment footprint every 0.5 s: minimum clearance 73 m, 0 overlaps.
+    - If your offensive-warfare work enlarges battle deployments past about 360 m half-width or 140 m depth, the corridor clamps will need raising. That is one line in `layout()`; tell me and I will change it.
+
 - **READY: 2026-10-22 20:45 EDT, BJORN, c19 visual pass (initial target, review before other eras)**
   - Branch `visual-pass` HEAD `580e1ee` in `/workspace/iron-crowns-visual`, based on `32fb914` (byte copy of v0.1).
   - Patch: `/workspace/iron-crowns-visual/out/visual-pass-c19.patch` (text only, excludes the PREVIEW-ONLY `main.gd` commit 2a36972, do NOT merge that). Binaries: 14 assets listed in `out/binary_assets.md`, packed in `out/visual-pass-c19-binaries.tar.gz`.

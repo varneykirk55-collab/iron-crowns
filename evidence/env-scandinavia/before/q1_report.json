@@ -1,0 +1,82 @@
+{
+  "battle": {
+    "biome": "{  }",
+    "coastal": true,
+    "codes": [
+      "DNK",
+      "SWE"
+    ],
+    "elev": 0.118,
+    "era": "medieval",
+    "lat": 57.261,
+    "lon": 14.37,
+    "name": "Malmö",
+    "prov": 348,
+    "region": "Sweden",
+    "t": 14.1,
+    "terrain": "forest"
+  },
+  "forest_edge": {
+    "cpu_ms": 912.5,
+    "draws": 57,
+    "median_ms": 525.982,
+    "min_ms": 456.924,
+    "objects": 330,
+    "p95_ms": 727.008,
+    "prims": 342982
+  },
+  "formation": {
+    "cpu_ms": 1116.25,
+    "draws": 63,
+    "median_ms": 688.064,
+    "min_ms": 648.883,
+    "objects": 334,
+    "p95_ms": 756.078,
+    "prims": 344554
+  },
+  "horizon": {
+    "cpu_ms": 1321.25,
+    "draws": 87,
+    "median_ms": 752.006,
+    "min_ms": 667.379,
+    "objects": 358,
+    "p95_ms": 810.911,
+    "prims": 353986
+  },
+  "overview": {
+    "cpu_ms": 1338.75,
+    "draws": 85,
+    "median_ms": 763.94,
+    "min_ms": 667.336,
+    "objects": 358,
+    "p95_ms": 825.736,
+    "prims": 353986
+  },
+  "rocky": {
+    "cpu_ms": 898.75,
+    "draws": 57,
+    "median_ms": 523.061,
+    "min_ms": 484.393,
+    "objects": 330,
+    "p95_ms": 631.021,
+    "prims": 342982
+  },
+  "top": {
+    "cpu_ms": 1276.25,
+    "draws": 83,
+    "median_ms": 698.137,
+    "min_ms": 673.481,
+    "objects": 356,
+    "p95_ms": 741.102,
+    "prims": 353200
+  },
+  "water": {
+    "cpu_ms": 856.25,
+    "draws": 57,
+    "median_ms": 504.798,
+    "min_ms": 466.216,
+    "objects": 330,
+    "p95_ms": 525.965,
+    "prims": 342982
+  }
+}

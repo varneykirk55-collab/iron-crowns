@@ -41,6 +41,9 @@
 - The AI's own threat assessment still sees every enemy army; detection limits what the player sees.
 - The Windows build is exported but not run on Windows.
 
+## Unreleased (branch env/scandinavia-medieval, not on main, awaiting Kirk's approval)
+- Medieval battles in Scandinavian provinces (Norway, Sweden, Denmark, Finland) get a data-driven boreal battlefield. It has rolling relief that stays flat in the engagement corridor, multi-layer terrain (grass, dry grass, earth, rock, scree, snow, shore), spruce, pine and birch forest edges with a far forest belt, natural rocks kept out of the formation lanes, ground cover, an optional lake, distant mountains driven by the data, and a warm summer sun with aerial fog. It is rendering only: sim hashes are unchanged. Evidence is in `evidence/env-scandinavia/`.
+
 ## v0.4.0 — 2026-10-23 (offensive warfare and territorial conquest)
 ### Why
 The player could declare war but could not really go on the offensive. Reproduced on v0.3.3 with the real right-click path in all five eras: `Sim.passable()` only allowed entry into land of nations already at war or allied, so every order into foreign land failed with "Cannot enter … without war or alliance"; there was no Invade control; a formal declaration was the only way in and immediately brought in the target's allies; an army whose march was interrupted by a battle never resumed; and a nation was deleted the moment it lost its last province, so lost land could not be won back. The passing `gameplay` test drove the sim through a demo helper with a cash grant, not through the player controls.
