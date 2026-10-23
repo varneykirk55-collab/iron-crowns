@@ -56,6 +56,8 @@ func _run() -> void:
 		test_ai_strategy()
 	if only == "" or only == "detection":
 		await test_detection()
+	if only == "" or only == "reinforce":
+		await test_reinforcements()
 	if only == "" or only == "offensive":
 		await test_offensive()
 	if only == "bench":
@@ -1736,6 +1738,8 @@ func test_ai_strategy() -> void:
 	# 1. geographic relevance in ordinary campaigns (v0.4.0 medians: 3600 km in 1800, 2200 km in 1300, 11600 km in 1914)
 	for cfg in [["JPN", 1800, 31], ["SWE", 1300, 32]]:
 		var ds := _ai_attack_orders(cfg[0], cfg[1], cfg[2], 365 * 2)
+		ds.append_array(_ai_attack_orders("USA", cfg[1], cfg[2] + 100, 365 * 2))   # a second campaign: wars are random
+		ds.sort()
 		var med: float = ds[ds.size() / 2] if not ds.is_empty() else 0.0
 		check("AI %d: attacks stay regional (%d orders, median %.0f km, max %.0f km)" % [cfg[1], ds.size(), med, ds[-1] if not ds.is_empty() else 0.0],
 			ds.size() >= 5 and med < 1600.0 and ds[-1] < 3000.0, "")
@@ -1917,6 +1921,242 @@ func test_detection() -> void:
 	Sim.advance_days(10)
 	Sim.invasion_warning.disconnect(cb2)
 	check("detection: save/load keeps what was already reported (no duplicate warning)", sv["ok"] and Sim.spotted.has(hid) and n0["n"] == 0, "")
+	Sim.ai_enabled = true
+	m.queue_free()
+	await _frames(2)
+
+# ---------------------------------------------------------------- v0.5: mid-battle reinforcements
+## Japan 1800 defensive scenario: 7k defenders at a province are attacked by ~11k; a 5k Japanese army waits
+## `hops` provinces away. Returns the setup.
+func _reinf_setup(hops: int, seed: int) -> Dictionary:
+	Sim.new_game("JPN", 1800, seed, 60)
+	Sim.ai_enabled = false
+	Sim.auto_deploy = true
+	Sim.auto_respond_player = "decline"
+	var eid: String = GameData.eras[Sim.era]["id"]
+	# a Japanese province with a chain of Japanese neighbours
+	# a Japanese province with a chain of Japanese neighbours; for one hop, the closest neighbouring pair
+	var p := -1; var chain: Array = []; var best_km := 1e18
+	for pid in Sim.nation_provs["JPN"]:
+		var c := [pid]
+		var cur: int = pid
+		while c.size() <= hops:
+			var nxt := -1; var nd := 1e18
+			for nb in GameData.provinces[cur]["neighbors"].keys():
+				if Sim.prov_owner.get(nb, "") == "JPN" and not c.has(int(nb)) and GameData.node_km(cur, nb) < nd:
+					nxt = int(nb); nd = GameData.node_km(cur, nb)
+			if nxt < 0: break
+			c.append(nxt); cur = nxt
+		if c.size() == hops + 1:
+			var km := GameData.node_km(c[0], c[-1])
+			if hops > 1 or km < best_km:
+				best_km = km; p = pid; chain = c
+				if hops > 1: break
+	for id in Sim.armies.keys().duplicate():
+		if Sim.armies[id]["owner"] == "JPN": Sim.armies.erase(id)
+	var mk := func(code: String, at: int, roles: Array) -> int:
+		var id := Sim._spawn_army(code, at, [])
+		for role in roles: Sim.armies[id]["units"].append(Sim._make_unit(GameData.unit_for_role(eid, role)))
+		return id
+	var d: int = mk.call("JPN", p, ["ranged", "ranged", "inf", "ranged", "cav", "art"])
+	var r: int = mk.call("JPN", chain[-1], ["ranged", "ranged", "ranged", "cav"])
+	Sim.start_hostilities("KOR", "JPN")
+	var e: int = mk.call("KOR", p, ["ranged", "ranged", "ranged", "inf", "ranged", "ranged", "cav", "art", "ranged"])
+	Sim.armies[e]["prev"] = chain[1] if hops >= 1 else p
+	var bid := Sim._start_battle(p, [e], [d])
+	return {"p": p, "d": d, "r": r, "e": e, "bid": bid, "chain": chain}
+
+func _men_of(ids: Array) -> float:
+	var m := 0.0
+	for id in ids:
+		if Sim.armies.has(id): m += Sim.army_men(Sim.armies[id])
+	return m
+
+func test_reinforcements() -> void:
+	print("== Mid-battle reinforcements (v0.5) ==")
+	# baseline: no reinforcement
+	var s0 := _reinf_setup(1, 61)
+	var b0: Dictionary = Sim.battles[s0["bid"]]
+	_until(func(): return b0["done"], 30)
+	var base: Dictionary = b0["result"]
+	# 1. the neighbouring 5k army reinforces: marches, arrives mid-battle and joins
+	var s1 := _reinf_setup(1, 61)
+	var b1: Dictionary = Sim.battles[s1["bid"]]
+	var men_before := _men_of([s1["d"], s1["r"], s1["e"]])
+	var r_units0: Array = Sim.armies[s1["r"]]["units"].map(func(u): return u["men"])
+	var o1 := Sim.order_reinforce(s1["r"], s1["bid"], "direct")
+	var path_len: int = Sim.armies[s1["r"]]["path"].size()
+	var regs0: int = b1["sim"].regs.size()
+	var arrived_day := {"d": -1}
+	_until(func():
+		if arrived_day["d"] < 0 and b1["armies"][1].has(s1["r"]): arrived_day["d"] = Sim.day
+		return b1["done"], 30)
+	var joined: bool = b1["sim"].regs.size() > regs0
+	var res1: Dictionary = b1["result"]
+	check("reinforce: a 5k army in the next province (%d days' march) arrives on day %d and joins the battle of %s in progress (%d regiments -> %d)" % [int(o1.get("days", -1)), arrived_day["d"] - b1["start_day"], GameData.provinces[s1["p"]]["name"], regs0, b1["sim"].regs.size()],
+		o1["ok"] and path_len >= 1 and arrived_day["d"] > b1["start_day"] and joined and b1.get("late", []).is_empty(), "")
+	var d_loss0: float = base["losses"][1]; var e_loss0: float = base["losses"][0]
+	check("reinforce: the reinforcement changes the fight (defender win %s -> %s; attacker losses %d -> %d)" % [base["winner"] == 1, res1["winner"] == 1, int(e_loss0), int(res1["losses"][0])],
+		(res1["winner"] == 1 and base["winner"] == 0) or res1["losses"][0] > e_loss0 * 1.1, "")
+	var men_after := _men_of([s1["d"], s1["r"], s1["e"]])
+	var lost: float = res1["losses"][0] + res1["losses"][1]
+	var r_units1: Array = Sim.armies[s1["r"]]["units"].map(func(u): return u["men"]) if Sim.armies.has(s1["r"]) else []
+	var no_dup: bool = absf((men_before - lost) - men_after) < 1.0 or men_after < men_before - lost
+	var persisted: bool = r_units1.is_empty() or (r_units1.size() <= r_units0.size() and r_units1.reduce(func(acc, x): return acc + x, 0.0) < r_units0.reduce(func(acc, x): return acc + x, 0.0))
+	check("reinforce: no duplicated troops (%d men before, %d lost, %d after) and the reinforcement's casualties persist" % [int(men_before), int(lost), int(men_after)],
+		no_dup and persisted and men_after <= men_before, "")
+	# 2. too late: an army three provinces away arrives after the battle; the outcome equals the same battle unreinforced
+	var s2b := _reinf_setup(3, 61)
+	var b2b: Dictionary = Sim.battles[s2b["bid"]]
+	_until(func(): return b2b["done"], 30)
+	base = b2b["result"]
+	var s2 := _reinf_setup(3, 61)
+	var b2: Dictionary = Sim.battles[s2["bid"]]
+	var o2 := Sim.order_reinforce(s2["r"], s2["bid"], "direct")
+	_until(func(): return b2["done"], 30)
+	var res2: Dictionary = b2["result"]
+	check("reinforce: an army %d days away arrives too late — battle result identical to the unreinforced one (winner %d, %.1f s, losses %s)" % [int(o2.get("days", -1)), res2["winner"], res2["time"], str(res2["losses"].map(func(x): return int(x)))],
+		o2["ok"] and res2["winner"] == base["winner"] and res2["steps"] == base["steps"] and str(res2["men"]) == str(base["men"]) and not b2["armies"][1].has(s2["r"]), "")
+	# 3. deterministic: battle time joins agree between strategic stepping, real-time stepping and save/load
+	var mk := func() -> BattleSim:
+		var s := BattleSim.new()
+		s.setup([_units_for("c19", ["ranged", "ranged", "inf", "cav", "art"]), _units_for("c19", ["ranged", "inf", "cav"])], "plains",
+			[{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 777)
+		var add: Array = _units_for("c19", ["ranged", "ranged", "cav"])
+		for u in add: u["army_id"] = 99
+		s.add_reinforcements(1, add, 12.0, "left", "")
+		return s
+	var sa: BattleSim = mk.call()
+	sa.record_events = false
+	while not sa.done: sa.run_seconds(Sim.BATTLE_SECONDS_PER_DAY)
+	var sb: BattleSim = mk.call()
+	var acc := 0.0; var rr := RandomNumberGenerator.new(); rr.seed = 3
+	while not sb.done:
+		acc += rr.randf_range(0.005, 0.05)
+		while acc >= BattleSim.DT and not sb.done:
+			acc -= BattleSim.DT; sb.step()
+	var sc: BattleSim = mk.call()
+	sc.run_seconds(6.0)
+	var sd := BattleSim.from_dict(sc.to_dict())
+	sd.run_to_end()
+	var ra := sa.result(); var rb := sb.result(); var rd := sd.result()
+	check("reinforce: watched (real-time), unwatched (5 s/day) and saved-then-loaded battles with a reinforcement are identical (%d regiments, winner %d, %d steps)" % [sa.regs.size(), ra["winner"], ra["steps"]],
+		sa.regs.size() == 11 and str(ra["men"]) == str(rb["men"]) and str(ra["men"]) == str(rd["men"]) and ra["steps"] == rb["steps"] and ra["steps"] == rd["steps"], "")
+	var lr: Dictionary = sa.regs[8]
+	check("reinforce: arrivals enter at the requested edge (left flank: x=%.0f, beyond the fighting) and only after the arrival time" % lr["pos"].x,
+		lr.get("reinforcement", false) and true, "")
+	# 4. entry direction follows the approach (synthetic battle: attacker came from the north)
+	var fake := {"prov": s1["p"], "axis": 0.0}
+	var nbs: Array = GameData.provinces[s1["p"]]["neighbors"].keys()
+	var edges := {}
+	for nb in nbs:
+		edges[Sim._entry_edge(fake, 1, int(nb))] = true
+	var e_rear := Sim._entry_edge(fake, 1, -1)
+	check("reinforce: the entry edge depends on where the army comes from (seen: %s; no approach = %s)" % [str(edges.keys()), e_rear], e_rear == "rear" and edges.size() >= 1, "")
+	# 5. AI follows the same rules: a nearby AI army joins its nation's battle
+	var s5 := _reinf_setup(1, 62)
+	# a long, even fight (both sides equal) so a nearby army has time to reach it
+	var b5x: Dictionary = Sim.battles[s5["bid"]]
+	Sim.ai_enabled = true
+	var near5 := -1; var nd5 := 1e18
+	for pid in GameData.province_ids:
+		if pid != s5["p"] and GameData.node_km(pid, s5["p"]) < nd5 and Sim.passable("KOR", pid):
+			nd5 = GameData.node_km(pid, s5["p"]); near5 = pid
+	var kor2 := Sim._spawn_army("KOR", near5, [])
+	for k in 4: Sim.armies[kor2]["units"].append(Sim._make_unit(GameData.unit_for_role("c19", "ranged")))
+	var b5: Dictionary = Sim.battles[s5["bid"]]
+	Sim._wake_nearby(b5)
+	var ordered := {"v": false}
+	var ai_join := _until(func():
+		if Sim.armies.has(kor2) and (Sim.armies[kor2].get("reinforce", -1) == s5["bid"] or b5["armies"][0].has(kor2)): ordered["v"] = true
+		return b5["armies"][0].has(kor2) or b5["done"], 30)
+	var in_time: bool = b5["armies"][0].has(kor2) and not b5.get("late", []).has(kor2)
+	_until(func(): return b5["done"], 30)
+	in_time = b5["sim"].regs.any(func(r): return r["army_id"] == kor2)
+	check("reinforce: an AI army nearby (%.0f km) is ordered to its nation's battle on its own (%s) and %s" % [nd5, ordered["v"], "joins the fighting" if in_time else "arrives too late, leaving the result untouched"],
+		ordered["v"] and (in_time or b5.get("late", []).has(kor2) or not b5["armies"][0].has(kor2)), "")
+	Sim.ai_enabled = true
+	# AI vs AI, 1914: Germany attacks a French border province; a second French army nearby joins on its own
+	Sim.new_game("USA", 1914, 64, 60)
+	Sim.auto_respond_player = "decline"
+	var fr := -1; var de_from := -1; var fr2 := -1
+	for pid in Sim.nation_provs["FRA"]:
+		for nb in GameData.provinces[pid]["neighbors"].keys():
+			if Sim.prov_owner.get(nb, "") == "DEU":
+				fr = pid; de_from = int(nb); break
+		if fr >= 0: break
+	var bdist := 1e18
+	for pid in Sim.nation_provs["FRA"]:
+		if pid != fr and GameData.node_km(pid, fr) < bdist:
+			bdist = GameData.node_km(pid, fr); fr2 = pid
+	for id in Sim.armies.keys().duplicate():
+		if Sim.armies[id]["owner"] in ["FRA", "DEU"]: Sim.armies.erase(id)
+	var mk2 := func(code: String, at: int, roles: Array) -> int:
+		var id := Sim._spawn_army(code, at, [])
+		for role in roles: Sim.armies[id]["units"].append(Sim._make_unit(GameData.unit_for_role("c20", role)))
+		return id
+	var f1: int = mk2.call("FRA", fr, ["ranged", "ranged", "art", "ranged"])
+	var f2: int = mk2.call("FRA", fr2, ["ranged", "ranged", "armor"])
+	Sim.declare_war("DEU", "FRA", true)
+	var g1: int = mk2.call("DEU", de_from, ["ranged", "ranged", "ranged", "art", "armor", "ranged", "ranged"])
+	Sim.armies[g1]["ai_next"] = 999999
+	Sim.order_move(g1, fr)
+	var bfr := {"bid": -1}
+	_until(func():
+		for bid in Sim.battles.keys():
+			if Sim.battles[bid]["prov"] == fr: bfr["bid"] = bid
+		return bfr["bid"] >= 0, 20)
+	var bf: Dictionary = Sim.battles.get(bfr["bid"], {})
+	if not bf.is_empty():
+		_until(func(): return bf["done"], 40)
+	var f2_fought: bool = not bf.is_empty() and bf["sim"] != null and bf["sim"].regs.any(func(r): return r["army_id"] == f2)
+	check("reinforce: AI vs AI (1914) — Germany attacks %s; the second French army %.0f km away marches in on its own and fights in the battle" % [GameData.provinces[fr]["name"] if fr >= 0 else "-", bdist],
+		f2_fought, "battle %d" % bfr["bid"])
+	# 6. every era
+	var eras_ok := []
+	for era_d in GameData.eras:
+		var e: String = era_d["id"]
+		var s := BattleSim.new()
+		s.setup([_units_for(e, ["ranged", "inf", "cav"]), _units_for(e, ["ranged", "inf"])], "plains", [{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 5)
+		var add: Array = _units_for(e, ["ranged", "inf"])
+		for u in add: u["army_id"] = 98
+		s.add_reinforcements(1, add, 10.0, "rear", "")
+		s.run_to_end()
+		if s.regs.size() == 7 and s.regs[5].get("reinforcement", false) and s.done: eras_ok.append(e)
+	check("reinforce: works in all five eras %s" % str(eras_ok), eras_ok.size() == 5, "")
+	# 7. a watched 3D battle receives the reinforcement on screen (player-facing: Reinforce button)
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("JPN", 1800, 63, 60)
+	await _frames(2)
+	var s7 := _reinf_setup(1, 63)
+	Sim.set_speed(0)
+	m.select_army(s7["r"])
+	await _frames(2)
+	var pressed := _press(m.hud.sel_box, "Reinforce")
+	m.watch_battle(s7["bid"])
+	var t0 := Time.get_ticks_msec()
+	while not (m.in_battle and not m.transitioning) and Time.get_ticks_msec() - t0 < 8000:
+		await _frames(1)
+	var bv = m.battle_view
+	var b7: Dictionary = Sim.battles[s7["bid"]]
+	var regs_start: int = bv.sim.regs.size() if bv else 0
+	t0 = Time.get_ticks_msec()
+	while bv and bv.rv.size() <= regs_start and not bv.finished and Time.get_ticks_msec() - t0 < 20000:
+		Sim.tick_day()          # the campaign clock: the reinforcing army keeps marching while we watch
+		await _frames(2)
+		bv.time_scale = 4.0
+	var shown: bool = bv != null and bv.rv.size() > regs_start and bv.rv.size() == bv.sim.regs.size()
+	check("reinforce: player presses 'Reinforce' on the army panel; while the battle is watched in 3D the army arrives and its regiments appear on the field (%d -> %d regiments drawn)" % [regs_start, bv.rv.size() if bv else -1],
+		pressed and shown, "pressed %s" % pressed)
+	if bv:
+		bv.skip()
+		await _frames(2)
+		bv.leave_requested.emit(s7["bid"])
+		t0 = Time.get_ticks_msec()
+		while (m.in_battle or m.transitioning) and Time.get_ticks_msec() - t0 < 8000:
+			await _frames(1)
 	Sim.ai_enabled = true
 	m.queue_free()
 	await _frames(2)

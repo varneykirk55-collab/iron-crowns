@@ -317,6 +317,13 @@ func command_army(aid: int, pid: int) -> Dictionary:
 		return {"ok": false}
 	var o: String = Sim.prov_owner.get(pid, "")
 	var r: Dictionary
+	# v0.5: right-clicking a battle of ours sends the army to reinforce it
+	var jb := Sim._joinable_battle(Sim.armies[aid], pid)
+	if jb >= 0:
+		r = Sim.order_reinforce(aid, jb, "direct")
+		hud.show_toast(("Reinforcing the battle of %s (~%d days)" % [GameData.provinces[pid]["name"], int(r.get("days", 0))]) if r["ok"] else r["msg"], 3.0)
+		hud.select_army(aid)
+		return r
 	if o != "" and o != Sim.player and not Sim.has_treaty(Sim.player, o, "alliance"):
 		if not Sim.at_war(Sim.player, o):
 			return hud.confirm_invade(aid, pid)

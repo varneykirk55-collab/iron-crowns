@@ -338,66 +338,88 @@ func _clip(name: String, clip: String) -> Vector2:
 
 func _build_units() -> void:
 	for i in sim.regs.size():
-		var r: Dictionary = sim.regs[i]
-		var d: Dictionary = r["def"]
-		var v := {"i": i, "kind": r["kind"], "side": r["side"], "n": int(r["nvis"]), "files": int(r["files"]), "ranks": int(r["ranks"]),
-			"sp": r["spacing"], "model": d["model"], "alive": int(r["nvis"]), "fire_t": -10.0}
-		var n: int = v["n"]
-		var pos := PackedVector2Array(); var yaw := PackedFloat32Array(); var dead := PackedFloat32Array(); var jit := PackedVector2Array()
-		var clip := PackedInt32Array(); var clip_t := PackedFloat32Array(); var phase := PackedFloat32Array()
-		var rows := n
-		for k in rows:
-			jit.append(Vector2(rng.randf_range(-0.22, 0.22), rng.randf_range(-0.22, 0.22)))
-			phase.append(rng.randf())
-			dead.append(-1.0)
-			clip.append(0); clip_t.append(-rng.randf() * 3.0)
-		v["jit"] = jit; v["phase"] = phase; v["dead"] = dead; v["clip"] = clip; v["clip_t"] = clip_t
-		for k in rows:
-			var wp := _slot_world(r, v, k, r["pos"], r["facing"])
-			pos.append(wp)
-			yaw.append(atan2(r["facing"].x, r["facing"].y))
-		v["pos"] = pos; v["yaw"] = yaw
-		if r["kind"] in ["vat", "cav"]:
-			_vat_model(d["model"])
-			for lod in 2:
-				for alive in 2:
-					_mm("%s|%d|%d" % [d["model"], r["side"], lod], vat[d["model"]]["mesh"][lod], _vat_mat(d["model"], lod, r["side"]), n, true)
-			if str(d["model"]) in OFFICER_REGS and _officer_vat():
-				# R3 (render only): one officer per c19 infantry regiment, dressed by BattleVisuals._char_materials
-				v["officer"] = true
-				for lod in 2:
-					_mm("%s|%d|%d" % [BattleVisuals.OFFICER_MODEL, r["side"], lod], vat[BattleVisuals.OFFICER_MODEL]["mesh"][lod], null, 1, true)
-		else:
-			var mesh := _mesh_of("res://assets/models/%s.glb" % d["model"])
-			_mm("P%s|%d" % [d["model"], r["side"]], mesh, WorldMap.team_material(side_col[r["side"]]), n, false)
-			var wm := WorldMap.team_material(Color(0.12, 0.11, 0.1)).duplicate()
-			wm.set_shader_parameter("brightness", 0.3)
-			_mm("W%s" % d["model"], mesh, wm, n, false)
-			v["recoil"] = PackedFloat32Array(); v["recoil"].resize(n)
-			if r["kind"] == "gun":
-				var cm: String = CREW_MODEL.get(d["era"], "c19_line")
-				v["crew_model"] = cm
-				_vat_model(cm)
-				for lod in 2:
-					_mm("%s|%d|%d" % [cm, r["side"], lod], vat[cm]["mesh"][lod], _vat_mat(cm, lod, r["side"]), n * 3, true)
-		rv.append(v)
-		# banner
-		var bn := Node3D.new()
-		var pole := MeshInstance3D.new(); var cy := CylinderMesh.new(); cy.top_radius = 0.05; cy.bottom_radius = 0.05; cy.height = 6.0
-		pole.mesh = cy; pole.position.y = 3.0
-		var pm := StandardMaterial3D.new(); pm.albedo_color = Color(0.3, 0.22, 0.14); pole.material_override = pm
-		bn.add_child(pole)
-		var cloth := MeshInstance3D.new(); var pl := PlaneMesh.new(); pl.size = Vector2(2.2, 1.4); pl.subdivide_width = 8; pl.orientation = PlaneMesh.FACE_Z
-		cloth.mesh = pl; cloth.position = Vector3(1.15, 5.2, 0)
-		var bm := ShaderMaterial.new(); bm.shader = load("res://shaders/banner.gdshader"); bm.set_shader_parameter("team_color", side_col[r["side"]])
-		cloth.material_override = bm
-		bn.add_child(cloth)
-		bn.set_meta("mat", bm)
-		add_child(bn)
-		banners.append(bn)
+		_build_reg(i)
+	_size_mms()
+
+func _size_mms() -> void:
 	for e in mms.values():
-		e["mm"].instance_count = e["cap"]
-		e["buf"].resize(e["cap"] * e["stride"])
+		if (e["mm"] as MultiMesh).instance_count != e["cap"]:
+			e["mm"].instance_count = e["cap"]
+			e["buf"].resize(e["cap"] * e["stride"])
+
+## v0.5 mid-battle reinforcements: regiments the simulation added after the view was built get their soldiers,
+## banner and multimesh capacity now, then the graphics pass is re-applied (it is idempotent) so they match.
+func _sync_regs() -> void:
+	if rv.size() >= sim.regs.size():
+		return
+	var first := rv.size()
+	for i in range(first, sim.regs.size()):
+		_build_reg(i)
+	_size_mms()
+	BattleVisuals.apply(self)
+	_officer_check()
+	apply_quality()
+	var side: int = sim.regs[first]["side"]
+	_feed("[color=#ffd880]Reinforcements arrive for %s![/color]" % sim.side_names[side])
+
+func _build_reg(i: int) -> void:
+	var r: Dictionary = sim.regs[i]
+	var d: Dictionary = r["def"]
+	var v := {"i": i, "kind": r["kind"], "side": r["side"], "n": int(r["nvis"]), "files": int(r["files"]), "ranks": int(r["ranks"]),
+		"sp": r["spacing"], "model": d["model"], "alive": int(r["nvis"]), "fire_t": -10.0}
+	var n: int = v["n"]
+	var pos := PackedVector2Array(); var yaw := PackedFloat32Array(); var dead := PackedFloat32Array(); var jit := PackedVector2Array()
+	var clip := PackedInt32Array(); var clip_t := PackedFloat32Array(); var phase := PackedFloat32Array()
+	var rows := n
+	for k in rows:
+		jit.append(Vector2(rng.randf_range(-0.22, 0.22), rng.randf_range(-0.22, 0.22)))
+		phase.append(rng.randf())
+		dead.append(-1.0)
+		clip.append(0); clip_t.append(-rng.randf() * 3.0)
+	v["jit"] = jit; v["phase"] = phase; v["dead"] = dead; v["clip"] = clip; v["clip_t"] = clip_t
+	for k in rows:
+		var wp := _slot_world(r, v, k, r["pos"], r["facing"])
+		pos.append(wp)
+		yaw.append(atan2(r["facing"].x, r["facing"].y))
+	v["pos"] = pos; v["yaw"] = yaw
+	if r["kind"] in ["vat", "cav"]:
+		_vat_model(d["model"])
+		for lod in 2:
+			for alive in 2:
+				_mm("%s|%d|%d" % [d["model"], r["side"], lod], vat[d["model"]]["mesh"][lod], _vat_mat(d["model"], lod, r["side"]), n, true)
+		if str(d["model"]) in OFFICER_REGS and _officer_vat():
+			# R3 (render only): one officer per c19 infantry regiment, dressed by BattleVisuals._char_materials
+			v["officer"] = true
+			for lod in 2:
+				_mm("%s|%d|%d" % [BattleVisuals.OFFICER_MODEL, r["side"], lod], vat[BattleVisuals.OFFICER_MODEL]["mesh"][lod], null, 1, true)
+	else:
+		var mesh := _mesh_of("res://assets/models/%s.glb" % d["model"])
+		_mm("P%s|%d" % [d["model"], r["side"]], mesh, WorldMap.team_material(side_col[r["side"]]), n, false)
+		var wm := WorldMap.team_material(Color(0.12, 0.11, 0.1)).duplicate()
+		wm.set_shader_parameter("brightness", 0.3)
+		_mm("W%s" % d["model"], mesh, wm, n, false)
+		v["recoil"] = PackedFloat32Array(); v["recoil"].resize(n)
+		if r["kind"] == "gun":
+			var cm: String = CREW_MODEL.get(d["era"], "c19_line")
+			v["crew_model"] = cm
+			_vat_model(cm)
+			for lod in 2:
+				_mm("%s|%d|%d" % [cm, r["side"], lod], vat[cm]["mesh"][lod], _vat_mat(cm, lod, r["side"]), n * 3, true)
+	rv.append(v)
+	# banner
+	var bn := Node3D.new()
+	var pole := MeshInstance3D.new(); var cy := CylinderMesh.new(); cy.top_radius = 0.05; cy.bottom_radius = 0.05; cy.height = 6.0
+	pole.mesh = cy; pole.position.y = 3.0
+	var pm := StandardMaterial3D.new(); pm.albedo_color = Color(0.3, 0.22, 0.14); pole.material_override = pm
+	bn.add_child(pole)
+	var cloth := MeshInstance3D.new(); var pl := PlaneMesh.new(); pl.size = Vector2(2.2, 1.4); pl.subdivide_width = 8; pl.orientation = PlaneMesh.FACE_Z
+	cloth.mesh = pl; cloth.position = Vector3(1.15, 5.2, 0)
+	var bm := ShaderMaterial.new(); bm.shader = load("res://shaders/banner.gdshader"); bm.set_shader_parameter("team_color", side_col[r["side"]])
+	cloth.material_override = bm
+	bn.add_child(cloth)
+	bn.set_meta("mat", bm)
+	add_child(bn)
+	banners.append(bn)
 
 ## R3 officer: c19 infantry regiments get one c19sr officer (BattleVisuals.officer_vat()); false if the bake is missing.
 const OFFICER_REGS := ["c19_line", "c19_grenadier"]
@@ -1000,6 +1022,7 @@ func _process(delta: float) -> void:
 	if not finished:
 		if Sim.step_watched(bid, delta, time_scale):
 			finished = true
+	_sync_regs()
 	var t1 := Time.get_ticks_usec()
 	vis_t += delta * (time_scale if not finished else 1.0)
 	_process_events()

@@ -588,6 +588,8 @@ func _army_panel(a: Dictionary) -> void:
 		elif dest_o != "" and Sim.at_war(a["owner"], dest_o):
 			verb = "attacking"
 		st = "%s %s (%d stops, ~%d days)" % [verb, GameData.provinces[dest]["name"] if GameData.provinces.has(dest) else "sea", a["path"].size(), Sim.est_days(a, a["path"])]
+	if a.get("reinforce", -1) >= 0 and Sim.battles.has(a["reinforce"]):
+		st = "reinforcing the battle of %s (~%d days)" % [GameData.provinces[Sim.battles[a["reinforce"]]["prov"]]["name"], Sim.est_days(a, a["path"])]
 	elif a["state"] == "siege" and Sim.sieges.has(a["node"]):
 		st = "besieging %s (%d%%)" % [GameData.provinces[a["node"]]["name"], int(minf(float(Sim.sieges[a["node"]]["progress"]), 1.0) * 100)]
 	sel_box.add_child(L("Status: %s" % st, 14, GOLD if a["state"] == "idle" else BAD))
@@ -618,10 +620,40 @@ func _army_panel(a: Dictionary) -> void:
 			if o["id"] != a["id"] and o["owner"] == Sim.player and o["state"] != "battle":
 				var oid: int = o["id"]
 				sel_box.add_child(B("Merge %s into this army" % o["name"], func(): Sim.merge_armies(aid2, oid); refresh_selection()))
-		sel_box.add_child(L("Right-click a province to march there. Right-click foreign land to attack or invade — no declaration needed.", 13, DIM))
+		_reinforce_buttons(a)
+		sel_box.add_child(L("Right-click a province to march there. Right-click foreign land to attack or invade — no declaration needed. Right-click a battle to reinforce it.", 13, DIM))
 	if a["state"] == "battle" and Sim.battles.has(a["battle"]):
 		var bid: int = a["battle"]
 		sel_box.add_child(B("Watch this battle", func(): main.watch_battle(bid)))
+
+## v0.5: battles of ours (or an ally's) this army can still reach — march in directly, round a flank, or in support.
+func _reinforce_buttons(a: Dictionary) -> void:
+	if a["state"] == "battle":
+		return
+	var opts: Array = []
+	for bid in Sim.battles.keys():
+		var b: Dictionary = Sim.battles[bid]
+		if b["done"] or Sim._reinforce_side(Sim.player, b) < 0:
+			continue
+		var r := Sim.order_reinforce(a["id"], bid, "direct", true)
+		if r["ok"] and r["days"] <= 10:
+			opts.append([r["days"], bid])
+	opts.sort_custom(func(x, y): return x[0] < y[0])
+	for o in opts.slice(0, 2):
+		var bid: int = o[1]
+		var aid: int = a["id"]
+		var bn: String = GameData.provinces[Sim.battles[bid]["prov"]]["name"]
+		sel_box.add_child(HSeparator.new())
+		sel_box.add_child(L("Battle of %s under way · ~%d days away (it may be over before we arrive)" % [bn, int(o[0])], 14, GOLD))
+		sel_box.add_child(row([
+			B("⚔ Reinforce", func(): _reinforce(aid, bid, "direct"), false, "March straight in and join the fight from the direction we arrive"),
+			B("Flank", func(): _reinforce(aid, bid, "flank"), false, "Swing round and enter on a flank of the enemy line"),
+			B("Support", func(): _reinforce(aid, bid, "support"), false, "Form up behind our own line and hold it")]))
+
+func _reinforce(aid: int, bid: int, mode: String) -> void:
+	var r := Sim.order_reinforce(aid, bid, mode)
+	show_toast(("Reinforcing the battle of %s (~%d days)" % [GameData.provinces[Sim.battles[bid]["prov"]]["name"], int(r["days"])]) if r["ok"] else r["msg"], 3.0)
+	refresh_selection()
 
 func _refit(aid: int) -> void:
 	var r := Sim.refit_army(aid)

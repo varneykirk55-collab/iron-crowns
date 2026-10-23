@@ -21,7 +21,7 @@ const SPEEDS := [0.0, 2.0, 8.0, 30.0, 120.0, 365.0]
 const SPEED_NAMES := ["Paused", "Slow", "Normal", "Fast", "Very fast", "Year/sec"]
 const MONTH_DAYS := [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 const MONTH_NAMES := ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-const BATTLE_SECONDS_PER_DAY := 15.0
+const BATTLE_SECONDS_PER_DAY := 5.0   # v0.5: a battle occupies about a week of campaign time (was 15 s/day, ~3 days) so nearby armies can reinforce it
 const WATCH_DAYS_PER_SEC := 1.0
 const FOOD_RES := ["grain", "fish", "horses"]
 const POP_CURVE := [[1300.0, 0.06], [1500.0, 0.09], [1800.0, 0.2], [1914.0, 0.42], [1980.0, 0.8], [2030.0, 1.0]]
@@ -79,7 +79,7 @@ func new_game(player_code: String, year: int, seed: int = 1, doy: int = 0) -> vo
 	defeated = false; _cores.clear(); _reach_cache.clear(); spotted.clear(); _seen_by_player.clear()
 	stats = {"wars_declared": 0, "ai_wars": 0, "peace": 0, "ai_peace": 0, "alliances": 0, "ai_alliances": 0, "trades": 0,
 		"ai_trades": 0, "naps": 0, "ai_naps": 0, "gifts": 0, "captures": 0, "battles": 0, "eliminated": 0, "era_changes": 0,
-		"ai_units_bought": 0, "ai_proposals": 0, "ai_rejections": 0, "invasions": 0, "undeclared": 0, "recaptures": 0}
+		"ai_units_bought": 0, "ai_proposals": 0, "ai_rejections": 0, "invasions": 0, "undeclared": 0, "recaptures": 0, "reinforcements": 0}
 	for code in GameData.countries.keys():
 		var c: Dictionary = GameData.countries[code]
 		var major := GameData.majors.has(code)
@@ -163,7 +163,7 @@ func _spawn_army(code: String, pid: int, units: Array) -> int:
 	var id := next_army_id
 	next_army_id += 1
 	armies[id] = {"id": id, "owner": code, "node": pid, "path": [], "progress": 0.0, "units": units, "state": "idle",
-		"battle": -1, "ai_next": day + rng.randi_range(0, 6), "goal": -1, "invade": "", "resume": false, "name": _army_name(code)}
+		"battle": -1, "ai_next": day + rng.randi_range(0, 6), "goal": -1, "invade": "", "resume": false, "reinforce": -1, "name": _army_name(code)}
 	armies_changed.emit()
 	return id
 
@@ -1098,6 +1098,7 @@ func order_move(aid: int, to_pid: int) -> Dictionary:
 	a["goal"] = to_pid
 	a["invade"] = ""
 	a["resume"] = false
+	a["reinforce"] = -1
 	if a["state"] == "siege":
 		a["state"] = "idle"
 	armies_changed.emit()
@@ -1164,6 +1165,7 @@ func order_invade(aid: int, to_pid: int, dry_run: bool = false) -> Dictionary:
 	a["goal"] = to_pid
 	a["invade"] = tgt
 	a["resume"] = true      # an invasion presses on to its objective after winning a battle on the way
+	a["reinforce"] = -1
 	if a["state"] == "siege":
 		a["state"] = "idle"
 	stats["invasions"] += 1
@@ -1220,6 +1222,7 @@ func _move_armies() -> void:
 					a["path"] = []; a["progress"] = 0.0; a["goal"] = -1; a["invade"] = ""
 					break
 			a["progress"] -= d
+			a["prev"] = a["node"]      # v0.5: where it came from (the direction it enters a battle)
 			a["node"] = nxt
 			a["path"].pop_front()
 			if a["path"].is_empty():
@@ -1239,6 +1242,11 @@ func armies_in(pid: int) -> Array:
 
 func _check_battle(aid: int, pid: int) -> bool:
 	var a: Dictionary = armies[aid]
+	# v0.5: arriving where a battle is being fought joins it (on our side, or our ally's)
+	var jb := _joinable_battle(a, pid)
+	if jb >= 0:
+		_join_battle(aid, jb)
+		return true
 	var enemies: Array = []
 	for o in armies_in(pid):
 		if o["id"] != aid and at_war(a["owner"], o["owner"]) and o["state"] != "battle":
@@ -1247,6 +1255,123 @@ func _check_battle(aid: int, pid: int) -> bool:
 		return false
 	_start_battle(pid, [aid], enemies)
 	return true
+
+# ======================= mid-battle reinforcements (v0.5) =======================
+const REINFORCE_DEPLOY_S := 4.0   # battle seconds between reaching the field and entering the fighting
+
+## Ongoing battle at `pid` that army `a` can join, and on which side: returns the battle id or -1.
+func _joinable_battle(a: Dictionary, pid: int) -> int:
+	for bid in battles.keys():
+		var b: Dictionary = battles[bid]
+		if b["done"] or b["prov"] != pid:
+			continue
+		if _reinforce_side(a["owner"], b) >= 0:
+			return bid
+	return -1
+
+## Side (0/1) nation `code` would fight on in battle `b`, or -1.
+func _reinforce_side(code: String, b: Dictionary) -> int:
+	for sd in 2:
+		var mine: String = b["codes"][sd]; var theirs: String = b["codes"][1 - sd]
+		if (code == mine or has_treaty(code, mine, "alliance")) and at_war(code, theirs):
+			return sd
+	return -1
+
+## Bearing (degrees) from a province to another node, on the map.
+func _bearing(from: int, to: int) -> float:
+	var a := GameData.node_lonlat(from); var c := GameData.node_lonlat(to)
+	var dx := c.x - a.x
+	if dx > 180.0: dx -= 360.0
+	elif dx < -180.0: dx += 360.0
+	return rad_to_deg(atan2(dx * cos(deg_to_rad((a.y + c.y) * 0.5)), c.y - a.y))
+
+## Which edge of its own side's line an army arriving from `prev` enters by: "rear", "left" or "right".
+## The attacker's line faces the way it came from; the defender's line faces the attacker.
+func _entry_edge(b: Dictionary, sd: int, prev: int) -> String:
+	if prev < 0 or prev == b["prov"]:
+		return "rear"
+	var rear_dir: float = b.get("axis", 0.0) + (0.0 if sd == 0 else 180.0)
+	var delta := fposmod(_bearing(b["prov"], prev) - rear_dir + 180.0, 360.0) - 180.0
+	if absf(delta) <= 50.0:
+		return "rear"
+	return "right" if (delta > 0.0) == (sd == 0) else "left"
+
+## Player / AI order: march army `aid` to battle `bid` and join it on arrival.
+## mode: "direct" (enters by the edge it marches in from and attacks), "flank" (swings round to a flank),
+## "support" (forms up behind our own line and holds).
+func order_reinforce(aid: int, bid: int, mode: String = "direct", dry_run: bool = false) -> Dictionary:
+	if not armies.has(aid) or not battles.has(bid):
+		return {"ok": false, "msg": "No such army or battle"}
+	var a: Dictionary = armies[aid]
+	var b: Dictionary = battles[bid]
+	if b["done"]:
+		return {"ok": false, "msg": "That battle is over"}
+	if a["state"] == "battle":
+		return {"ok": false, "msg": "Army is fighting"}
+	var sd := _reinforce_side(a["owner"], b)
+	if sd < 0:
+		return {"ok": false, "msg": "We are not part of that battle"}
+	var pid: int = b["prov"]
+	var path := find_path(a["owner"], a["node"], pid) if a["node"] != pid else []
+	if path.is_empty() and a["node"] != pid:
+		return {"ok": false, "msg": _no_route_msg(a, pid, "")}
+	var days := est_days(a, path) if not path.is_empty() else 0
+	if dry_run:
+		return {"ok": true, "days": days, "side": sd}
+	a["path"] = path; a["progress"] = 0.0; a["goal"] = pid
+	a["invade"] = ""; a["resume"] = false
+	a["reinforce"] = bid; a["rmode"] = mode
+	if a["state"] == "siege":
+		a["state"] = "idle"
+	if a["node"] == pid:
+		_join_battle(aid, bid)
+	if a["owner"] == player:
+		log_event("%s marches to reinforce the battle of %s (~%d days)." % [a["name"], GameData.provinces[pid]["name"], days], "battle", [a["owner"]])
+	armies_changed.emit()
+	return {"ok": true, "days": days, "side": sd}
+
+## The army has reached the battlefield: schedule it into the fight at the battle time matching its arrival day.
+func _join_battle(aid: int, bid: int) -> void:
+	var a: Dictionary = armies[aid]
+	var b: Dictionary = battles[bid]
+	var sd := _reinforce_side(a["owner"], b)
+	if sd < 0 or b["done"]:
+		return
+	var mode: String = a.get("rmode", "direct") if a.get("reinforce", -1) == bid else "direct"
+	var edge := "rear" if mode == "support" else _entry_edge(b, sd, int(a.get("prev", -1)))
+	if mode == "flank" and edge == "rear":
+		edge = "left" if aid % 2 == 0 else "right"
+	var obj := "hold" if mode == "support" else ("assault" if b["orders"][sd].get("objective", "") == "hold" and sd == 0 else "")
+	var units: Array = []
+	for i in a["units"].size():
+		var u: Dictionary = a["units"][i]
+		if u["men"] >= 1.0:
+			units.append({"army_id": aid, "unit_index": i, "type": u["type"], "men": u["men"]})
+	a["state"] = "battle"; a["battle"] = bid; a["path"] = []; a["progress"] = 0.0
+	a["reinforce"] = -1; a["goal"] = -1
+	b["armies"][sd].append(aid)
+	if b["sim"] == null:
+		# still deploying: the army simply fights from the start
+		b["units"][sd].append_array(units)
+	else:
+		var at_t := float(day - int(b["start_day"])) * BATTLE_SECONDS_PER_DAY + REINFORCE_DEPLOY_S
+		b["sim"].add_reinforcements(sd, units, at_t, edge, obj)
+		b["reinforced"] = b.get("reinforced", 0) + 1
+	stats["reinforcements"] = stats.get("reinforcements", 0) + 1
+	var who: String = a["name"]
+	if a["owner"] != player:
+		who = "%s's %s" % [nations[a["owner"]]["name"], a["name"]]
+	var where: String = {"left": " on the left flank", "right": " on the right flank", "rear": ""}[edge]
+	log_event("%s joins the battle of %s%s." % [who, GameData.provinces[b["prov"]]["name"], where], "battle", [a["owner"]], a["owner"] != player)
+	armies_changed.emit()
+
+## AI: when a battle starts, nearby armies of both sides (and allies) think again today instead of in a week.
+func _wake_nearby(b: Dictionary) -> void:
+	for o in armies.values():
+		if o["state"] == "battle" or o["owner"] == player:
+			continue
+		if _reinforce_side(o["owner"], b) >= 0 and GameData.node_km(o["node"], b["prov"]) < army_speed(o) * 6.0:
+			o["ai_next"] = mini(int(o["ai_next"]), day)
 
 # ======================= battles =======================
 func _start_battle(pid: int, att: Array, def: Array) -> int:
@@ -1281,8 +1406,10 @@ func _start_battle(pid: int, att: Array, def: Array) -> int:
 	var b := {"id": bid, "prov": pid, "armies": [att, def], "codes": [att_code, def_code], "units": sides, "terrain": terr,
 		"sim": null, "watched": false, "awaiting": false, "player_side": player_side, "start_day": day, "done": false,
 		"orders": [BattleSim.ai_orders(sides[0], sides[1], false, terr), BattleSim.ai_orders(sides[1], sides[0], true, terr)],
-		"seed": int(hash(str(bid) + str(day) + str(pid)) & 0x7fffffff)}
+		"seed": int(hash(str(bid) + str(day) + str(pid)) & 0x7fffffff),
+		"axis": _bearing(pid, int(armies[att[0]].get("prev", pid))) if int(armies[att[0]].get("prev", pid)) != pid else 0.0}
 	battles[bid] = b
+	_wake_nearby(b)
 	stats["battles"] += 1
 	if player_side >= 0 and not auto_deploy:
 		b["awaiting"] = true
@@ -1350,6 +1477,15 @@ func _resolve_battle(b: Dictionary) -> void:
 	b["done"] = true
 	var s: BattleSim = b["sim"]
 	var res := s.result()
+	# v0.5: reinforcements still on the way when the battle ended never fought: they stay out of its outcome
+	var late: Dictionary = s.pending_armies()
+	for sd in 2:
+		for id in late.keys():
+			b["armies"][sd].erase(id)
+	for id in late.keys():
+		if armies.has(id):
+			armies[id]["state"] = "idle"; armies[id]["battle"] = -1
+	b["late"] = late.keys()
 	var regs := s.regs
 	for i in regs.size():
 		var r: Dictionary = regs[i]
@@ -1425,6 +1561,10 @@ func _resolve_battle(b: Dictionary) -> void:
 	battle_resolved.emit(b["id"], res)
 	var bid: int = b["id"]
 	_check_landless()
+	# late arrivals still facing an enemy in the province start a fresh engagement
+	for id in late.keys():
+		if armies.has(id) and armies[id]["state"] == "idle" and armies[id]["node"] == pid:
+			_check_battle(id, pid)
 	# keep finished battles briefly for UI/tests; prune old ones
 	for k in battles.keys():
 		if battles[k]["done"] and day - int(battles[k]["start_day"]) > 30 and k != bid:
@@ -1757,6 +1897,8 @@ func _ai_military_daily() -> void:
 			continue
 		if not a["path"].is_empty() or a["state"] == "siege":
 			continue
+		if a.get("reinforce", -1) >= 0:
+			continue
 		var decision := _ai_war_decision(aid, a, my_s, enemies)
 		var target: int = decision["target"]
 		if target >= 0 and target != a["node"]:
@@ -1770,6 +1912,19 @@ func _ai_military_daily() -> void:
 func _ai_war_decision(aid: int, a: Dictionary, my_s: float, enemies: Array) -> Dictionary:
 	var code: String = a["owner"]
 	var n: Dictionary = nations[code]
+	# 0) an ongoing battle of ours (or an ally's) close enough to reach in time: march to it (same order as the player)
+	var rb := -1; var rd := 1e18
+	for bid in battles.keys():
+		var b: Dictionary = battles[bid]
+		if b["done"] or _reinforce_side(code, b) < 0:
+			continue
+		var km := GameData.node_km(a["node"], b["prov"])
+		if km < army_speed(a) * 6.0 and km < rd:     # about as long as a battle lasts on the campaign map
+			rd = km; rb = bid
+	if rb >= 0:
+		var r := order_reinforce(aid, rb, "direct")
+		if r["ok"]:
+			return {"target": -1, "why": "reinforce"}
 	# 1) defend: enemy armies inside our land that we can take on
 	var target := -1; var best := 1e18
 	for o in armies.values():
@@ -2218,10 +2373,12 @@ func apply_state(d: Dictionary) -> void:
 			a["invade"] = ""
 		if not a.has("resume"):
 			a["resume"] = false
+		if not a.has("reinforce"):
+			a["reinforce"] = -1
 	for w in wars.values():
 		if not w.has("declared"):
 			w["declared"] = true
-	for k in ["invasions", "undeclared", "recaptures"]:
+	for k in ["invasions", "undeclared", "recaptures", "reinforcements"]:
 		if not stats.has(k):
 			stats[k] = 0
 	if not d.has("spotted"):

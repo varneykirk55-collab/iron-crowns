@@ -37,6 +37,7 @@ var seed_value := 0
 var orders: Array = [{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}]
 var side_names := ["Attacker", "Defender"]
 var start_men := [0.0, 0.0]
+var pending: Array = []   # v0.5 reinforcements: [{t, side, units, entry, obj}] that join when the battle clock reaches t
 
 ## sides: Array of 2 Arrays of {army_id, unit_index, type, men}
 func setup(sides: Array, terr: String, ord: Array, seed: int) -> void:
@@ -47,31 +48,8 @@ func setup(sides: Array, terr: String, ord: Array, seed: int) -> void:
 	regs.clear()
 	for side in 2:
 		var lst: Array = sides[side]
-		var form: Dictionary = FORMATIONS[orders[side].get("formation", "line")]
 		for u in lst:
-			var d: Dictionary = GameData.units[u["type"]]
-			var men := float(u["men"])
-			var nvis := clampi(int(round(float(d["visual_men"]) * men / float(d["men"]))), 2 if d["kind"] in ["veh", "gun"] else 6, int(d["visual_men"]))
-			var ranks := 1
-			var sp := Vector2(1.3, 1.3)
-			match d["kind"]:
-				"vat":
-					ranks = int(form["ranks"]); sp = Vector2(1.25, 1.35)
-				"cav":
-					ranks = maxi(2, int(form["ranks"]) - 1); sp = Vector2(2.2, 3.4)
-				"gun":
-					ranks = 1; sp = Vector2(9.0, 4.0)
-				"veh":
-					ranks = 1 if nvis <= 4 else 2; sp = Vector2(11.0, 10.0)
-			var files := int(ceil(float(nvis) / ranks))
-			regs.append({
-				"side": side, "army_id": u["army_id"], "unit_index": u["unit_index"], "type": u["type"], "def": d,
-				"role": d["role"], "kind": d["kind"], "men": men, "men0": men, "nvis": nvis, "ranks": ranks, "files": files,
-				"spacing": sp, "width": files * sp.x, "depth": ranks * sp.y,
-				"morale": float(d["morale"]) + float(form["morale"]), "morale0": float(d["morale"]) + float(form["morale"]),
-				"pos": Vector2.ZERO, "facing": Vector2(0, -1 if side == 0 else 1), "state": "idle", "target": -1,
-				"fire_cd": 0.0, "last_hit": -10.0, "contact_t": -1.0, "rout_t": -1.0, "moving": false, "running": false,
-				"kills": 0.0, "fired": 0, "charged": false})
+			regs.append(_make_reg(side, u))
 		start_men[side] = 0.0
 	for r in regs:
 		start_men[r["side"]] += r["men"]
@@ -88,6 +66,90 @@ func setup(sides: Array, terr: String, ord: Array, seed: int) -> void:
 	var lo := minf(start_men[0], start_men[1]); var hi := maxf(maxf(start_men[0], start_men[1]), 1.0)
 	kill_scale *= clampf(pow(lo / hi, 0.5), 0.4, 1.0)
 	_deploy()
+
+func _make_reg(side: int, u: Dictionary) -> Dictionary:
+	var form: Dictionary = FORMATIONS[orders[side].get("formation", "line")]
+	var d: Dictionary = GameData.units[u["type"]]
+	var men := float(u["men"])
+	var nvis := clampi(int(round(float(d["visual_men"]) * men / float(d["men"]))), 2 if d["kind"] in ["veh", "gun"] else 6, int(d["visual_men"]))
+	var ranks := 1
+	var sp := Vector2(1.3, 1.3)
+	match d["kind"]:
+		"vat":
+			ranks = int(form["ranks"]); sp = Vector2(1.25, 1.35)
+		"cav":
+			ranks = maxi(2, int(form["ranks"]) - 1); sp = Vector2(2.2, 3.4)
+		"gun":
+			ranks = 1; sp = Vector2(9.0, 4.0)
+		"veh":
+			ranks = 1 if nvis <= 4 else 2; sp = Vector2(11.0, 10.0)
+	var files := int(ceil(float(nvis) / ranks))
+	return {
+		"side": side, "army_id": u["army_id"], "unit_index": u["unit_index"], "type": u["type"], "def": d,
+		"role": d["role"], "kind": d["kind"], "men": men, "men0": men, "nvis": nvis, "ranks": ranks, "files": files,
+		"spacing": sp, "width": files * sp.x, "depth": ranks * sp.y,
+		"morale": float(d["morale"]) + float(form["morale"]), "morale0": float(d["morale"]) + float(form["morale"]),
+		"pos": Vector2.ZERO, "facing": Vector2(0, -1 if side == 0 else 1), "state": "idle", "target": -1,
+		"fire_cd": 0.0, "last_hit": -10.0, "contact_t": -1.0, "rout_t": -1.0, "moving": false, "running": false,
+		"kills": 0.0, "fired": 0, "charged": false}
+
+## v0.5 mid-battle reinforcements. `units` (same shape as setup's) join `side` when the battle clock reaches `at_t`,
+## entering from "rear", "left" or "right" of that side's line; `obj` overrides the side's objective for them
+## ("" = follow the side's orders). Scheduled in battle time, so watched and unwatched stepping agree.
+func add_reinforcements(side: int, units: Array, at_t: float, entry: String = "rear", obj: String = "") -> void:
+	if done or units.is_empty():
+		return
+	var p := {"t": maxf(at_t, t), "side": side, "units": units.duplicate(true), "entry": entry, "obj": obj}
+	var k := pending.size()
+	while k > 0 and float(pending[k - 1]["t"]) > p["t"]:
+		k -= 1
+	pending.insert(k, p)
+
+func _arrivals() -> void:
+	while not pending.is_empty() and float(pending[0]["t"]) <= t + 0.0001:
+		var p: Dictionary = pending.pop_front()
+		var side: int = p["side"]
+		var zdir := 1.0 if side == 0 else -1.0
+		# where the field is now: own and enemy centroids, and how wide the fighting is
+		var own := Vector2.ZERO; var no := 0; var foe := Vector2.ZERO; var nf := 0; var half_w := 30.0; var rear := deploy_z * zdir
+		for r in regs:
+			if not active(r):
+				continue
+			half_w = maxf(half_w, absf(r["pos"].x) + r["width"] * 0.5)
+			if r["side"] == side:
+				own += r["pos"]; no += 1
+				rear = maxf(rear, r["pos"].y) if side == 0 else minf(rear, r["pos"].y)
+			else:
+				foe += r["pos"]; nf += 1
+		own = own / no if no > 0 else Vector2(0, deploy_z * zdir)
+		foe = foe / nf if nf > 0 else Vector2(0, -deploy_z * zdir)
+		var entry: String = p["entry"]
+		var first := regs.size()
+		var off := 0.0
+		for u in p["units"]:
+			var r := _make_reg(side, u)
+			if entry == "left" or entry == "right":
+				var xs := -1.0 if entry == "left" else 1.0
+				r["pos"] = Vector2(xs * (half_w + 45.0 + r["width"] * 0.5), (own.y + foe.y) * 0.5 + off * zdir)
+				off += r["depth"] + 6.0
+			else:
+				r["pos"] = Vector2(own.x - 20.0 + off + r["width"] * 0.5, rear + (40.0 + r["depth"] * 0.5) * zdir)
+				off += r["width"] + 6.0
+			r["facing"] = (foe - r["pos"]).normalized()
+			if p["obj"] != "":
+				r["obj"] = p["obj"]
+			r["reinforcement"] = true
+			regs.append(r)
+			start_men[side] += r["men"]
+		_ev({"k": "reinforce", "side": side, "from": first, "to": regs.size(), "entry": entry})
+
+## Armies (by id) still waiting to join; they never fought if the battle ends first.
+func pending_armies() -> Dictionary:
+	var out := {}
+	for p in pending:
+		for u in p["units"]:
+			out[u["army_id"]] = true
+	return out
 
 func _deploy() -> void:
 	for side in 2:
@@ -171,6 +233,8 @@ func step() -> void:
 		return
 	steps += 1
 	t = steps * DT
+	if not pending.is_empty():
+		_arrivals()
 	var retarget := steps % 10 == 1
 	for i in regs.size():
 		var r: Dictionary = regs[i]
@@ -191,7 +255,7 @@ func step() -> void:
 
 func _pick_target(i: int, r: Dictionary) -> int:
 	var best := -1; var bd := 1e9
-	var obj: String = orders[r["side"]].get("objective", "assault")
+	var obj: String = r.get("obj", orders[r["side"]].get("objective", "assault"))
 	for j in regs.size():
 		var e: Dictionary = regs[j]
 		if e["side"] == r["side"] or not active(e):
@@ -222,8 +286,8 @@ func _step_reg(i: int, r: Dictionary) -> void:
 	var e: Dictionary = regs[r["target"]]
 	var d: Dictionary = r["def"]
 	var side: int = r["side"]
-	var obj: String = orders[side].get("objective", "assault")
-	if obj == "hold" and side == 0 and t > 15.0:
+	var obj: String = r.get("obj", orders[side].get("objective", "assault"))
+	if obj == "hold" and side == 0 and t > 15.0 and not r.has("obj"):
 		obj = "assault"  # the attacker cannot wait forever
 	var gap := _front_gap(r, e)
 	var to_e: Vector2 = (e["pos"] - r["pos"]).normalized()
@@ -488,7 +552,7 @@ static func ai_orders(my_units: Array, enemy_units: Array, defending: bool, terr
 
 # ======================= save / load =======================
 const STATE_FIELDS := ["kill_scale", "deploy_z", "t", "steps", "regs", "done", "winner", "events", "record_events",
-	"terrain", "seed_value", "orders", "side_names", "start_men"]
+	"terrain", "seed_value", "orders", "side_names", "start_men", "pending"]
 
 func to_dict() -> Dictionary:
 	var d := {"rng_seed": rng.seed, "rng_state": rng.state}
@@ -500,6 +564,8 @@ func to_dict() -> Dictionary:
 static func from_dict(d: Dictionary) -> BattleSim:
 	var s := BattleSim.new()
 	for f in STATE_FIELDS:
+		if not d.has(f):
+			continue    # saves from before a field existed keep its default
 		var v: Variant = d[f]
 		s.set(f, v.duplicate(true) if (v is Array or v is Dictionary) else v)
 	s.rng.seed = d["rng_seed"]
