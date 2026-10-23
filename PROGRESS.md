@@ -88,3 +88,14 @@
 - [x] Full suite 140/140; gameplay outcome hash 0e814dda… matches; sim hashes USA/JPN match, SWE1800 changes to f7255ebb… only because the serialized regiment "model" string changed (state dumps differ only in those 2 lines)
 - [x] Polish re-renders: 5 eras q1, BATTLERESULT identical to pre-polish recordings; c19 grenadier/gun-crew close-ups + tundra/forest/hills overhead (harness on production BattleView.setup); campaign world/region/close for 5 starts
 - [x] main merge (0dcaa7b), main 140/140 twice, gameplay hash 0e814dda match, sim hashes as lead-dev; exports Linux+Windows; Linux export smoke (1800 SWE battle: 39.5 s, [5039,5166], winner 1, soldiers render); tag v0.3; deliverables/v0.3 + laptop_xfer
+
+## v0.3.1 — graphics-map (53b3dcd) integration (IN PROGRESS, started 01:17 EDT)
+- [x] merge graphics-map into lead-dev: 6db2728 (COLLAB conflict only; world_map.gd auto-merged, R5 hook kept after apply_era)
+- [x] --import 0 errors; full suite 140/140 (out/tests_v031.log); SIMHASH SWE f7255ebb USA 45cf5510 JPN 9bb2394d all match
+- [x] map_shots.gd: +3 views europe_world, borders_close, usa_world (streak check); before shots from v0.3 tag worktree /workspace/ic_v03_before -> out/v031/before
+- [x] after shots (merge 6db2728) picks 15/15 views identical to v0.3 and 12/12 to v0.2.1 baseline (out/v031/picks_compare.log)
+- [x] STREAKS: still present after terrain merge; cause = z-fighting of deep-ocean backdrop plane (y -0.12) with ocean (-0.06) at world zoom (depth res ~0.1 at 300 u, near 0.05). Fix: backdrop to y -1.5 in world_map.gd (not a shader issue; mipmapped bathymetry tried, no effect). Verified out/v031/exp/expB_usa_world.png
+- [x] 3012eab: after re-rendered, picks 15/15 + 12/12 match; tests 140/140 (out/tests_v031b.log), SIMHASH all 3 match, gameplay hash 0e814dda match; compares out/v031/compare/
+- [x] perf q0/q1/q2 -> out/v031/perf_table.md (mean Low -47%, Med -29%, High -34%; close mountains Med/High +16..+28%)
+- [x] docs (CHANGELOG, FEATURE_STATUS, README, COLLAB MERGED v0.3.1, MAP_PROGRESS)
+- [ ] flyover mp4, main merge, tag v0.3.1, exports, smoke, deliverables, laptop_xfer

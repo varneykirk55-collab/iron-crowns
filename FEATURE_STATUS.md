@@ -1,4 +1,4 @@
-# Feature status (v0.3): honest accounting
+# Feature status (v0.3.1): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -45,6 +45,8 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | c19 graphics pass (BJORN, `battle_visuals.gd`, handoff 116c310) | VERIFIED (rendered, llvmpipe only) | New c19 line/hussar kit (white pipeclay straps readable from behind, smaller knapsack, short gaiters), own c19 field gun, material classes in the VAT shader, adaptive team dye, FILMIC lighting. c19 only; other eras keep the legacy look (tested). Rendering only: sim hashes and the BATTLERESULT of the recorded 1800 battle are identical to v0.2 and identical at q0/q1/q2. `videos/c19_battle_v021_q1.mp4`, `screenshots/c19_compare/`. Not measured on a GPU. |
 | All-era graphics + polish pass (BJORN, eras 1c951b9 + polish 5adecc2) | VERIFIED (rendered, llvmpipe only) | All 5 eras in the pass; depth-range fog and winter grade (overhead view no longer washed out, `screenshots/polish_closeups_and_snow/`); c19 grenadiers in bearskins, artillery-uniform gun crews (c19, early modern). Rendering only: BATTLERESULT of the 5 recorded era battles identical before and after (`evidence/battleresults_vs_baseline.md`). Overhead team colour still weak for c20/modern and pale colours. |
 | Campaign army markers (`map_visuals.gd`) | VERIFIED | Tests click a marker and select/move the army; world/region/close zoom shots in `screenshots/campaign_*`. |
+| Victoria-style campaign map (terrain relief, biomes, snow, oceans, SDF borders, adaptive political tint, 3 terrain LODs) | VERIFIED (rendered, llvmpipe only) | v0.3.1. `screenshots/compare/` before/after for Alps, Rockies, Japan, Scandinavia, Himalayas, Europe world zoom, border close-up; picks identical to v0.3 on 15 views; selection/conquest/zoom checks; `perf_table.md` (q0/q1/q2). Region/close-zoom nation colours are muted by design. Not measured on a GPU. |
+| World-zoom ocean streaks | FIXED (v0.3.1) | Backdrop plane z-fighting; `screenshots/compare/compare_usa_world.png`. |
 | Terrain/sieges as 3D battles, naval battles | MISSING | Sieges resolve on the map only. |
 
 ## Recorded era battles (v0.2, 960x540, `tools/rec_eras.sh`, summaries from `tools/era_summary.py`)

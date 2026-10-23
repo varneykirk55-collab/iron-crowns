@@ -91,3 +91,30 @@
   - Note: your `out/` directory (INTEGRATION.md incl. the Polish section, hash.sh, MP4s, compares) was gone after a box restart, and there is no polish READY entry here; I worked from the commits and code comments. Please re-post the polish notes if anything there needs action.
   - Requests for you: (1) overhead team colour is still weak for c20/modern (dye on accents only) and pale nation colours (Japan white vs Russia green at 230 m); (2) `map_visuals._mesh()` calls `load(path).instantiate()` without a null check, so a marker glb that exists but isn't imported crashes; (3) pre-existing horizontal streaks over the western ocean at world zoom (`campaign_USA_world.png`, also in v0.2) — map terrain/shader, so it may belong to the `graphics-map` work.
   - **@BJORN: base all your next work on `main@v0.3`.**
+
+## MAP READY: overworld visual refinement (Rob, branch `graphics-map`, 2026-10-23 ~01:10 EDT)
+Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style geographic map: terrain relief from normal and cavity maps, a biome albedo, snow on peaks, depth-shaded oceans with shallows, waves, foam and fresnel, haze, and smooth antialiased coasts. Borders are crisp and scale with zoom (signed distance field), and the political tint is adaptive: strong at world and region zoom, with terrain taking over close up. There are no new cities, fleets or gameplay.
+- **Changed files:**
+  - `game/shaders/map.gdshader` (rewritten)
+  - `game/scripts/map/world_map.gd`: loads 5 terrain textures; 16x8 chunked terrain with 3 LODs and skirts; `_apply_map_quality` on `Controls.settings_changed`. Low hides LOD0 and uses the simple shader path. Picking, LUT, markers and labels are untouched.
+  - `game/assets/map_terrain/*` (5 textures + .import)
+  - `pipeline/build_map_visuals.py` (regenerates the textures)
+  - `game/tests/map_shots.{gd,tscn}` (screenshot/perf/pick/interact harness)
+  - `game/tests/map_flyover.{gd,tscn}` (movie capture)
+  - `MAP_PROGRESS.md`
+  - Untouched: `map_visuals.gd`, the battle files, `update_markers`, sim/data, and `main.gd`.
+- **Verified:**
+  - Tests: 131/131.
+  - SIMHASH identical (SWE 1800, USA 1914, JPN 1500).
+  - Picking: 12/12 views return the same ids as the baseline.
+  - Selection highlight, conquest recolour (Oslo→SWE, re-pick 328) and zoom extremes 4/230 all OK.
+- **Perf, pck and outputs:**
+  - Perf (llvmpipe): `out/perf_table.md`.
+  - Outputs: `out/compare/`, `out/before|after/`, `out/map_flyover.mp4`.
+- **MERGED v0.3.1 (lead, 2026-10-23 ~02:15 EDT):** the overworld terrain refinement (`graphics-map` 53b3dcd) is on `main` and tagged `v0.3.1` (`graphics-map` → `lead-dev` 6db2728 + streak fix 3012eab → main).
+  - Files: `map.gdshader` (rewritten), the terrain parts of `world_map.gd` (chunked LOD terrain, `_apply_map_quality`), `game/assets/map_terrain/*`, `pipeline/build_map_visuals.py`, `game/tests/map_shots*`, `game/tests/map_flyover*`. These stay lead-owned.
+  - Your R5 hook in `world_map.gd` is kept and unchanged (`add_child(map_visuals.gd)` at the end of `build()`); marker click/selection tests pass. `map_visuals.gd` and all battle files are untouched.
+  - Fix for your request (3) from the v0.3 note: the world-zoom ocean streaks were z-fighting between the deep-ocean backdrop plane and the ocean surface; the backdrop now sits at y −1.5. Fixed and verified.
+  - Results: 140/140 tests; gameplay outcome hash `0e814dda…`; sim hashes USA1914 `45cf5510…`, JPN1500 `9bb2394d…`, SWE1800 `f7255ebb…` (all unchanged from v0.3); province picks identical on 15 views.
+  - Visual note for marker work: the map is now darker/more natural and the political tint is muted at region/close zoom, so check marker team colours against it.
+  - **@BJORN: base all your next work on `main@v0.3.1`** (rebase `character-refinement` onto it). Hand off patches against that commit as before.
