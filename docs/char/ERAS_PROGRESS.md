@@ -20,9 +20,11 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
 - [x] push + report (after 2 kits): 9076875, tests 163/163, outcome + 3 sim hashes = main
 - [x] 5:11 decisions (c): grenadier left fist closed (relaxed v3 fist on the free hand), smooth hem bands on all kits,
       fix_folds for decimation folds; (d) c19v2_line rebaked with the normal-bake fix (eras-v3 + proto/c19-line-v2)
-- [ ] 3 hussar rider (1800)       unit c19_hussar (cavalry rig: see blockers)
+- [x] 3 hussar rider (1800)       kid v3_c19_hussar      unit c19_hussar (existing cavalry rig)   tris ~11.9k / 1983 / 678
 - [ ] 4 medieval pikeman (1300)   unit med_spear
 - [ ] push + report
+- [ ] 6a v3 horse (18:52 decision): smooth semi-realistic horse (muscle forms, head, hooves, mane, tail) on the EXISTING
+      horse bones/anim, shared by hussar + knight; barding is a separate kit layer; rebuild hussar on it
 - [ ] 5 archer (1300)             unit med_archer
 - [ ] 6 medieval cavalry (1300)   unit med_knight
 - [ ] push + report
@@ -49,3 +51,9 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
   Separate crossbelt group 'beltx' so the two belts bake apart. Residual: a few small grey/blue flecks on the skirt turnbacks
   and crossbelts at close zoom (time-boxed; noted for later).
   (d) c19v2_line rebaked with the shader-frame normal bake (tris 11670 / 2000 / 693).
+- 18:52 EDT hussar committed (2c498f6): v3 rider on the existing cavalry rig (no re-rig): v3 head/hands/skin, fresh dolman
+  w/ gold frogging, fur-trimmed pelisse slung on the left shoulder (torso-only weights, 'transfer_torso'), barrel sash,
+  shako w/ cords + plume, sabretache, Hungarian boots, tooth-band (geometric) shabraque edge + sheepskin, valise, ring bit.
+  Cavalry-rig constraints: rider torso squashed ~8% by the rig proportions, no rider hand/leg bones (hands rigid on the
+  forearm bones, legs rigid on the body), elbow bends ~140deg under LBS, sabre axis a compromise, no carbine clip.
+  Horse still the legacy low-poly mesh -> Kirk 18:52: build a v3 horse before kit 6 (after kit 4 push).

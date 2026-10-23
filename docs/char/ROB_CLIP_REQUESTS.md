@@ -15,7 +15,13 @@ Needed:
 - `art_handspike`: traverse the trail with a handspike (optional; it would need a handspike prop variant)
 - the idle should rest the sponge end on the ground beside the right foot (the current idle is close)
 
+## c19_hussar (v3_c19_hussar): rider on the existing cavalry rig
+The rider is skinned to the existing cavalry rig (bones and clips untouched). That rig has no rider hand or leg bones,
+so hands ride rigidly on the forearm bones and legs on the body bone. Needed (only if Rob wants them):
+- carbine: a slung carbine prop + `cav_carbine_present` / `cav_carbine_fire` from the saddle (there is no carbine clip now)
+- rider hand bones (or a hand pose per clip) so the bridle hand can close on the reins and the sabre hand can turn the blade
+- a rider-arm rest pose with less elbow bend (the current ~140deg bend pinches the dolman sleeve under LBS)
+
 ## Coming with later kits (filled in as each kit lands)
 - pike (1300 pikeman, 1500 pikeman): port, charge (level at shoulder and at hip), brace against cavalry (butt to the foot)
 - bow (1300 archer): nock, draw, loose, and an idle with the arrow in the bow; the left hand holds the bow grip
-- carbine (1800 hussar, if the rider moves onto char_rig): carry slung, present, fire from the saddle
