@@ -52,7 +52,7 @@ def baobab(name='env_baobab', seed=211, height=14.0):
     """Baobab: a huge swollen bottle trunk (~7 m girth), short stubby root-like branches, sparse small leaf clumps."""
     rnd = random.Random(seed)
     b = MeshBuilder(name, G)
-    bark = hexc('8a7a6a'); bark2 = hexc('7a6c5e')
+    bark = hexc('6e6258'); bark2 = hexc('62564c')
     th = height * 0.66
     b.cyl(2.3, 1.5, th, (0, 0, th / 2), bark, 'body', segs=9)
     b.cyl(2.6, 2.3, 1.2, (0, 0, 0.5), bark2, 'body', segs=9)

@@ -105,7 +105,7 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	b["cover_main"] = "env_sav_grass"; b["cover_cell"] = 3.0; b["cover_p"] = 0.92; b["cover_in"] = 0.3
 
 	# --- ground palette: red laterite (Africa / Deccan / cerrado), darker black-cotton soil on the Deccan basalt
-	var soil := Color(0.55, 0.32, 0.2)
+	var soil := Color(0.5, 0.33, 0.22)
 	if india: soil = Color(0.42, 0.32, 0.24)
 	if sub == "sahel": soil = Color(0.62, 0.45, 0.3)
 	if sub in ["highland", "campos"]: soil = Color(0.44, 0.3, 0.2)
@@ -115,14 +115,14 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	var gr_a := green.lerp(straw * 0.86, 0.15 if wet else 0.72)
 	var gr_b := green.lerp(straw, 0.3 if wet else 0.88)
 	b["palette"] = {"grass_a": gr_a, "grass_b": gr_b, "dry": straw.lerp(Color(0.78, 0.68, 0.44), 0.4), "earth": soil,
-		"floor_col": soil.lerp(gr_a, 0.35), "needle": soil * 0.85, "rock": Color(0.55, 0.51, 0.46), "scree": soil.lerp(Color(0.5, 0.46, 0.4), 0.5),
+		"floor_col": soil.lerp(gr_a, 0.5) * 0.88, "needle": soil * 0.85, "rock": Color(0.55, 0.51, 0.46), "scree": soil.lerp(Color(0.5, 0.46, 0.4), 0.5),
 		"snow_col": Color(0.9, 0.92, 0.95), "far_forest": Color(0.24, 0.27, 0.13) if wet else Color(0.32, 0.3, 0.17),
 		"straw": Color(0.86, 0.74, 0.44) if not wet else Color(0.62, 0.66, 0.34)}
-	var leaf := [Color(1.0, 1.0, 0.95), Color(0.18, 0.15, 0.1)] if wet else [Color(1.02, 0.86, 0.68), Color(0.2, 0.15, 0.08)]
+	var leaf := [Color(0.76, 0.78, 0.64), Color(0.2, 0.16, 0.1)] if wet else [Color(0.9, 0.76, 0.58), Color(0.22, 0.16, 0.08)]
 	var grass := [Color(0.62, 0.8, 0.5), Color(0.1, 0.12, 0.04)] if wet else [Color(1.0, 0.94, 0.82), Color(0.12, 0.1, 0.05)]
 	var gran := [Color(1.04, 0.98, 0.92), Color(0.14, 0.12, 0.1)]
 	if india: gran = [Color(0.98, 0.9, 0.84), Color(0.14, 0.12, 0.1)]
-	var mound := [Color(0.96, 0.92, 0.9) if not india else Color(0.8, 0.78, 0.76), Color(0.1, 0.06, 0.04)]
+	var mound := [Color(0.8, 0.76, 0.74) if not india else Color(0.7, 0.68, 0.66), Color(0.1, 0.06, 0.04)]
 	b["tints"] = {"env_umbrella_a": leaf, "env_umbrella_b": leaf, "env_miombo_a": leaf, "env_miombo_b": leaf, "env_baobab": leaf,
 		"env_thornbush": leaf, "env_euphorbia": [Color(0.95, 1.0, 0.9), Color(0.12, 0.14, 0.08)], "env_sav_grass": grass,
 		"env_kopje": gran, "env_kopje_a": gran, "env_kopje_b": gran, "env_termite_a": mound, "env_termite_b": mound,
@@ -135,5 +135,5 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 		"fog_begin": 300.0, "fog_end": 5200.0 if wet else 4200.0, "fog_density": 0.5 if wet else 0.62, "fog_color": haze, "fog_scatter": 0.3, "fog_sky": 0.36,
 		"sun_rot": Vector3(-56.0, 200.0, 0.0), "sun_color": Color(1.0, 0.94, 0.82), "sun_energy": 1.6, "shadow_opacity": 0.82}
 	b["water"] = {"deep": Color(0.08, 0.1, 0.07), "sky": Color(0.72, 0.76, 0.78)}
-	b["mats"] = {"tree": 2.3, "rock": 1.2, "cover": 1.0, "far": 2.1, "wind": 0.7}
+	b["mats"] = {"tree": 2.1, "rock": 1.5, "cover": 1.0, "far": 2.1, "wind": 0.7}
 	return b
