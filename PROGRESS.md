@@ -98,4 +98,21 @@
 - [x] 3012eab: after re-rendered, picks 15/15 + 12/12 match; tests 140/140 (out/tests_v031b.log), SIMHASH all 3 match, gameplay hash 0e814dda match; compares out/v031/compare/
 - [x] perf q0/q1/q2 -> out/v031/perf_table.md (mean Low -47%, Med -29%, High -34%; close mountains Med/High +16..+28%)
 - [x] docs (CHANGELOG, FEATURE_STATUS, README, COLLAB MERGED v0.3.1, MAP_PROGRESS)
-- [ ] flyover mp4, main merge, tag v0.3.1, exports, smoke, deliverables, laptop_xfer
+- [x] main merge 7afd10b + 5bffeb0 (docs timestamps); main --import 0 errors
+- [x] main 140/140, sim hashes + gameplay hash match; tag v0.3.1 -> 5bffeb0
+- [x] flyover out/v031/map_flyover_v031.mp4 (23.5 s, 1600x900)
+- [x] exports Linux+Windows (build/), Linux smoke OK (out/v031/smoke: campaign map + terrain, battle MM vis>0)
+- [x] deliverables/v0.3.1 packaged (120 files, SHA256SUMS ok); laptop_xfer w031.part00-06 + p031.part00-02 + join031.ps1 (tested with pwsh 7.4: OK path + HASH MISMATCH path); ic_v03_before worktree removed
+- DONE v0.3.1 (02:05 EDT). Parent to copy deliverables/v0.3.1 to laptop.
+
+## v0.3.2 — BJORN character-refinement (d93f576) integration (IN PROGRESS, started 05:25 EDT)
+- [x] 456aa8d (author BJORN) patch sha 17475580 + tarball f7b0dfc4 (28 files); tree == d93f576 minus hooks; --import 0 errors (out/import_v032.log)
+- [x] ffcafd3 R1 + R2. R3 skipped (officer has no vat id/material path without battle_visuals change), R4 skipped (ids pinned by tests + serialized model string -> SWE hash)
+- [x] ffcafd3: 140/140 (out/tests_v032.log), gameplay hash 0e814dda, SIMHASH SWE f7255ebb USA 45cf5510 JPN 9bb2394d, 0 SHADER ERROR
+- [x] delta check 05:45: none in iron-crowns-visual/out -> v0.3.2 without delta
+- [x] docs (CHANGELOG, README, FEATURE_STATUS, COLLAB BJORN READY copied from main worktree + MERGED v0.3.2 note w/ readability request)
+- [ ] main merge, main tests/hashes, tag v0.3.2, exports, smoke, battle video, deliverables, laptop_xfer
+- [x] harness game/tests/battle_shots.{gd,tscn} (untracked yet): main --demo=battle, freeze at sim t=14 (time_scale 0), views close/close_def/mid/top, shot + 30-frame median. before worktree /workspace/ic_v031_before (v0.3.1 + harness copy)
+- [x] out/v032/run_shots.sh done -> out/v032/shots, compare/, perf_table.md; other eras q1 unchanged visually
+- [x] 1800 SWE q0/q1/q2 before/after shots + perf -> out/v032/compare/, out/v032/perf_table.md (q0 -11 %, q1 +4 %, q2 -17 % mean; noise ~+/-15 % per view)
+- [!] READABILITY: 1800 NOR(attacker, HUD red) vs SWE: new uniforms are both blue (NOR 3a5f95 light blue, SWE 2a3d6e navy) + white trousers on snow -> sides hard to tell apart at mid/top; v0.3.1 read red vs blue. Request to BJORN.

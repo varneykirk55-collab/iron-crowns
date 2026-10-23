@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.3.2 — 2026-10-23 (BJORN's semi-realistic Napoleonic c19 soldiers)
+### Added
+- **New 1800s soldiers** (BJORN `character-refinement` d93f576, applied as 456aa8d): semi-realistic Napoleonic line infantry (shako),
+  grenadiers (bearskin) and artillery crews with musket + bayonet, built on a shared rigged body and baked to VAT (idle, walk, run, fire with
+  recoil, reload, melee, two death variants). Nation uniforms for all 47 major nations. Two LODs per model plus an in-shader near/far
+  split at 20/30/45 m (Low/Medium/High). In-place swap: model ids, multimeshes and units.json are unchanged; other eras untouched.
+- 0.25 s animation crossfade between clips for the new soldiers (battle_view `_put` instance colour + `BattleVisuals.xfade`, ffcafd3).
+  Artillery crews still switch clips without a crossfade.
+- Debug-only BattleVisuals node restored for `--bench`, `--perflog`, `--vispass` (main.gd; no effect without those flags).
+- `game/tests/battle_shots` harness: battle screenshots and frame timing at fixed camera views on the production battle.
+### Verified
+- 140/140 tests; gameplay outcome hash `0e814dda…`; sim hashes SWE1800 `f7255ebb…`, USA1914 `45cf5510…`, JPN1500 `9bb2394d…` unchanged;
+  0 shader errors. Other eras render as in v0.3.1.
+- Battle frame time on llvmpipe (1800 SWE, mean of 4 views): Low −11 %, Medium +4 %, High −17 % vs v0.3.1 (single runs; ±15 % noise per view).
+### Not done / limitations
+- Readability: in the 1800 Norway-vs-Sweden battle both armies wear blue coats, so at mid range and overhead on snow the sides are hard to tell
+  apart (v0.3.1 read red vs blue). Sent to BJORN; his brighter-far-coats / mid-LOD delta was not ready and comes in v0.3.3.
+- No officer per regiment yet (model is built; needs battle_visuals support). Windows build exported but not run.
+
 ## v0.3.1 — 2026-10-23 (overworld terrain refinement, Victoria-style map)
 ### Added
 - **New campaign-map look** (`game/shaders/map.gdshader` rewritten; branch `graphics-map` 53b3dcd): relief shading from baked

@@ -1166,7 +1166,11 @@ func _update_units(dt: float) -> void:
 					if clip[k] == 1: spd = clampf(spd_base / (3.0 if v["kind"] == "cav" else 1.4), 0.6, 1.8)
 					elif clip[k] == 2: spd = 1.0 + phase[k] * 0.15
 					elif clip[k] == 3: c = Vector2(c.x, -c.y)
-				_put(mms["%s|%d|%d" % [model, side, lod]], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd))
+				# instance COLOR = clip crossfade (BJORN R1). White (= no crossfade) for every non-"sr" model, exactly as before.
+				var xc := Color(1, 1, 1, 1)
+				if vat[model].has("sr"):
+					xc = BattleVisuals.xfade(v, k, 5 if dk >= 0.0 else clip[k], c, ct, spd, vt)
+				_put(mms["%s|%d|%d" % [model, side, lod]], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd), xc)
 			else:
 				var rec: PackedFloat32Array = v["recoil"]
 				var back := Vector2(sin(yaw[k]), cos(yaw[k])) * rec[k] * -0.8
@@ -1212,7 +1216,7 @@ func _update_units(dt: float) -> void:
 		mm.buffer = m["buf"]
 		mm.visible_instance_count = m["n"]
 
-func _put(m: Dictionary, a: float, o: Vector3, s: float, custom: Vector4) -> void:
+func _put(m: Dictionary, a: float, o: Vector3, s: float, custom: Vector4, col: Color = Color(1, 1, 1, 1)) -> void:
 	var k: int = m["n"]
 	if k >= m["cap"]:
 		return
@@ -1223,7 +1227,7 @@ func _put(m: Dictionary, a: float, o: Vector3, s: float, custom: Vector4) -> voi
 	buf[i] = c; buf[i + 1] = 0.0; buf[i + 2] = sn; buf[i + 3] = o.x
 	buf[i + 4] = 0.0; buf[i + 5] = s; buf[i + 6] = 0.0; buf[i + 7] = o.y
 	buf[i + 8] = -sn; buf[i + 9] = 0.0; buf[i + 10] = c; buf[i + 11] = o.z
-	buf[i + 12] = 1.0; buf[i + 13] = 1.0; buf[i + 14] = 1.0; buf[i + 15] = 1.0
+	buf[i + 12] = col.r; buf[i + 13] = col.g; buf[i + 14] = col.b; buf[i + 15] = col.a
 	if st == 20:
 		buf[i + 16] = custom.x; buf[i + 17] = custom.y; buf[i + 18] = custom.z; buf[i + 19] = custom.w
 	m["buf"] = buf

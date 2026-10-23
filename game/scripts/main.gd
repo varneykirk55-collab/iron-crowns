@@ -56,6 +56,9 @@ func _ready() -> void:
 	Sim.battle_started.connect(_on_battle_started)
 	Sim.era_changed.connect(func(_e): map.apply_era(); map.lut_dirty = true)
 	Sim.ownership_changed.connect(func(_p, _o, _n): map.lut_dirty = true; map.labels_dirty = true)
+	# debug-only (BJORN R2): BattleVisuals perf logger / bench / close-up shots. Inert in normal play (no flag = no node).
+	if args.has("perflog") or args.has("bench") or args.has("vispass"):
+		add_child(load("res://scripts/battle/battle_visuals.gd").new())
 	demo = args.get("demo", "")
 	if demo != "":
 		_start_demo(demo)
