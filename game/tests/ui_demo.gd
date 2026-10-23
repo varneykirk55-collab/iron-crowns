@@ -69,6 +69,7 @@ func _run() -> void:
 	await _click(_btn(ts.page_body, "Start Campaign")); await _wait(3.0)
 	var h: Hud = m.hud
 	Sim.set_speed(0)
+	Sim.auto_deploy = true   # battles during the fast-forward resolve off-screen so the tour is not interrupted
 	var a: Dictionary = {}
 	for x in Sim.armies.values():
 		if x["owner"] == "SWE" and (a.is_empty() or Sim.army_men(x) > Sim.army_men(a)): a = x
