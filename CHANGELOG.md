@@ -12,6 +12,11 @@
   `battle_visuals.apply_quality(q)` (one owner): low = no MSAA, no sun shadows, LOD 45 m, glow off, 2x aniso; medium (default) =
   2x MSAA, shadows 260 m, LOD 75 m; high = 4x MSAA, shadows 300 m, LOD 120 m, 8x aniso. The lead-side stand-in and duplicate MSAA/LOD/shadow
   code were removed. `--debug --lod-dist=` still overrides LOD.
+### Fixed
+- **Exported builds did not render battle soldiers or cavalry.** The raw VAT animation files (`assets/vat/*.vat`) were not in the
+  pck (`include_filter`), so every VAT texture was empty. This affected the v0.1 and v0.2 Windows/Linux zips; editor runs and all
+  recordings were fine. `export_presets.cfg` now includes `assets/vat/*.vat` (pck 30 → 40 MB). Checked by running the exported
+  Linux build (1800 battle: soldiers render, BATTLERESULT identical to the editor run).
 ### Verified
 - 131/131 tests (`--only=visuals` now asserts q0/q1/q2), sim hashes unchanged (SWE1800/USA1914/JPN1500), 1800 SWE battle
   BATTLERESULT identical to v0.2 and across q0/q1/q2 (39.5 s, end men 5039/5166).

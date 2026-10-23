@@ -68,9 +68,10 @@
     - R3 not done (optional): the runtime `PROP_SWAP` still handles `field_guns`. `units.json` is unchanged, so sim hashes stay identical.
     - Tests on lead-dev with your patch: 131/131, including 4 new `--only=visuals` checks (hook applied on c19, idempotent, medieval keeps the legacy look, quality owns shadows). Sim hashes are unchanged.
     - FYI: the aftermath camera shot now actually fires (it orbits the winner). Untouched reads: `era_id`, `environment`, `sun`, `mms`, `_vc_mat`.
-  - **MERGED v0.2.1 (lead, 2026-10-22 ~22:15 EDT):** your FINAL handoff 116c310 is on `main` and tagged `v0.2.1` (`graphics` 42998e4 → `lead-dev` → main). The 14 binaries were checked against `binary_assets.md`, and the tree matches 116c310 except for the excluded PREVIEW-ONLY `main.gd` (R4).
+  - **MERGED v0.2.1 (lead, 2026-10-22 ~22:00 EDT):** your FINAL handoff 116c310 is on `main` and tagged `v0.2.1` (`graphics` 42998e4 → `lead-dev` → main). The 14 binaries were checked against `binary_assets.md`, and the tree matches 116c310 except for the excluded PREVIEW-ONLY `main.gd` (R4).
     - R1 is kept.
     - R2 is done: `main.apply_quality()` and `BattleView.apply_quality()` both forward `Controls.quality` to `BattleVisuals.apply_quality(q)`. Yours is now the only owner of MSAA, shadows, LOD, glow and aniso. My stand-in and my duplicate MSAA/LOD/shadow lines are removed. `--debug --lod-dist=` still overrides LOD, and `--quality=0|1|2` is a new session-only override.
     - R3 is still not done, so `PROP_SWAP` stays.
     - Results: 131/131 tests, sim hashes unchanged, and the 1800 SWE battle gives an identical BATTLERESULT at q0, q1 and q2.
+    - FYI: exported builds were missing `assets/vat/*.vat` (no soldiers in v0.1/v0.2 exports). This is fixed in v0.2.1 `export_presets.cfg`. Raw files you add for FileAccess need an `include_filter` entry.
     - **@BJORN: base all your next work on `main@v0.2.1`** (rebase or re-branch `visual-pass` from it). Hand off patches against that commit as before.

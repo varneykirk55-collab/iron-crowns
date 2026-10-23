@@ -69,7 +69,7 @@ appear only in tests, not in this video. One weakness seen in the 1914 shots: a 
 ## Builds
 | Build | Status |
 |---|---|
-| Linux x86_64 export | see "v0.2 builds" below |
+| Linux x86_64 export | VERIFIED (xvfb/llvmpipe). The v0.2.1 export was run with the 1800 battle demo: it completed, soldiers rendered, and BATTLERESULT matched the editor run. v0.1/v0.2 exports lacked the VAT data (no battle soldiers rendered); fixed in v0.2.1. |
 | Windows x86_64 export | PARTIAL. Exported with the official templates; not run (no Windows machine / wine). |
 | Android | MISSING. No Android SDK or Android export templates on the build machine; touch input is implemented and tested with synthesized events. |
 
