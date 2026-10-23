@@ -24,7 +24,7 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
 - [x] 4 medieval pikeman (1300)   unit med_spear -> v3_med_pike (kit_med_pike.py): Flemish militia c.1302: quilted team-colour
       gambeson w/ split skirt, belt + strap end, purse, ballock dagger, russet hose, turnshoes, linen coif, kettle hat, ash pike.
       tris 11333 / 1993 / 694. Stills deliverables/eras_v3/pikeman/. Smooth hose leg (kit overrides LEG_PROF, no gaiter step).
-- [ ] push + report
+- [x] push + report (kits 3-4): c2cda55 + this docs commit; tests 163/163, outcome hash + 3 sim hashes = main
 - [~] 6a v3 horse (18:52 decision): smooth semi-realistic horse (muscle forms, head, hooves, mane, tail) on the EXISTING  ** DROPPED here: handed off to another bot (Kirk 19:11) **
       horse bones/anim, shared by hussar + knight; barding is a separate kit layer; rebuild hussar on it
 - [ ] 5 archer (1300)             unit med_archer
