@@ -88,24 +88,24 @@ def wpine(name='env_wpine', seed=311, height=22.0):
     _clump(b, Vector((0, 0, height - 0.6)), 1.4, (1.0, 1.0, 1.2), cols, hi, rnd, seed, 77, rough=0.35)
     return finish(b, name, smooth=True)
 
-def hw_far(name='env_hw_far'):
+def hw_far(name='env_hw_far', c1='2a4220', c2='304a24', h1='587a38', h2='5f8240'):
     """Distance LOD for deciduous forest belts (~45 tris): trunk + two merged rounded domes."""
     rnd = random.Random(13)
     b = MeshBuilder(name, G)
-    b.cyl(0.35, 0.25, 6.0, (0, 0, 3.0), hexc('4e4438'), 'body', segs=4)
-    _clump(b, Vector((0, 0, 9.0)), 4.0, (1.1, 1.1, 0.85), [hexc('2a4220', 1.0)], hexc('587a38', 1.0), rnd, 6, 0, rough=0.3, sub=1)
-    _clump(b, Vector((1.8, 0.5, 11.0)), 2.6, (1.0, 1.0, 0.9), [hexc('304a24', 1.0)], hexc('5f8240', 1.0), rnd, 6, 1, rough=0.3, sub=1)
+    b.cyl(0.35, 0.25, 4.0, (0, 0, 2.0), hexc('4e4438'), 'body', segs=4)
+    _clump(b, Vector((0, 0, 7.6)), 4.6, (1.1, 1.1, 1.0), [hexc(c1, 1.0)], hexc(h1, 1.0), rnd, 6, 0, rough=0.3, sub=1)
+    _clump(b, Vector((1.8, 0.5, 11.0)), 2.6, (1.0, 1.0, 0.9), [hexc(c2, 1.0)], hexc(h2, 1.0), rnd, 6, 1, rough=0.3, sub=1)
     return finish(b, name, smooth=True)
 
-def understorey(name='env_hazel', seed=321):
+def understorey(name='env_hazel', seed=321, c=('2e4a22', '385626', '2a4420'), hi=('7a9a48', '6a8a40')):
     """Hazel / dogwood understorey bush (~3 m): a few thin stems with loose leafy masses."""
     rnd = random.Random(seed)
     b = MeshBuilder(name, G)
     for k in range(4):
         a = rnd.uniform(0, math.tau); t = Vector((math.cos(a) * 0.9, math.sin(a) * 0.9, rnd.uniform(1.6, 2.4)))
         _limb(b, Vector((0, 0, 0)), t, 0.05, 0.03, hexc('5a4a3a'), segs=3)
-        _clump(b, t, rnd.uniform(0.8, 1.1), (1.2, 1.2, 0.9), [hexc('2e4a22', 1.0), hexc('385626', 1.0)], hexc('7a9a48', 1.0), rnd, seed, k, rough=0.45)
-    _clump(b, Vector((0, 0, 0.8)), 1.0, (1.3, 1.3, 0.7), [hexc('2a4420', 1.0)], hexc('6a8a40', 1.0), rnd, seed, 9, rough=0.45)
+        _clump(b, t, rnd.uniform(0.8, 1.1), (1.2, 1.2, 0.9), [hexc(c[0], 1.0), hexc(c[1], 1.0)], hexc(hi[0], 1.0), rnd, seed, k, rough=0.45)
+    _clump(b, Vector((0, 0, 0.8)), 1.0, (1.3, 1.3, 0.7), [hexc(c[2], 1.0)], hexc(hi[1], 1.0), rnd, seed, 9, rough=0.45)
     return finish(b, name, smooth=True)
 
 def bracken(name='env_bracken', seed=331, n=7):
@@ -184,6 +184,24 @@ BUILDERS = {
     'env_lime_c': lambda: lime_boulder('env_lime_c', 373, (2.1, 1.5, 1.2)),
     'env_lime_outcrop': lime_outcrop,
 }
+
+# ---- seasonal variants (leaf colours baked per season so bark keeps its colour; temperate.gd swaps by battle month)
+def _H(l): return [hexc(x, 1.0) for x in l]
+SEASONAL = {
+    'aut': {'oak': (_H(['6a4a24', '78522a', '5e4422', '80582a']), '9a7440'), 'maple': (_H(['7e2412', '8e3a14', '865014']), 'b07030'),
+            'ash': (_H(['82681e', '927422', '766a20']), 'b09a3a'), 'n': 1.0},
+    'win': {'oak': (_H(['6a5a48', '74624e']), '8a7a64'), 'maple': (_H(['625650', '6a5e56']), '807468'),
+            'ash': (_H(['645a4e', '6c6054']), '82766a'), 'n': 0.22},
+}
+for _s, _p in SEASONAL.items():
+    _f = _p['n']
+    BUILDERS['env_oak_a_' + _s] = (lambda s=_s, p=_p, f=_f: hardwood('env_oak_a_' + s, 301, 15.0, 15.0, p['oak'][0], hexc(p['oak'][1], 1.0), '4e463c', limbs=5, fork=0.3, n=max(5, int(20 * f)), sq=(1.15, 1.15, 0.9)))
+    BUILDERS['env_maple_t_' + _s] = (lambda s=_s, p=_p, f=_f: hardwood('env_maple_t_' + s, 302, 16.0, 10.0, p['maple'][0], hexc(p['maple'][1], 1.0), '5a5046', limbs=4, fork=0.36, n=max(4, int(18 * f)), sq=(1.05, 1.05, 1.05)))
+    BUILDERS['env_ash_t_' + _s] = (lambda s=_s, p=_p, f=_f: hardwood('env_ash_t_' + s, 303, 21.0, 9.0, p['ash'][0], hexc(p['ash'][1], 1.0), '6a6458', limbs=3, fork=0.45, n=max(3, int(15 * f)), sq=(1.0, 1.0, 1.05)))
+BUILDERS['env_hw_far_aut'] = lambda: hw_far('env_hw_far_aut', '6a4420', '7a6224', '9a6a3a', '9a7a3a')
+BUILDERS['env_hw_far_win'] = lambda: hw_far('env_hw_far_win', '5a4e42', '5e5246', '72665a', '766a5e')
+BUILDERS['env_hazel_aut'] = lambda: understorey('env_hazel_aut', 321, ('7a6624', '84561e', '6a5220'), ('a08a3a', '947432'))
+BUILDERS['env_hazel_win'] = lambda: understorey('env_hazel_win', 321, ('5e5040', '665646', '58483a'), ('7a6c5a', '726452'))
 
 def main():
     only = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []

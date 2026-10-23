@@ -54,7 +54,7 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	b["cover_main"] = "env_meadow"; b["cover_p"] = 0.9 if prairie else 0.8
 	b["accents"] = [{"m": "env_wildflowers", "open": 0.07 if sea in ["spring", "summer"] else 0.02, "knoll": 0.1, "s": Vector2(0.8, 1.3)},
 		{"m": "env_bracken", "rock": 0.07, "s": Vector2(0.8, 1.2)}]
-	b["shrubs"] = [{"m": "env_hazel", "n": 900, "fmin": 0.03, "fmax": 0.9, "r": 1.2, "s": Vector2(0.8, 1.3), "tier": 0.5},
+	b["shrubs"] = [{"m": "env_hazel", "n": 1700, "fmin": 0.03, "fmax": 0.9, "r": 1.2, "s": Vector2(1.0, 1.8), "tier": 0.5},
 		{"m": "env_bracken", "n": 1200, "fmin": 0.02, "fmax": 1.01, "r": 0.6, "s": Vector2(1.0, 1.7), "tier": 0.5},
 		{"m": "env_log", "n": 60, "fmin": 0.3, "fmax": 1.01, "r": 3.0, "s": Vector2(0.7, 1.2), "tier": 1.0}]
 	# ---- season
@@ -68,15 +68,14 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 			g = [Color(1.08, 1.16, 0.9), Color(0.2, 0.16, 0.12)]; maple = g; oak = g; ash = g; under = g
 			grass_a = Color(0.26, 0.4, 0.13)
 		"autumn":
-			maple = [Color(3.0, 1.15, 0.5), Color(0.9, 0.6, 0.2)]          # scarlet -> orange sugar maples
-			oak = [Color(2.0, 1.1, 0.6), Color(0.5, 0.3, 0.15)]           # russet / bronze oaks
-			ash = [Color(2.2, 1.6, 0.55), Color(0.4, 0.3, 0.12)]          # gold ash / poplar
-			under = [Color(2.0, 1.3, 0.6), Color(0.5, 0.3, 0.15)]
-			far = [Color(1.7, 1.15, 0.7), Color(0.6, 0.35, 0.2)]
+			# leaf colours are baked into *_aut models (scarlet maple, russet oak, gold ash) so bark stays bark;
+			# the tint only spreads the per-tree variation
+			maple = [Color(0.92, 0.9, 0.9), Color(0.3, 0.22, 0.12)]; oak = [Color(0.92, 0.92, 0.9), Color(0.22, 0.18, 0.12)]
+			ash = [Color(0.92, 0.92, 0.9), Color(0.25, 0.2, 0.1)]; under = ash; far = [Color(0.95, 0.95, 0.92), Color(0.18, 0.14, 0.1)]
 			dry += 0.3; grass_a = Color(0.3, 0.35, 0.15); grass_b = Color(0.46, 0.44, 0.22)
 			sun = Vector3(-34.0, 220.0, 0.0); sun_c = Color(1.0, 0.9, 0.76); sun_e = 1.45
 		"winter":
-			var dead := [Color(1.7, 1.25, 0.95), Color(0.3, 0.25, 0.2)]   # dormant hardwoods: brown marcescent leaves
+			var dead := [Color(0.95, 0.95, 0.95), Color(0.16, 0.14, 0.12)]   # *_win models: thin brown marcescent crowns
 			maple = dead; oak = dead; ash = dead; under = dead
 			far = [Color(1.4, 1.15, 0.95), Color(0.3, 0.2, 0.15)]
 			dry += 0.55; grass_a = Color(0.36, 0.36, 0.22); grass_b = Color(0.48, 0.44, 0.3)
@@ -90,6 +89,21 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	b["tints"] = {"env_maple_t": maple, "env_oak_a": oak, "env_ash_t": ash, "env_hazel": under, "env_bracken": under,
 		"env_hw_far": far, "env_lime_a": stone, "env_lime_b": stone, "env_lime_c": stone, "env_lime_outcrop": stone,
 		"env_meadow": [Color(0.86, 0.92, 0.74), Color(0.14, 0.12, 0.08)]}
+	# seasonal model swap: hardwoods / far belts / hazel -> *_aut or *_win variants (conifers stay evergreen)
+	var suf: String = {"autumn": "_aut", "winter": "_win"}.get(sea, "")
+	if suf != "":
+		var SW := ["env_oak_a", "env_maple_t", "env_ash_t", "env_hw_far", "env_hazel"]
+		for t in b["trees"]:
+			if str(t[0]) in SW: t[0] = str(t[0]) + suf
+		var lone: Array = []
+		for m in b["lone"]: lone.append(str(m) + suf if str(m) in SW else m)
+		b["lone"] = lone
+		if str(b["far_model"]) in SW: b["far_model"] = str(b["far_model"]) + suf
+		for sh in b["shrubs"]:
+			if str(sh["m"]) in SW: sh["m"] = str(sh["m"]) + suf
+		var tn: Dictionary = b["tints"]
+		for m in SW:
+			if tn.has(m): tn[m + suf] = tn[m]
 	b["look"] = {"sky_top": Color(0.24, 0.43, 0.72), "sky_horizon": Color(0.76, 0.82, 0.86), "ground_horizon": Color(0.6, 0.64, 0.62),
 		"ground_bottom": Color(0.22, 0.24, 0.18), "ambient": 0.86, "exposure": 1.0, "contrast": 1.04, "saturation": 0.98,
 		"fog_begin": 260.0, "fog_end": 4600.0, "fog_density": 0.6, "fog_color": Color(0.74, 0.8, 0.86), "fog_scatter": 0.2, "fog_sky": 0.3,
