@@ -5,6 +5,9 @@
 - The environment is now enabled in every era, not only medieval, so modern battles in North America and elsewhere get it too.
 - `test_env` covers every present biome: selection, model existence, determinism, and obstacle clearance in all eras. `tests/biome_census.tscn` prints the province-to-biome census. See `docs/BIOMES.md`. It is rendering only: sim hashes are unchanged.
 
+## Unreleased (branch env/tropical, stacked on env/biome-framework, awaiting Kirk's approval)
+- New `tropical` biome (Philippines, Indonesia, Amazon, Congo, Caribbean, Central America, Hawaii; 174 provinces). It has an open cogon-grass clearing on red laterite, multi-layer rainforest walls outside the fighting corridor (buttressed canopy trees, emergents, coconut palms, banana / fern / thicket understorey), mossy basalt and humid hazy light. All assets are procedural (`pipeline/blender/env_tropical.py`). Evidence: `evidence/env-tropical/`. Rendering only: sim hashes and BATTLERESULT are unchanged.
+
 ## env/scandinavia-medieval (merged to main in 8f2681f)
 - Medieval battles in Scandinavian provinces (Norway, Sweden, Denmark, Finland) get a data-driven boreal battlefield. It has rolling relief that stays flat in the engagement corridor, multi-layer terrain (grass, dry grass, earth, rock, scree, snow, shore), spruce, pine and birch forest edges with a far forest belt, natural rocks kept out of the formation lanes, ground cover, an optional lake, distant mountains driven by the data, and a warm summer sun with aerial fog. It is rendering only: sim hashes are unchanged. Evidence is in `evidence/env-scandinavia/`.
 
