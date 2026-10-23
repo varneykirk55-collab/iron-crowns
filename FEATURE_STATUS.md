@@ -1,4 +1,4 @@
-# Feature status (v0.3.1): honest accounting
+# Feature status (v0.3.2): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -47,6 +47,7 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Campaign army markers (`map_visuals.gd`) | VERIFIED | Tests click a marker and select/move the army; world/region/close zoom shots in `screenshots/campaign_*`. |
 | Victoria-style campaign map (terrain relief, biomes, snow, oceans, SDF borders, adaptive political tint, 3 terrain LODs) | VERIFIED (rendered, llvmpipe only) | v0.3.1. `screenshots/compare/` before/after for Alps, Rockies, Japan, Scandinavia, Himalayas, Europe world zoom, border close-up; picks identical to v0.3 on 15 views; selection/conquest/zoom checks; `perf_table.md` (q0/q1/q2). Region/close-zoom nation colours are muted by design. Not measured on a GPU. |
 | World-zoom ocean streaks | FIXED (v0.3.1) | Backdrop plane z-fighting; `screenshots/compare/compare_usa_world.png`. |
+| Semi-realistic Napoleonic c19 soldiers (line, grenadier, artillery crew; 47 nation uniforms; 0.25 s clip crossfade) | VERIFIED (rendered, llvmpipe only) | v0.3.2. `screenshots/compare/` 1800 SWE q0/q1/q2 close/mid/overhead vs v0.3.1; `perf_table.md`. PARTIAL readability: NOR vs SWE both blue at mid/overhead on snow (BJORN follow-up). Officer per regiment not done. |
 | Terrain/sieges as 3D battles, naval battles | MISSING | Sieges resolve on the map only. |
 
 ## Recorded era battles (v0.2, 960x540, `tools/rec_eras.sh`, summaries from `tools/era_summary.py`)
