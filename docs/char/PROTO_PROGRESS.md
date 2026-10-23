@@ -17,7 +17,7 @@
 - [x] 4e tests 163/163, outcome hash 553cc500... = main; sim hashes = main (SWE1800 417a5300..., USA1914 4679c5a2..., JPN1500 e104d558...)
 - [x] 4f push proto/c19-line-v2 (origin, branch only)
 - [x] 5a v3 body/head/hands on MakeHuman CC0 base (prep a81a1b7, painted albedo ba3c724); kit, LODs, bake, VAT re-bake (rig/rows/weapon_tip frozen) — v3 kit 6e9941b, LOD0 11,670 / mid 1,998 / far 693
-- [x] 5b cloth: folds, wool twill micro-normal, desaturated navy, roughness separation, realistic collar — (see 5b commit)
+- [x] 5b cloth: folds, wool twill micro-normal, desaturated navy, roughness separation, realistic collar — c8f2e9f
 - [x] 5c era-generic system docs/char/CHAR_SYSTEM.md (b5a951c)
 - [ ] 5d stills (front/side/back/3-4/bust/hand, gameplay distance), compare blocky/c19sr/v2/v3, slow-orbit idle video <20 MB
 
