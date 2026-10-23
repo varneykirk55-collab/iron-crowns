@@ -111,7 +111,11 @@
 - [x] ffcafd3: 140/140 (out/tests_v032.log), gameplay hash 0e814dda, SIMHASH SWE f7255ebb USA 45cf5510 JPN 9bb2394d, 0 SHADER ERROR
 - [x] delta check 05:45: none in iron-crowns-visual/out -> v0.3.2 without delta
 - [x] docs (CHANGELOG, README, FEATURE_STATUS, COLLAB BJORN READY copied from main worktree + MERGED v0.3.2 note w/ readability request)
-- [ ] main merge, main tests/hashes, tag v0.3.2, exports, smoke, battle video, deliverables, laptop_xfer
+- [x] main merge 21bbfe1; main --import 0 errors, 140/140, gameplay hash 0e814dda, SIMHASH SWE f7255ebb USA 45cf5510 JPN 9bb2394d, 0 SHADER ERROR; tag v0.3.2 (annotated)
+- [x] exports Linux+Windows (build/); Linux export smoke 1800 SWE battle (--closeup --vispass): 39.5 s, winner 1, [5039,5166] = v0.3.1, MM vis>0, c19_line col non-white (xfade), 0 script/shader errors
+- [x] battle video rec/battle_SWE1800_v032_demo.mp4 (62 s, 1280x720)
+- [x] delta re-check ~06:10 EDT: still none -> BJORN delta goes to v0.3.3 on main@v0.3.2
+- [x] deliverables/v0.3.2 + laptop_xfer (w032/p032, join032.ps1) via out/v032/pkg/package_v032.py
 - [x] harness game/tests/battle_shots.{gd,tscn} (untracked yet): main --demo=battle, freeze at sim t=14 (time_scale 0), views close/close_def/mid/top, shot + 30-frame median. before worktree /workspace/ic_v031_before (v0.3.1 + harness copy)
 - [x] out/v032/run_shots.sh done -> out/v032/shots, compare/, perf_table.md; other eras q1 unchanged visually
 - [x] 1800 SWE q0/q1/q2 before/after shots + perf -> out/v032/compare/, out/v032/perf_table.md (q0 -11 %, q1 +4 %, q2 -17 % mean; noise ~+/-15 % per view)
