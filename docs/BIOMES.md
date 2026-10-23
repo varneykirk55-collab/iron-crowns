@@ -37,7 +37,8 @@ It never copies the Nordic content.
 5. terrain `jungle` → `tropical`
 6. SE Asia / Pacific / Hawaii (lon ≥ 88 or ≤ −140, |lat| < 22.5, excluding the East Asian block) → `tropical`
 7. Bengal / Assam / Burma lowlands (lon 88–100, lat < 29, not mountains) → `tropical`
-8. lon 100–146, lat 20–46 (E. China, Korea, Japan, Taiwan) → `east_asia`
+8. Mongolian plateau / Inner Mongolia (lon 100–116, lat 42–50) → `steppe`
+8b. lon 100–146, lat 20–46 (E. China, Korea, Japan, Taiwan) → `east_asia`
 9. |lat| < 8, Caribbean / Central America (Americas, |lat| < 26, lon > −95) → `tropical`
 10. Arabia / Gulf (lon 34–62, lat 12–32) → `arid`
 11. Americas lat 14–33 (Mexican plateau) → `arid`
@@ -67,14 +68,14 @@ It never copies the Nordic content.
 | profile | provinces | by region |
 |---|---|---|
 | `boreal` | 42 | Russia 10, Canada 8, Sweden 8, Norway 5, Finland 5, Denmark 2, United States of America 1, Åland 1, United Kingdom 1, Estonia 1 |
-| `tundra` | 28 | Russia 12, Greenland 4, Canada 2, Chile 2, United States of America 1, Heard I. and McDonald Is. 1, Faeroe Is. 1, Argentina 1, Fr. S. Antarctic Lands 1, Falkland Is. 1, S. Geo. and the Is. 1, Iceland 1 |
-| `temperate` | 91 | United States of America 30, Germany 6, Ukraine 5, United Kingdom 4, France 4, Poland 4, Canada 3, Romania 2, Belarus 2, New Zealand 2, Italy 2, India 2, Russia 2, Liechtenstein 1, Luxembourg 1, Slovenia 1, Bhutan 1, Belgium 1, Moldova 1, Switzerland 1, Nether… |
-| `east_asia` | 37 | China 19, Japan 9, North Korea 3, South Korea 3, Mongolia 2, Taiwan 1 |
-| `tropical` | 174 | Brazil 25, Indonesia 12, India 8, Venezuela 5, Bolivia 5, Dem. Rep. Congo 5, Philippines 4, Tanzania 4, Colombia 4, Peru 4, Central African Rep. 3, Thailand 3, Myanmar 2, S. Sudan 2, France 2, Mexico 2, Papua New Guinea 2, Paraguay 2, Cuba 2, Côte d'Ivoire 2, … |
-| `savanna` | 56 | India 10, Angola 5, Zambia 4, Mozambique 4, Madagascar 3, South Africa 3, Zimbabwe 2, Argentina 2, Brazil 2, Comoros 1, Cabo Verde 1, Gambia 1, eSwatini 1, Djibouti 1, Guinea-Bissau 1, Lesotho 1, Togo 1, Sierra Leone 1, Benin 1, Malawi 1, Nepal 1, Guinea 1, Sa… |
-| `arid` | 148 | United States of America 11, China 9, India 7, Mexico 7, Niger 6, Mali 6, Mauritania 5, Chad 5, Iran 5, Saudi Arabia 5, Algeria 5, Australia 5, Libya 4, Sudan 4, Ethiopia 4, Egypt 4, Pakistan 4, Namibia 4, Iraq 3, Turkmenistan 3, Botswana 3, Morocco 3, Oman 2,… |
-| `mediterranean` | 31 | Turkey 4, Spain 3, Italy 3, United States of America 2, Malta 1, Andorra 1, N. Cyprus 1, Cyprus 1, Lebanon 1, Montenegro 1, North Macedonia 1, Albania 1, Armenia 1, Bosnia and Herz. 1, Georgia 1, Kosovo 1, Serbia 1, Portugal 1, Bulgaria 1, Greece 1, France 1, … |
-| `steppe` | 34 | Kazakhstan 7, Argentina 4, India 4, United States of America 3, Mongolia 3, Russia 2, Afghanistan 2, China 1, Siachen Glacier 1, Iran 1, Pakistan 1, Uzbekistan 1, Kyrgyzstan 1, Uruguay 1, Tajikistan 1, Azerbaijan 1 |
+| `tundra` | 28 | Russia 12, Greenland 4, Canada 2, Chile 2, United States of America 1, Heard I. and McDonald Is. 1, Faeroe Is. 1, Argentina 1, Fr. S. Antarctic Lands 1, Falkland Is. 1, … |
+| `temperate` | 91 | United States of America 30, Germany 6, Ukraine 5, United Kingdom 4, France 4, Poland 4, Canada 3, Romania 2, Belarus 2, New Zealand 2, Italy 2, India 2, Russia 2, … |
+| `east_asia` | 34 | China 18, Japan 9, North Korea 3, South Korea 3, Taiwan 1 |
+| `tropical` | 174 | Brazil 25, Indonesia 12, India 8, Venezuela 5, Bolivia 5, Dem. Rep. Congo 5, Philippines 4, Tanzania 4, Colombia 4, Peru 4, Central African Rep. 3, Thailand 3, Myanmar 2, … |
+| `savanna` | 56 | India 10, Angola 5, Zambia 4, Mozambique 4, Madagascar 3, South Africa 3, Zimbabwe 2, Argentina 2, Brazil 2, Comoros 1, Cabo Verde 1, Gambia 1, eSwatini 1, Djibouti 1, … |
+| `arid` | 148 | United States of America 11, China 9, India 7, Mexico 7, Niger 6, Mali 6, Mauritania 5, Chad 5, Iran 5, Saudi Arabia 5, Algeria 5, Australia 5, Libya 4, Sudan 4, Ethiopia 4, … |
+| `mediterranean` | 31 | Turkey 4, Spain 3, Italy 3, United States of America 2, Malta 1, Andorra 1, N. Cyprus 1, Cyprus 1, Lebanon 1, Montenegro 1, North Macedonia 1, Albania 1, Armenia 1, … |
+| `steppe` | 37 | Kazakhstan 7, Mongolia 5, Argentina 4, India 4, United States of America 3, Russia 2, China 2, Afghanistan 2, Siachen Glacier 1, Iran 1, Pakistan 1, Uzbekistan 1, Kyrgyzstan 1, … |
 
 ## Branches
 
