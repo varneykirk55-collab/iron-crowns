@@ -222,3 +222,41 @@ def culverin(groups, wheel):
     for x, y in ((0.75, -0.3), (0.85, -0.45), (0.7, -0.5)):
         b.sphere(0.07, (x, y, 0.07), IRON, 'body', segs=6, rings=4, mat=MAT_IRON)
     return b
+
+# ------------------------------------------------------------------ polish pass: gun crew (rig = soldiers.BONES)
+def gunner(name, groups, detail):
+    """early-modern gunner / matross c.1600: team doublet + breeches (as the musketeer, so the side reads), buff
+    leather apron and gauntlets, soft team-dyed Monmouth cap with a light band instead of the broad hat, powder horn
+    and priming flask on a buff baldric, and a linstock (long ash staff, brass serpent head) instead of the matchlock."""
+    s = 8 if detail else 5
+    b = MeshBuilder(name, groups)
+    _legs(b, detail)
+    _doublet(b, detail)
+    b.box((0.3, 0.04, 0.36), (0, 0.112, 1.0), BUFF, 'hips', taper=1.1, mat=MAT_LEATHER)     # leather apron (front only)
+    b.box((0.06, 0.245, 0.52), (0.0, 0.0, 1.25), BUFF, 'chest', rot=(0, 32, 0), mat=MAT_LEATHER)  # baldric (right shoulder)
+    b.box((0.36, 0.225, 0.04), (0, 0, 1.05), LEATHER_D, 'hips', mat=MAT_LEATHER)            # belt
+    if detail:
+        b.cyl(0.035, 0.02, 0.2, (-0.15, 0.09, 0.95), FLASK, 'hips', rot=(0, 70, 0), segs=6, mat=MAT_PIPECLAY)  # powder horn
+        b.box((0.08, 0.04, 0.1), (0.16, 0.09, 0.93), LEATHER, 'hips', mat=MAT_LEATHER)           # priming pouch
+        b.box((0.035, 0.05, 0.3), (-0.2, -0.02, 0.84), LEATHER_D, 'hips', rot=(12, 0, 0), mat=MAT_LEATHER)  # hanger (short sword)
+        for z in (1.2, 1.3, 1.4):
+            b.box((0.02, 0.012, 0.02), (0.03, 0.118, z), BRASS, 'chest', mat=MAT_BRASS)
+    for side, x in (('R', 0.24), ('L', -0.24)):
+        b.box((0.11, 0.12, 0.3), (x, 0, 1.31), TEAM, 'upper_arm.' + side, mat=MAT_WOOL)
+        b.box((0.09, 0.1, 0.26), (x, 0, 1.06), TEAM, 'forearm.' + side, taper=0.9, mat=MAT_WOOL)
+        b.box((0.11, 0.12, 0.09), (x, 0, 0.94), BUFF, 'forearm.' + side, mat=MAT_LEATHER)   # gauntlet cuffs
+        b.box((0.08, 0.09, 0.09), (x, 0, 0.89), BUFF, 'hand.' + side, mat=MAT_LEATHER)       # gloved hands
+    _head(b, detail, s)
+    # Monmouth cap: soft rounded knitted cap, team dyed, light turned-up band (reads at distance)
+    b.cyl(0.13, 0.13, 0.05, (0, 0.0, 1.735), LINEN, 'head', segs=s, mat=MAT_CANVAS)
+    b.sphere(0.125, (0, -0.01, 1.78), TEAM, 'head', segs=s, rings=4, scale=(1, 1, 0.75), mat=MAT_WOOL)
+    if detail:
+        b.box((0.06, 0.06, 0.05), (0, -0.02, 1.88), TEAM, 'head', mat=MAT_WOOL)            # top knot
+    # linstock: ash staff with a brass serpent head and a smouldering match (hangs along the arm from hand.R)
+    hx, hz = 0.24, 0.89
+    b.cyl(0.016, 0.016, 1.6, (hx, 0.03, hz - 0.35), ASH, 'hand.R', segs=4 if not detail else 6, mat=MAT_WOOD)
+    b.box((0.09, 0.03, 0.08), (hx, 0.03, hz - 1.18), BRASS, 'hand.R', mat=MAT_BRASS)             # forked head
+    if detail:
+        b.box((0.012, 0.012, 0.06), (hx + 0.045, 0.03, hz - 1.24), hexc('d8c7a2'), 'hand.R', mat=MAT_CANVAS)  # match cord
+        b.cyl(0.02, 0.012, 0.12, (hx, 0.03, hz + 0.47), IRON, 'hand.R', segs=4, mat=MAT_IRON)            # spike
+    return b.to_object()

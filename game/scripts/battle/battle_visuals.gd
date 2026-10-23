@@ -36,6 +36,8 @@ const QUALITY := [
 ]
 static var _quality := 1          # medium until apply_quality() is called
 static var _bv_ref: WeakRef = null # last BattleView passed to apply(); weak so a freed battle is simply skipped
+static var polish := true          # polish pass (terrain-aware light, snow ground, grenadier / gun-crew models); false = v0.2.1 look
+static var terrain_preview := ""   # PREVIEW-ONLY (--vx-terrain=<t>, bench logger): light / ground as if b.terrain were <t>
 
 ## Rendering-only tweaks for a freshly set-up BattleView. Touches environment, sun, materials, LOD distance,
 ## nothing else. Idempotent; may be called before or after apply_quality().
@@ -45,9 +47,20 @@ static func apply(bv: Node) -> void:
 	_bv_ref = weakref(bv)
 	var era := str(bv.get("era_id"))
 	if era in ERAS:
-		_apply_environment(bv.get("environment"), bv.get("sun"), ERA_ENV.get(era, {}))
+		var terr := _terrain(bv)
+		_apply_environment(bv.get("environment"), bv.get("sun"), ERA_ENV.get(era, {}), terr if polish else "")
+		if polish:
+			_swap_models(bv, era)
 		_apply_materials(bv, era)
+		if polish or terrain_preview != "":
+			_apply_ground_polish(bv, terr)
 	_apply_scene_quality(bv)
+
+static func _terrain(bv: Node) -> String:
+	if terrain_preview != "":
+		return terrain_preview
+	var b = bv.get("b")
+	return str(b.get("terrain", "")) if b is Dictionary else ""
 
 ## Store the quality level and apply it now to the root viewport and (if one was passed to apply() and is
 ## still alive) the current BattleView. Idempotent and order-independent with apply().
@@ -89,7 +102,113 @@ static func _apply_scene_quality(bv: Node) -> void:
 	if "LOD_DIST" in bv:
 		bv.set("LOD_DIST", Q["lod"])
 
-static func _apply_environment(env: Environment, sun: DirectionalLight3D, e: Dictionary = {}) -> void:
+## Polish pass: per-terrain light on top of the era setup. snow = how much of the terrain-specific winter grade
+## to apply (tundra 1, mountains partial). Only exposure / sun / sky tint / contrast; team dye is untouched.
+const TERRAIN_ENV := {
+	"tundra": {"snow": 1.0},
+	"mountains": {"snow": 0.4},
+}
+
+static func _apply_environment(env: Environment, sun: DirectionalLight3D, e: Dictionary = {}, terrain: String = "") -> void:
+	_apply_environment_v021(env, sun, e)
+	if terrain == "" and not polish:
+		return
+	var k: float = float(TERRAIN_ENV.get(terrain, {}).get("snow", 0.0))
+	if env != null:
+		# Distance fog -> depth-range fog: the exponential fog put ~10 % haze over the whole field at the 230 m
+		# top-down camera (and more over snow, whose albedo is close to the fog colour). Depth fog leaves the
+		# battlefield (< ~260 m from the camera) clear and keeps the aerial perspective on the horizon / far hills.
+		# (Godot's height fog is a per-fragment world-height term, not integrated along the view ray, so it would
+		# haze troops standing in hollows at every distance; it is deliberately left off.)
+		env.fog_mode = Environment.FOG_MODE_DEPTH
+		env.fog_depth_begin = 260.0
+		env.fog_depth_end = 2400.0
+		env.fog_depth_curve = 0.8
+		env.fog_density = lerpf(0.75, 0.6, k)   # ~ the v0.2.1 haze at 1-2 km, none on the field
+		env.fog_height_density = 0.0
+		env.fog_light_color = Color(0.68, 0.72, 0.78).lerp(Color(0.7, 0.75, 0.83), k)
+		env.fog_sky_affect = 0.3
+		# snow: a little less exposure + a touch more contrast so the near-white ground keeps texture and does not
+		# flatten the light accents (pipeclay, plumes) of the troops standing on it
+		env.tonemap_exposure = lerpf(1.08, 0.98, k)
+		env.adjustment_contrast = lerpf(1.08, 1.12, k)
+		env.ambient_light_energy = lerpf(0.75, 0.68, k)
+		var sm: ProceduralSkyMaterial = env.sky.sky_material as ProceduralSkyMaterial if env.sky != null else null
+		if sm != null and k > 0.0:
+			sm.sky_horizon_color = sm.sky_horizon_color.lerp(Color(0.72, 0.75, 0.8), k)
+			sm.ground_horizon_color = sm.ground_horizon_color.lerp(Color(0.7, 0.73, 0.77), k)
+			sm.ground_bottom_color = sm.ground_bottom_color.lerp(Color(0.36, 0.36, 0.36), k)  # cool bounce off snow
+	if sun != null and k > 0.0:
+		sun.light_energy = lerpf(1.45, 1.32, k)
+		sun.light_color = sun.light_color.lerp(Color(1.0, 0.96, 0.9), k)
+
+static func _apply_ground_polish(bv: Node, terrain: String) -> void:
+	for n in bv.find_children("*", "MeshInstance3D", true, false):
+		var gm := (n as MeshInstance3D).material_override as ShaderMaterial
+		if gm == null or gm.shader == null or not gm.shader.resource_path.ends_with("ground.gdshader"):
+			continue
+		if terrain_preview != "" and PREVIEW_TERRAIN.has(terrain_preview):
+			var tp: Dictionary = PREVIEW_TERRAIN[terrain_preview]
+			gm.set_shader_parameter("grass_a", tp["a"]); gm.set_shader_parameter("grass_b", tp["b"])
+			gm.set_shader_parameter("dirt", tp["dirt"]); gm.set_shader_parameter("snow", tp["snow"])
+		gm.set_shader_parameter("polish", 1.0 if polish else 0.0)
+
+## PREVIEW-ONLY copy of BattleView._terrain_params() colours (ground colours only; relief and scenery stay those of
+## the demo province) so a winter battle can be looked at from the demo / bench without touching battle data.
+const PREVIEW_TERRAIN := {
+	"tundra": {"a": Color(0.5, 0.52, 0.4), "b": Color(0.62, 0.6, 0.5), "dirt": Color(0.45, 0.42, 0.36), "snow": 0.75},
+	"mountains": {"a": Color(0.36, 0.42, 0.26), "b": Color(0.46, 0.46, 0.36), "dirt": Color(0.42, 0.38, 0.32), "snow": 0.25},
+}
+
+## Polish pass: separate VAT models for units that share a glb with another unit (grenadiers = c19_line) and era
+## gun-crew uniforms (BattleView.CREW_MODEL uses the era's line infantry). Same rig, clips, frame layout and UV2.y
+## mask as the model they replace, so BattleView._update_units animates them unchanged. Adds the multimeshes the
+## new model needs and repoints rv[i].model / rv[i].crew_model; idempotent; a missing asset keeps the legacy model.
+## Becomes a no-op once units.json / CREW_MODEL name these models directly (Requests in out/INTEGRATION.md).
+const UNIT_MODEL := {"c19": {"grenadiers": "c19_grenadier"}}   # era -> unit id -> VAT model
+const CREW_UNIFORM := {"c19": "c19_artillery", "early_modern": "em_gunner"}   # c20 / modern crews wore infantry field dress
+
+static func _has_vat(name: String) -> bool:
+	for lod in 2:
+		if not ResourceLoader.exists("res://assets/models/soldier_%s_lod%d.glb" % [name, lod]) \
+				or not FileAccess.file_exists("res://assets/vat/%s_lod%d.json" % [name, lod]):
+			return false
+	return true
+
+static func _add_vat_mms(bv: Node, model: String, side: int, cap: int) -> void:
+	var vat: Dictionary = bv.call("_vat_model", model)
+	for lod in 2:
+		var e: Dictionary = bv.call("_mm", "%s|%d|%d" % [model, side, lod], vat["mesh"][lod], bv.call("_vat_mat", model, lod, side), cap, true)
+		(e["mm"] as MultiMesh).instance_count = e["cap"]   # BattleView sized its multimeshes before apply(); size the new / grown ones
+		e["buf"].resize(e["cap"] * e["stride"])
+
+static func _swap_models(bv: Node, era: String) -> void:
+	var rv = bv.get("rv"); var sim = bv.get("sim")
+	if not (rv is Array) or sim == null or not bv.has_method("_vat_model") or not bv.has_method("_mm") or not bv.has_method("_vat_mat"):
+		return
+	var ok := {}
+	for v in rv:
+		var i: int = int(v.get("i", -1))
+		if i < 0 or i >= sim.regs.size():
+			continue
+		var d: Dictionary = sim.regs[i]["def"]
+		var side := int(v["side"])
+		var ue := str(d.get("era", era))   # per unit, like BattleView.CREW_MODEL (mixed-era battles)
+		var by_unit: Dictionary = UNIT_MODEL.get(ue, {})
+		var crew: String = CREW_UNIFORM.get(ue, "")
+		var want: String = by_unit.get(str(d.get("id", "")), "")
+		if want != "" and str(v.get("kind", "")) == "vat" and v.get("model", "") != want:
+			if not ok.has(want): ok[want] = _has_vat(want)
+			if ok[want]:
+				_add_vat_mms(bv, want, side, int(v["n"]) * 2)   # same capacity BattleView reserves (alive + dead rows)
+				v["model"] = want
+		if crew != "" and v.has("crew_model") and v["crew_model"] != crew:
+			if not ok.has(crew): ok[crew] = _has_vat(crew)
+			if ok[crew]:
+				_add_vat_mms(bv, crew, side, int(v["n"]) * 3)
+				v["crew_model"] = crew
+
+static func _apply_environment_v021(env: Environment, sun: DirectionalLight3D, e: Dictionary = {}) -> void:
 	if env != null:
 		var sm: ProceduralSkyMaterial = null
 		if env.sky != null:
@@ -229,6 +348,10 @@ func _ready() -> void:
 	log_path = args.get("perflog", "")
 	if log_path == "1": log_path = ""
 	process_priority = 1000   # run after main.gd and BattleView each frame
+	# polish pass toggles (debug / before-after only): --vx-polish=0 = v0.2.1 look from the same build;
+	# --vx-terrain=tundra|mountains = PREVIEW-ONLY winter ground + light on the demo battle (see PREVIEW_TERRAIN)
+	polish = args.get("vx-polish", "1") != "0"
+	terrain_preview = args.get("vx-terrain", "")
 	# preview of the overworld markers (the real wiring is the one-line Request in out/INTEGRATION.md)
 	if args.get("vispass", "0") == "1" and get_parent() != null and "map" in get_parent() and get_parent().map != null \
 			and get_parent().map.get_node_or_null("MapVisuals") == null:
@@ -254,6 +377,7 @@ func _debug_overrides(bv: Node) -> void:
 			"ambient": env.ambient_light_energy = v
 			"sun": sun.light_energy = v
 			"shadow-opacity": sun.shadow_opacity = v
+			"polish", "terrain": pass   # read in _ready (must be set before apply())
 			_:
 				var mms: Dictionary = bv.get("mms")
 				for key in mms.keys():
@@ -349,6 +473,13 @@ func _snap(bv: Node, vi: int) -> void:
 	var reg := -1
 	if int(v[1]) >= 0:
 		reg = bv.call("first_reg", int(v[1]))
+	if int(v[1]) == 0 and args.get("bench-focus", "") != "":   # --bench-focus=<unit id | kind>: aim the attacker views at it
+		var f: String = args["bench-focus"]
+		var regs: Array = bv.get("sim").regs
+		for i in regs.size():
+			if str(regs[i]["def"]["id"]) == f or str(regs[i]["kind"]) == f:
+				reg = i
+				break
 	bv.call("snap_cam", reg, float(v[2]), float(v[3]), float(v[4]))
 
 func _hold(bv: Node, vi: int) -> void:
