@@ -646,9 +646,9 @@ func _start_demo(kind: String) -> void:
 				[1.5, func(): shot("reinf_01_army_panel")],
 				[2.0, func(): hud._reinforce(demo_state["r"], demo_state["bid"], "direct")],
 				[2.8, func(): shot("reinf_02_ordered")],
-				[3.2, func(): watch_battle(demo_state["bid"])],
+				[3.2, func(): Sim.set_speed(2); watch_battle(demo_state["bid"])],   # the campaign clock keeps running while we watch
 				[-1.0, func(): return in_battle and not transitioning],
-				[-101.0, func(): battle_view.time_scale = 2.0; demo_state["regs0"] = battle_view.rv.size(); shot("reinf_03_battle")],
+				[-101.0, func(): demo_state["regs0"] = battle_view.rv.size(); shot("reinf_03_battle")],
 				[-1.0, func(): return battle_view != null and (battle_view.rv.size() > int(demo_state["regs0"]) or battle_view.finished)],
 				[-101.5, func(): shot("reinf_04_reinforcements_arrive")],
 				[-104.0, func(): shot("reinf_05_reinforcements_fighting")],
