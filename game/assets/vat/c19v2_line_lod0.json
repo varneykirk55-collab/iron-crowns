@@ -1,5 +1,5 @@
 {
- "vertices": 6920,
+ "vertices": 8165,
  "fps": 24,
  "clips": {
   "idle": {
@@ -1379,24 +1379,25 @@
   ]
  },
  "weapon_tip_note": "per clip, per frame position of the unweighted 'weapon_tip' bone (child of prop, bayonet tip) in the same Godot model space as the .vat rows",
- "tris": 10715,
- "near_verts": 5440,
- "mid_verts": 6518,
+ "tris": 13172,
+ "near_verts": 6690,
+ "mid_verts": 7758,
  "tris_mid": 1999,
- "tris_far": 691,
- "tris_stored": 13405,
+ "tris_far": 694,
+ "tris_stored": 15865,
  "maps": {
   "nrm": "c19v2_line_nrm.vtex",
   "id": "c19v2_line_id.vtex",
+  "alb": "c19v2_line_alb.vtex",
   "size": 2048,
   "format": "PNG RGBA8",
-  "layout": "nrm: xyz tangent-space normal (Blender / OpenGL convention), a = AO; id: r = slot*8, g = material*16, b = team mask; both sampled with UV3 (Godot CUSTOM0, the atlas layer)"
+  "layout": "nrm: xyz tangent-space normal (Blender / OpenGL convention), a = AO; id: r = slot*8, g = material*16, b = team mask; alb: sRGB painted albedo for skin / eye slots (MakeHuman CC0 skin), black elsewhere; all sampled with UV3 (Godot CUSTOM0, the atlas layer)"
  },
  "split": "verts [0,near_verts) = LOD0 set, [near_verts,mid_verts) = mid set, [mid_verts,vertices) = far set",
  "aabb": [
   [
    -0.7746107578277588,
-   -0.12981969118118286,
+   -0.12981963157653809,
    -1.9263291358947754
   ],
   [

@@ -82,12 +82,13 @@ def hand_faces(ph, side, zcut=0.93):
             and sx * ph.V[ph.h.F[i]][:, 0].mean() > 0.1]
 
 def eyes(ph, name='eyes'):
-    """low-poly MH eye proxy (cornea + iris/sclera texture), fitted to the posed head (head verts are unposed: the
-    head chain is never re-aimed, so MH -> IC is the plain scale + offset)."""
+    """low-poly MH eye proxy (cornea + iris/sclera texture), fitted to the rest head, then moved
+    with the posed head bone (the neck is tilted / shifted back in mh_pose)."""
     A = MB.ASSETS
     refs, scale = MC.read(os.path.join(A, 'eye_lowpoly.mhclo'))
     Pm = MC.fit(refs, scale, ph.h.Vmh)
     P = (MB.to_ic(Pm) - [0, 0, ph.zmin]) * ph.scale + [0, 0, MP.SOLE]
+    hb = ph.bones_['head'][0]; P = (P - hb) @ ph.R['head'].T + ph.P['head']   # follow the posed head (neck tilt + shift)
     _, VT, F, FT, _ = MB.read_obj(os.path.join(A, 'eye_lowpoly.obj'))
     o = _mesh(name, P, F, [[tuple(VT[t]) for t in ft] for ft in FT])
     o.vertex_groups.new(name='head').add(list(range(len(P))), 1.0, 'REPLACE')

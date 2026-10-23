@@ -677,8 +677,8 @@ def mh_parts(hi):
     for o in out:
         if hi:
             HM.subdivide(o, 1 if o.name.startswith('mhhand') else 2)
-        elif o.name in MH_LO:
-            m = o.modifiers.new('d', 'DECIMATE'); m.ratio = min(1.0, MH_LO[o.name] / max(1, tris(o))); m.use_collapse_triangulate = True
+        elif o.name.split('.')[0] in MH_LO:   # (the hi kit is built first, so the lo copies are named mhhead.001 ...)
+            m = o.modifiers.new('d', 'DECIMATE'); m.ratio = min(1.0, MH_LO[o.name.split('.')[0]] / max(1, tris(o))); m.use_collapse_triangulate = True
             apply_mods(o)
     return out
 
