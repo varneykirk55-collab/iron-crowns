@@ -191,11 +191,13 @@ def collar_band(res):
     nz, nu = res
     secs = []
     for t in (0.0, 0.5, 1.0):
-        r = ring(V(0, 0.004, 0), V(1, 0, 0), V(0, 1, 0), 0.072 - 0.008 * t, 0.072 - 0.010 * t, 0.068 - 0.006 * t, nu, 2.2, 0.5)
+        # stage 5b: ~6 cm stand collar round the MakeHuman neck (was a 9.4 cm tube): centred on the neck (y +0.02),
+        # top 1.556 at the back dipping to ~1.536 under the chin
+        r = ring(V(0, 0.020, 0), V(1, 0, 0), V(0, 1, 0), 0.074 - 0.006 * t, 0.072 - 0.006 * t, 0.070 - 0.006 * t, nu, 2.2, 0.5)
         sec = []
         for p in r:
-            fr = ss(0.02, 0.065, p.y)
-            ztop = 1.572 - 0.022 * fr
+            fr = ss(0.04, 0.085, p.y)
+            ztop = 1.556 - 0.020 * fr
             sec.append(V(p.x, p.y, lerp(1.478, ztop, t)))
         secs.append(sec)
     return grid_sweep('collar', secs, cap0=True, cap1=True)
@@ -572,6 +574,7 @@ def scabbard(hi=False):
 
 SHAKO_Z0, SHAKO_Z1 = 1.716, 1.866   # Kirk ref: body ~ face height (was 1.732..1.930), brim just above the brow
 SHK_RX0, SHK_RY0 = 0.083, 0.100
+SHAKO_DY = 0.024
 
 def shako(hi=False):
     nu = 32 if hi else 20
@@ -627,6 +630,8 @@ def shako(hi=False):
                 row.append(T(V(x * sc_, pc.y + ry * math.sqrt(max(0.0, 1 - (x / lerp(SHK_RX0, 0.092, tt)) ** 2)) - 0.001 + dz, zz)))
             rings.append(row)
         out.append(grid_sweep('shako.plate', rings, cap0=False, cap1=False, slot='metal'))
+    for o in out:   # stage 5: the MakeHuman cranium sits ~2.4 cm further forward than the stage-4 head
+        o.data.transform(Matrix.Translation((0.0, SHAKO_DY, 0.0)))
     return out
 
 def musket(hi=False):
@@ -667,7 +672,7 @@ def slot_body(o, near):
     set_slot(o, f)
 
 USE_MH = True
-MH_LO = {'mhhead': 2600, 'mhhandR': 1000, 'mhhandL': 1000}   # LOD0 budgets (tris)
+MH_LO = {'mhhead': 2400, 'mhhandR': 1000, 'mhhandL': 1000}   # LOD0 budgets (tris)
 
 def mh_parts(hi):
     import human_mh as HM
@@ -750,36 +755,59 @@ def buttons(tree):
     return out
 
 def add_folds(o, spread):
-    """sculpted cloth folds on the fused high-poly (spread pose): inner elbows, armpits, waist, knees; seams / lapel edges."""
+    """sculpted cloth folds on the fused high-poly (spread pose), stage 5b: compression folds with rounded bulges and
+    sharp creases (|sin|^0.7 profile), phase-warped + amplitude-broken by low-frequency noise so they don't read as
+    ripples. Inner elbows, armpit drag, back tension (shoulder blades -> waist), waist gathers, sleeve gathers above
+    the cuffs, knee bunching above the gaiters; seams sunk, lapels / cuffs / collar proud. Numpy (was per-vertex python)."""
+    import numpy as np
     me = o.data; me.update()
+    n = len(me.vertices)
+    P = np.zeros(n * 3); me.vertices.foreach_get('co', P); P = P.reshape(-1, 3)
+    N = np.zeros(n * 3); me.vertices.foreach_get('normal', N); N = N.reshape(-1, 3)
     slot = np.zeros(len(me.polygons), np.int32); me.attributes['slot'].data.foreach_get('value', slot)
-    vslots = [set() for _ in me.vertices]
-    for p in me.polygons:
-        for vi in p.vertices: vslots[vi].add(int(slot[p.index]))
-    lap = {S['lapel'], S['piping']}
-    for v in me.vertices:
-        p = v.co; n = v.normal; d = 0.0; ax = abs(p.x); sx = 1.0 if p.x > 0 else -1.0
-        # inner elbow: arcs across the crook (front of the arm)
-        E = V(sx * (0.205 + spread), -0.012, 1.14)
-        u = p.z - E.z; fr = ss(-0.005, 0.03, p.y - E.y) * gauss(ax - (0.205 + spread), 0.05)
-        d += 0.0042 * fr * gauss(u, 0.045) * math.sin(2 * math.pi * u / 0.026 + 3.0 * (p.y - E.y) / 0.03)
-        # armpits: radial drag folds from the pit onto the sleeve and the coat side
-        A = V(sx * (0.150 + spread * 0.5), -0.005, 1.33)
-        r = (p - A).length
-        if r < 0.12:
-            ang = math.atan2(p.z - A.z, p.y - A.y)
-            d += 0.0035 * gauss(r, 0.06) * ss(0.012, 0.03, r) * math.sin(5.0 * ang)
-        # waist: horizontal compression folds at the sides / back above the belt line
-        if ax > 0.06 and p.y < 0.03:
-            d += 0.0026 * gauss(p.z - 1.06, 0.04) * math.sin(2 * math.pi * p.z / 0.021 + 18.0 * p.x)
-        # knees: breeches bunching above the gaiter top + behind the knee
-        if p.z < 0.75 and ax < 0.16:
-            d += 0.0032 * gauss(p.z - 0.60, 0.04) * math.sin(2 * math.pi * p.z / 0.024 + 25.0 * p.y)
-            d += 0.0030 * gauss(p.z - 0.50, 0.03) * ss(0.0, -0.03, p.y - 0.012) * math.sin(2 * math.pi * p.z / 0.018)
-        # seams: grooves where cloth panels meet; lapels / cuffs stand proud
-        vs = vslots[v.index]
-        if len(vs) > 1: d -= 0.0012
-        if vs & lap: d += 0.0016
-        if S['cuff'] in vs or S['collar'] in vs: d += 0.0010
-        if d: v.co = p + n * d
-    o.data.update()
+    lt = np.zeros(len(me.loops), np.int32); me.loops.foreach_get('vertex_index', lt)
+    tot = np.zeros(len(me.polygons), np.int32); me.polygons.foreach_get('loop_total', tot)
+    fs = np.repeat(slot, tot)
+    def has(slots):
+        m = np.zeros(n, bool); m[lt[np.isin(fs, list(slots))]] = True; return m
+    # vertices on a slot boundary (seams): min != max slot over the vertex's faces
+    mn = np.full(n, 99); mx = np.full(n, -1); np.minimum.at(mn, lt, fs); np.maximum.at(mx, lt, fs)
+    seam = mn != mx
+    x, y, z = P[:, 0], P[:, 1], P[:, 2]; ax = np.abs(x); sx = np.where(x > 0, 1.0, -1.0)
+    def g(d, r): return np.exp(-(d * d) / (r * r))
+    def s(a, b, t): t = np.clip((t - a) / (b - a), 0, 1); return t * t * (3 - 2 * t)
+    def lfn(k):   # cheap smooth 3D noise (sum of sines), -1..1
+        return (np.sin(k * 23.1 * x + 1.3 + 17.0 * z) * np.sin(k * 19.7 * z + 0.7 + 11.0 * y) + 0.5 * np.sin(k * 41.0 * y + 31.0 * x + 2.1)) / 1.5
+    def fold(u):   # rounded bulges, sharp creases at the zero crossings
+        return np.abs(np.sin(np.pi * u)) ** 0.7 - 0.55
+    w = lfn(1.0); amp = 0.65 + 0.35 * lfn(2.3)
+    d = np.zeros(n)
+    sl = has({S['coat'], S['cuff'], S['lapel'], S['turnback'], S['collar'], S['waist'], S['breeches'], S['piping']}) | ~has({S['skin']})
+    # inner elbow: arcs across the crook (front = +y)
+    ex = 0.205 + spread; u = z - 1.14
+    d += 0.0068 * s(-0.005, 0.03, y + 0.012) * g(ax - ex, 0.05) * g(u, 0.05) * fold(u / 0.022 + 2.2 * (y + 0.012) / 0.03 + 0.4 * w)
+    # sleeve gathers above the cuffs
+    d += 0.0032 * s(0.15 + spread, 0.19 + spread, ax) * g(z - 0.985, 0.035) * fold((z - 0.985) / 0.017 + 0.6 * w)
+    # armpits: radial drag folds from the pit onto the sleeve and the coat side
+    A = np.stack([sx * (0.150 + spread * 0.5), np.full(n, -0.005), np.full(n, 1.33)], 1)
+    r = np.linalg.norm(P - A, axis=1); ang = np.arctan2(z - 1.33, y + 0.005)
+    d += 0.0058 * g(r, 0.065) * s(0.012, 0.03, r) * fold(5.0 * ang / np.pi + 0.3 * w)
+    # back tension: diagonal drag lines from the shoulder blades down towards the waist centre
+    bk = s(-0.02, -0.05, y) * s(0.02, 0.05, ax) * (1 - s(0.15, 0.19, ax)) * g(z - 1.26, 0.11)
+    perp = (ax * 0.62 + (z - 1.26) * 0.78)   # across the (0.13, 1.38) -> (0, 1.08) direction
+    d += 0.0042 * bk * fold(perp / 0.034 + 0.5 * w)
+    # waist: horizontal compression folds at the sides / back above the belt line
+    d += 0.0045 * (ax > 0.05) * s(0.04, 0.0, y) * g(z - 1.06, 0.045) * fold((z - 1.06) / 0.019 + 8.0 * x + 0.5 * w)
+    # knees: breeches bunching above the gaiter top + behind the knee
+    leg = (z < 0.78) & (ax < 0.17)
+    d += leg * 0.0052 * g(z - 0.60, 0.045) * fold((z - 0.60) / 0.021 + 12.0 * y + 0.5 * w)
+    d += leg * 0.0045 * g(z - 0.50, 0.032) * s(0.0, -0.03, y - 0.012) * fold((z - 0.50) / 0.016 + 0.4 * w)
+    # seat / back of the thigh drag under the tails
+    d += 0.0030 * s(-0.02, -0.06, y) * g(z - 0.86, 0.06) * (ax < 0.17) * fold((x * 0.5 + (z - 0.86)) / 0.03 + 0.4 * w)
+    d *= 1.5 * amp * sl   # ~2x the stage-4 peak-to-peak depth
+    # seams: grooves where cloth panels meet; lapels / cuffs / collar stand proud
+    d -= 0.0012 * seam
+    d += 0.0016 * has({S['lapel'], S['piping']})
+    d += 0.0010 * has({S['cuff'], S['collar']})
+    P = P + N * d[:, None]
+    me.vertices.foreach_set('co', P.ravel()); o.data.update()

@@ -23,7 +23,7 @@ TEX = int(os.environ.get('V2_TEX', '2048'))
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUTP = os.path.join(ROOT, 'out', 'proto', 'bake')
 LO_VOXEL = float(os.environ.get('V2_LO_VOXEL', '0.013'))
-BODY_TRIS = int(os.environ.get('V2_BODY_TRIS', '6500'))   # LOD0 budget raised to ~8-12k (Kirk, 12:33 EDT)
+BODY_TRIS = int(os.environ.get('V2_BODY_TRIS', '5200'))   # LOD0 budget raised to ~8-12k (Kirk, 12:33 EDT)
 MID_TRIS = int(os.environ.get('V2_MID_TRIS', '2000'))
 FAR_TRIS = int(os.environ.get('V2_FAR_TRIS', '700'))
 TIP_LOCAL = (0.02, 1.52, -0.006)    # bayonet tip in prop-local coordinates (char_body.build_musket / char_v2.musket)
@@ -335,7 +335,7 @@ def detail_nodes(nt, df):
         L(tc.outputs['Object'], n.inputs['Vector']); return math('SUBTRACT', n.outputs['Fac'], 0.5)
     nF = noise(900.0, 4.0); nM = noise(220.0, 3.0); nL = noise(40.0, 2.0)
     wv = N('ShaderNodeTexWave'); wv.wave_type = 'BANDS'; wv.bands_direction = 'DIAGONAL'
-    wv.inputs['Scale'].default_value = 250.0; wv.inputs['Distortion'].default_value = 1.5
+    wv.inputs['Scale'].default_value = 380.0; wv.inputs['Distortion'].default_value = 0.6   # 2/1 twill wales ~2.6 mm (stage 5b)
     L(tc.outputs['Object'], wv.inputs['Vector']); tw = math('SUBTRACT', wv.outputs['Fac'], 0.5)
     vo = N('ShaderNodeTexVoronoi'); vo.inputs['Scale'].default_value = 650.0; L(tc.outputs['Object'], vo.inputs['Vector'])
     gr = math('SUBTRACT', vo.outputs['Distance'], 0.5)

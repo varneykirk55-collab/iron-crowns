@@ -253,7 +253,7 @@ void fragment() {
 		float lum = dot(alb, vec3(0.2126, 0.7152, 0.0722));
 		if (mi == 1.0) {   // wool: indigo-navy / madder red desaturated, whites to warm off-white, matte 0.86-0.94
 			float red = smoothstep(0.05, 0.25, alb.r - alb.b);
-			vec3 g = mix(vec3(lum), alb, mix(0.40, 0.80, red)) * mix(vec3(0.80, 0.84, 0.90), vec3(0.86, 0.80, 0.80), red);
+			vec3 g = mix(vec3(lum), alb, mix(0.25, 0.75, red)) * mix(vec3(0.78, 0.82, 0.86), vec3(0.86, 0.80, 0.80), red);
 			vec3 w = alb * vec3(0.92, 0.90, 0.83);
 			alb = mix(alb, mix(g, w, smoothstep(0.35, 0.6, lum)), gk);
 			rough = mix(rough, 0.86 + 0.08 * clamp(dlum * 2.0 - 0.5, 0.0, 1.0), gk); spec = mix(spec, 0.18, gk);
