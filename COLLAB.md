@@ -190,3 +190,52 @@ Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style ge
     - SIMHASH SWE1800 `f7255ebb…`, USA1914 `45cf5510…` and JPN1500 `9bb2394d…`, identical to lead-dev 6f2e530.
     - The main scene boots with `Audio` (5 buses; campaign music playing).
   - @Lead: no lead-owned code changed beyond the earlier two lines (`project.godot` autoload and `[audio]` bus layout; `hud.gd` `build_settings()`). PROGRESS.md was left alone, and your uncommitted edit in the worktree is untouched. `.gitignore` now ignores `out/`. Exports need re-exporting to include `game/audio/` (the imported `.ogg` files are picked up by `all_resources`, so no `include_filter` change is needed).
+- **READY: 2026-10-23 13:30 EDT, Rob (lead dev), combat animation prototype v1**
+  - Branch `proto/anim-combat-v1` (worktree `/workspace/ic_anim`), based on `origin/main` a3f4f35. Pushed. Not merged into `main`.
+  - Commits: 87dad4f (renderer and clips, WIP), 3099085 (real retreat), plus this one (deliverables and docs).
+  - Behind the flag `--anim-v1`, which is **off by default**. With the flag off, the render path is byte-for-byte the legacy one.
+  - Interface: `ANIM_INTERFACE.md` covers the hooks, the VAT layout, the clip table, the weapon tip, the bake, the rout and the known limits.
+  - Clips are appended after the reserved rows, in `pipeline/blender/soldier_anim_combat.py`. `char_anim.py` is untouched.
+    - med_spear: rows 162 to 392.
+    - c19sr_line: mk_*.
+  - Horses and cavalry are untouched (their motion, textures and materials are unchanged).
+  - What it does:
+    - Spear melee: a contact gap, front ranks thrusting and recovering, hits, collapse, and pk_guard.
+    - Real retreat: a staggered turn of about 180°, a forward jog, glances over the shoulder, stragglers, and loosening.
+    - Muskets: march, aim, fire and reload, with the flash and smoke at prop_tip.
+    - Bows: the arrow leaves at the release frame.
+    - Flag-on facing fix.
+  - Verified (flag off, compared with the baseline):
+    - Tests 163/163 and audio 28/28. 0 SCRIPT ERROR.
+    - Outcome hash `553cc500…`.
+    - SIMHASH SWE1800 `417a5300…`, USA1914 `4679c5a2…` and JPN1500 `e104d558…`, all identical.
+    - Demo hashes are identical with the flag off and on: spear `ae9064e0…`, musket `7da20616…`.
+  - Perf (llvmpipe 1280x720; a concurrent Godot from another agent added noise):
+    - units_us median: spear 1303→1458, retreat 1318→1456, musket 958→1069 (+10 to 12 %).
+    - Frame times are dominated by contention.
+  - Footage, at normal speed: `deliverables/anim-proto-v1/{spear,musket,retreat}_{on,off,before_after}.mp4`. Stills are in `deliverables/anim-proto-v1/stills/`.
+  - @BJORN:
+    - Please add a `weapon_tip` bone. We currently fall back to prop +Y.
+    - Should the grenadier and officer mk_* rows be appended in your bake or in mine?
+    - Can the combat clips be hooked into `char_build.py bake`?
+    - The legacy VAT yaw renders soldiers facing away from the enemy (atan2 sign). It is fixed only on the flag-on path. Should we fix it in legacy as well?
+- 2026-10-23 13:50 EDT (Rob, `proto/anim-combat-v1`):
+  - The retreat now walks at normal pace (be61c6c), and the footage was re-recorded (a2ee9d8).
+  - Horse gaits are motion only (74b9053):
+    - walk is a 4-beat gait, trot moves diagonal pairs, canter is 3-beat and gallop is a transverse 4-beat;
+    - there are transition clips between gaits;
+    - the head nods in sync with the gait.
+  - The appended VAT rows are 144–425. Legacy rows 0–143 are byte-identical, and no GLB, texture or material changed.
+  - Hash check: see `deliverables/anim-proto-v1/HASH_CHECK.md`. Results are identical to clean a3f4f35 with the flag off and with it on.
+  - @BJORN: if you re-bake cav from `cavalry.py`, please re-run `pipeline/blender/cavalry_anim_combat.py bake` afterwards. It appends the hv_* rows.
+- 2026-10-23 15:05 EDT (Rob, `proto/anim-combat-v1`, commits 3c2474b, 0a460c7, a010167, 6d914ba, plus this one):
+  - Horse gaits v2 (3c2474b). Root cause of "gaits look the same": the hv_* rows did play, but the legs barely moved (hoof travel 0.5–0.8 m vs 1.72 m for the legacy run, legs near full extension so the body bob dominated, upper legs hidden by the caparison), and knights (vmax ~6.07) never reached GAIT_UP 6.2, so the gallop never showed. Fix: larger swing overreach/lift/fold per gait, body lowered 3–9 cm so stance legs flex, GAIT_UP now [0.25, 1.35, 2.8, 5.6]. Stance amplitude unchanged, so cadence and v_nom are unchanged. Motion only; no horse GLB, texture or material changed.
+  - Cavalry death (3c2474b): when the sim marks a cav unit fled (or hides it), each horse plays cv_die_a/b/c (VAT rows 426–569, play-once, 48 frames), staggered 0–1.5 s per instance; riders fall, horses go down and stay. No ride-away. Sim timing untouched. Note: the sim freezes a fled unit's pos, so the legacy >260 hide is rarely reached; the trigger is the "fled" state.
+  - Infantry retreat is all-at-once: one turn moment for the whole regiment, walk pace (ANIMSPEED p50=p99=1.40 = walk), no fighting or glances after the turn.
+  - Footage: `deliverables/anim-proto-v1/{horse_side,charge,cavdie,retreat}_{on,off,before_after}.mp4`; strips in `stills/`.
+  - Checks @3c2474b: tests 163/163 (flag off and on), audio 28/28, SIMHASH and BattleView BATTLERESULT identical to a3f4f35 with the flag off and on. See HASH_CHECK.md.
+  - VAT total is now 570 rows; legacy rows 0–143 are md5-identical. @BJORN: if you re-bake cav, re-run `pipeline/blender/cavalry_anim_combat.py bake` afterwards.
+- **MERGED to `main` 2026-10-23 ~17:25 EDT (Rob, Kirk approved): `proto/anim-combat-v1` @5488984 merged into main e7964f8 (after the biome-framework/tropical/east_asia merges).** `--anim-v1` stays OFF by default.
+  - One conflict, in `battle_view.gd` (the preload block): kept both main's `BattleEnvironment`/`biome`/`env`/`_scatter_dry` and the `AC` preload. Everything else auto-merged; anim state is lazy per regiment, so v0.5 reinforcements (`_build_reg`/`_sync_regs`) work with the flag on.
+  - Checks on the merge vs a clean e7964f8 worktree: test_runner 205/205 (flag off and on), test_audio 28/28, test_env 0 failures (off and on), 0 SCRIPT ERROR in the suites. SIMHASH SWE1800 0b3153c6…, USA1914 a9beef57…, JPN1500 563be302…, identical (off and on). BattleView BATTLERESULT for SWE 1300/1650/1800 and USA 1914 and `--demo=reinforce`: identical to main (off and on).
+  - Flag-on anim demos (spear, musket, cav, cavdie with `--env=1 --env-prov=328`) run without script errors; the boreal biome renders with the new clips.
