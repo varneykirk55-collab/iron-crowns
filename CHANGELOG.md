@@ -17,6 +17,25 @@
 ### Region: east_asia (env/east_asia)
 - New `east_asia` biome: East Asian hill-country biome (Japan, Taiwan, Korea, eastern / southern China): sugi, red pine, evergreen broadleaf, maple, bamboo, sasa, azalea, susuki, mossy andesite, humid light; latitude gradient Hokkaido -> Okinawa / Taiwan. Render only. Evidence: evidence/env-east_asia/.
 
+## v0.6.0 — 2026-10-23 (UI and main menu refinement)
+Presentation only: battle logic, movement, reinforcement, AI, economy and diplomacy calculations are unchanged (`sim_hash` fingerprints are identical to v0.5.0).
+### Design system
+- New `scripts/ui/ui_kit.gd`: one palette (charcoal and aged iron, muted navy for selection, brass accents; red for military, blue for diplomacy, ochre for economy, green / amber for good / warning), one Theme (window, card, alert, bar and toast panels; primary, danger, order, ghost and toggle buttons; tooltips, scrollbars, sliders, focus ring) and shared builders. Typefaces: Cormorant SC for titles, Source Sans 3 for text (both SIL OFL 1.1, licences in `game/assets/fonts/`). The smallest text is 14 px in the 1600×900 layout, so it stays readable at 1366×768.
+### Title screen and new campaign
+- The dev-style start box is replaced by a title screen over a slowly drifting campaign map: Continue (newest save), New Campaign, Load Campaign, Settings, Credits and Quit.
+- New Campaign presents the five starting ages as cards with descriptions, the era's regiments and march speed, and only the playable nations (USA, Sweden, Japan) with their size and capital, then a clear summary and **Start Campaign**. The start years now come from `eras.json` (the old menu offered 1913, which started in the Age of Revolutions).
+### Campaign HUD
+- Top bar: nation and era, treasury with monthly net, manpower, population, stability meter, war status (enemies and exhaustion in the tooltip), date and pause / speed buttons.
+- Right column: command dock (Diplomacy, Economy, ✉ Inbox, Menu), military alert cards for spotted invasion forces (with *Go to*), and the Dispatches log, which was previously anchored off-screen together with the Inbox button.
+- Selection panel: fixed width and scrollable. Armies show strength, current order and destination with ETA; foreign provinces show owner, relations and nearest armies' Invade / Attack / Retake orders with days to arrive; own provinces show recruitment.
+- Windows have a frame with title and close button and dim the map behind them; clicking the map closes them (but not decisions such as deployment).
+- Confirmations for disbanding a regiment, declaring war, cancelling a treaty, loading, returning to the title and quitting. Disabled buttons explain why in their tooltip.
+- Diplomacy, Economy (treasury, income, expenses with upkeep highlighted, people, policy, stockpile, procurement, armies, provinces), Inbox (Military reports section, coloured category chips) and the deployment window were restyled.
+- The battle result is a framed card with engaged / losses / remaining for both sides.
+### Tests
+- New `ui` suite (6 checks; full run 216 / 216 after merging the combat-animation work, audio 28 / 28, test_env 0 failures): the title screen lists the right menu entries, ages and only playable nations; a campaign starts by mouse in every era; speed buttons and dock windows work by click; disbanding asks first; long panels scroll on screen; saving shows a notice and Continue resumes it.
+- `tests/ui_shots.tscn` captures the UI at any resolution; `tests/ui_demo.tscn` is a scripted walkthrough used for the demo video.
+
 ## v0.5.0 — 2026-10-23 (gameplay & AI refinement)
 ### Medieval combat: no more panic routs just before contact
 - **Diagnosis** (Sweden vs Norway 1300, real starting armies, 40 seeds): 15 of 80 spear regiments routed without ever reaching melee, and attackers won 40/40. The battle model has **no obstacles**; rocks are scenery only. The real causes were that a melee-only regiment on "hold" had no response to being shot, morale never recovered under the 4-second arrow cadence, and the 28-second "decisive phase" doubled arrow casualties right as the lines met. The Norwegian spearmen routed at a 4 m gap, wherever a rock happened to be.

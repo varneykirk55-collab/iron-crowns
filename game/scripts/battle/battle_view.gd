@@ -926,7 +926,7 @@ func _build_hud() -> void:
 		var fm := StyleBoxFlat.new(); fm.bg_color = Color(0.9, 0.8, 0.4); mor.add_theme_stylebox_override("fill", fm)
 		mor.fill_mode = men.fill_mode
 		v.add_child(mor)
-		var lbl := Label.new(); lbl.add_theme_font_size_override("font_size", 13)
+		var lbl := Label.new(); lbl.add_theme_font_size_override("font_size", 15)
 		if s == 1: lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		v.add_child(lbl)
 		hud_bars[s] = [men, mor, lbl]
@@ -934,11 +934,11 @@ func _build_hud() -> void:
 			h.add_child(v)
 			var mid := VBoxContainer.new(); mid.custom_minimum_size = Vector2(220, 0)
 			var bt := Label.new(); bt.text = "Battle of %s" % GameData.provinces[b["prov"]]["name"]; bt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			bt.add_theme_font_size_override("font_size", 18); bt.add_theme_color_override("font_color", Hud.GOLD)
+			bt.add_theme_font_override("font", UiKit.font("title")); bt.add_theme_font_size_override("font_size", 22); bt.add_theme_color_override("font_color", Hud.GOLD)
 			mid.add_child(bt)
 			hud_time = Label.new(); hud_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; hud_time.add_theme_font_size_override("font_size", 22)
 			mid.add_child(hud_time)
-			hud_date = Label.new(); hud_date.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; hud_date.add_theme_font_size_override("font_size", 12)
+			hud_date = Label.new(); hud_date.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; hud_date.add_theme_font_size_override("font_size", 14)
 			hud_date.add_theme_color_override("font_color", Hud.DIM)
 			mid.add_child(hud_date)
 			h.add_child(mid)
@@ -1005,30 +1005,42 @@ func _show_result() -> void:
 	result_shown = true
 	var res: Dictionary = b.get("result", sim.result())
 	print("BATTLERESULT ", JSON.stringify(verification_summary()))
+	# v0.6: framed result card (presentation only)
 	result_panel = PanelContainer.new()
+	result_panel.theme_type_variation = "WindowPanel"
 	result_panel.set_anchors_preset(Control.PRESET_CENTER)
-	result_panel.custom_minimum_size = Vector2(560, 0)
-	result_panel.position = Vector2(-280, -150)
+	result_panel.custom_minimum_size = Vector2(620, 0)
+	result_panel.position = Vector2(-310, -190)
 	hud.add_child(result_panel)
-	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 8); result_panel.add_child(v)
+	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 10); result_panel.add_child(v)
 	var w: int = res["winner"]
 	var ps: int = b["player_side"]
-	var t := Label.new()
-	t.text = ("VICTORY" if w == ps else "DEFEAT") if ps >= 0 else "%s VICTORIOUS" % Sim.nations[b["codes"][w]]["name"].to_upper()
-	t.add_theme_font_size_override("font_size", 42)
-	t.add_theme_color_override("font_color", Hud.GOLD if (ps < 0 or w == ps) else Hud.BAD)
+	var won := ps < 0 or w == ps
+	var t := UiKit.title(("VICTORY" if w == ps else "DEFEAT") if ps >= 0 else "%s VICTORIOUS" % Sim.nations[b["codes"][w]]["name"].to_upper(), 52, Hud.GOLD if won else Hud.BAD)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var l := Label.new()
-	l.text = "Battle of %s — %s wins after %d s of fighting.\n%s losses: %d of %d\n%s losses: %d of %d" % [GameData.provinces[b["prov"]]["name"], Sim.nations[b["codes"][w]]["name"], int(res["time"]),
-		Sim.nations[b["codes"][0]]["name"], int(res["losses"][0]), int(res["start"][0]), Sim.nations[b["codes"][1]]["name"], int(res["losses"][1]), int(res["start"][1])]
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(l)
-	var l2 := Label.new(); l2.text = "The defeated army retreats; casualties are applied to the campaign armies."
-	l2.add_theme_font_size_override("font_size", 12); l2.add_theme_color_override("font_color", Hud.DIM); l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var sub := UiKit.label("Battle of %s  ·  %s wins after %d:%02d of fighting" % [GameData.provinces[b["prov"]]["name"], Sim.nations[b["codes"][w]]["name"], int(res["time"]) / 60, int(res["time"]) % 60], 17, UiKit.TEXT)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sub)
+	var g := GridContainer.new(); g.columns = 4
+	g.add_theme_constant_override("h_separation", 22); g.add_theme_constant_override("v_separation", 6)
+	for hname in ["", "Engaged", "Losses", "Remaining"]:
+		g.add_child(UiKit.caption(hname))
+	for s3 in 2:
+		var f := FlagRect.new(); f.custom_minimum_size = Vector2(30, 20); f.set_nation(b["codes"][s3]); f.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var nm := UiKit.label(Sim.nations[b["codes"][s3]]["name"] + ("  (winner)" if s3 == w else ""), 16, Hud.GOLD if s3 == w else UiKit.TEXT, "semi")
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.add_child(UiKit.hrow([f, nm], 8))
+		g.add_child(UiKit.label(UiKit.fmt_int(res["start"][s3]), 16))
+		g.add_child(UiKit.label(UiKit.fmt_int(res["losses"][s3]), 16, Hud.BAD))
+		g.add_child(UiKit.label(UiKit.fmt_int(maxf(float(res["start"][s3]) - float(res["losses"][s3]), 0.0)), 16, UiKit.GOOD))
+	var card := PanelContainer.new(); card.theme_type_variation = "CardPanel"; card.add_child(g)
+	v.add_child(card)
+	var l2 := UiKit.label("The defeated army retreats; casualties are applied to the campaign armies.", 14, Hud.DIM)
+	l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(l2)
-	var bt := Button.new(); bt.text = "Return to campaign"; bt.custom_minimum_size = Vector2(0, 40)
-	bt.pressed.connect(func(): leave_requested.emit(bid))
+	var bt := UiKit.button("Return to campaign", func(): leave_requested.emit(bid), "primary")
+	bt.custom_minimum_size = Vector2(0, 46)
 	v.add_child(bt)
 
 # ======================================================================== per-frame
