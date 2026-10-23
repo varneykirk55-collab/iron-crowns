@@ -33,6 +33,7 @@ var heights := PackedFloat32Array()
 var vat := {}          # model -> {mesh:[m0,m1], tex:[t0,t1], json:[j0,j1]}
 var mms := {}          # key -> {mmi, mm, buf, n, cap}
 var props := {}        # model -> Mesh
+const ROCK_FREE := Vector2(190.0, 240.0)   # half-extents of the rock-free battle area (m), see _build_scenery
 var rv: Array = []     # per-reg visual state
 var banners: Array = []
 var particles := {"mix": [], "add": []}
@@ -261,6 +262,9 @@ func _build_scenery() -> void:
 	var ter: String = b["terrain"]
 	var clear_zone := func(p: Vector2) -> bool: return absf(p.x) > 140.0 or absf(p.y) > 230.0
 	var flank := func(p: Vector2) -> bool: return absf(p.x) > 150.0 and absf(p.x) < 470.0
+	# v0.5: boulders stay off the ground the regiments deploy and fight on. The battle model has no obstacles,
+	# so a rock in the fighting area only made formations look as if they walked into it (or fled from it).
+	var rock_ok := func(p: Vector2) -> bool: return absf(p.x) > ROCK_FREE.x or absf(p.y) > ROCK_FREE.y
 	match ter:
 		"forest":
 			_scatter("tree_conifer", 700, Vector2(1.6, 2.6), flank)
@@ -269,17 +273,17 @@ func _build_scenery() -> void:
 			_scatter("tree_palm", 600, Vector2(1.6, 2.4), clear_zone)
 			_scatter("tree_broadleaf", 600, Vector2(1.8, 2.8), flank)
 		"desert":
-			_scatter("rock", 160, Vector2(0.8, 2.6), func(p): return true)
+			_scatter("rock", 160, Vector2(0.8, 2.6), rock_ok)
 			_scatter("tree_palm", 30, Vector2(1.4, 2.0), clear_zone)
 		"tundra", "mountains":
 			_scatter("tree_conifer", 420, Vector2(1.4, 2.4), clear_zone)
-			_scatter("rock", 220, Vector2(1.0, 3.5), func(p): return true)
+			_scatter("rock", 220, Vector2(1.0, 3.5), rock_ok)
 		_:
 			_scatter("tree_broadleaf", 260, Vector2(1.5, 2.5), func(p): return absf(p.x) > 170.0 and fmod(absf(p.y) + 40.0, 160.0) < 40.0)
 			_scatter("tree_conifer", 80, Vector2(1.4, 2.2), clear_zone)
 			_scatter("house", 7, Vector2(1.6, 1.8), func(p): return absf(p.x) > 160.0 and absf(p.x) < 260.0 and absf(p.y) < 120.0)
 			_scatter("fence", 40, Vector2(1.5, 1.6), func(p): return absf(p.x) > 150.0 and absf(p.x) < 280.0 and absf(p.y) < 160.0)
-			_scatter("rock", 40, Vector2(0.6, 1.5), func(p): return true)
+			_scatter("rock", 40, Vector2(0.6, 1.5), rock_ok)
 	_scatter("bush", 500 if ter != "desert" else 60, Vector2(0.5, 1.1), func(p): return true, false)
 
 # ======================================================================== units

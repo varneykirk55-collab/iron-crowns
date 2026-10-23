@@ -50,6 +50,8 @@ func _run() -> void:
 		test_era_battles()
 	if only == "" or only == "gameplay":
 		await test_gameplay_script()
+	if only == "" or only == "medieval":
+		test_medieval_morale()
 	if only == "" or only == "offensive":
 		await test_offensive()
 	if only == "bench":
@@ -1588,3 +1590,93 @@ func test_offensive() -> void:
 	check("offensive: 4-year AI run still conquers (%d captures, %d recaptures, %d wars, %d nations eliminated) and leaves no landless nation without an army" % [Sim.stats["captures"], Sim.stats["recaptures"], Sim.stats["wars_declared"], Sim.stats["eliminated"]],
 		Sim.stats["captures"] > 0 and zombies.is_empty(), str(zombies))
 	Sim.auto_deploy = false
+
+# ---------------------------------------------------------------- v0.5: medieval morale, obstacles, ranged vs melee
+func _starting_sides(year: int, seed: int, a_code: String, d_code: String) -> Array:
+	Sim.new_game(a_code, year, seed)
+	var sides := []
+	for c in [a_code, d_code]:
+		var best := _main_army(c)
+		var lst := []
+		for i in best["units"].size():
+			var u: Dictionary = best["units"][i]
+			lst.append({"army_id": best["id"], "unit_index": i, "type": u["type"], "men": u["men"]})
+		sides.append(lst)
+	return sides
+
+func _fight(sides: Array, terr: String, ords: Array, seed: int) -> BattleSim:
+	var s := BattleSim.new()
+	s.setup(sides, terr, ords, seed)
+	s.record_events = true
+	s.run_to_end()
+	return s
+
+func test_medieval_morale() -> void:
+	print("== Medieval morale, obstacles and ranged vs melee (v0.5) ==")
+	# 1. nothing on the field but the enemy can cost morale: a regiment marching across every terrain type with no
+	#    enemy fire keeps full morale until it makes contact (the model has no obstacles; scenery is visual only)
+	var steady := true; var info := []
+	for terr in ["plains", "hills", "forest", "mountains", "desert", "tundra", "jungle"]:
+		var s := BattleSim.new()
+		s.setup([_units_for("medieval", ["inf"]), _units_for("medieval", ["inf"])], terr, [{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 5)
+		var r: Dictionary = s.regs[0]
+		while not s.done and r["contact_t"] < 0.0 and s.regs[1]["contact_t"] < 0.0:
+			s.step()
+			if r["contact_t"] >= 0.0 or s.regs[1]["contact_t"] >= 0.0: break
+			if r["morale"] < r["morale0"] - 0.001 or r["state"] == "rout":
+				steady = false; info.append("%s t=%.1f m=%.1f" % [terr, s.t, r["morale"]]); break
+	check("medieval: marching over any terrain without enemy fire never costs morale or causes a rout (scenery is not an obstacle)", steady, str(info))
+	# 2. Sweden vs Norway 1300 starting armies (the reported case): no spear/pike regiment breaks before contact
+	var pre := 0; var regs := 0; var contact := 0; var rshare := 0.0
+	for seed in 20:
+		var sides := _starting_sides(1300, seed + 1, "SWE", "NOR")
+		var s := _fight(sides, "plains", [BattleSim.ai_orders(sides[0], sides[1], false, "plains"), BattleSim.ai_orders(sides[1], sides[0], true, "plains")], 1000 + seed)
+		var rk := 0.0; var mk := 0.0
+		for e in s.events:
+			if e["k"] == "volley": rk += e["kills"]
+		for r in s.regs:
+			mk += r.get("mkills", 0.0)
+			if r["role"] == "inf":
+				regs += 1
+				if r["contact_t"] >= 0.0: contact += 1
+				elif r["rout_t"] >= 0.0: pre += 1
+		rshare += rk / maxf(rk + mk, 1.0) / 20.0
+	check("medieval SWE vs NOR 1300: spearmen reach melee instead of breaking under arrows (%d/%d made contact, %d routed before contact; v0.4.0 had 15/80 pre-contact routs)" % [contact, regs, pre],
+		pre == 0 and contact == regs, "")
+	check("medieval: archers stay dangerous (%.0f%% of kills are missiles)" % (rshare * 100.0), rshare > 0.5, "")
+	# 3. comparable mirror armies: neither attacking nor defending is a lock
+	var att := 0
+	for seed in 30:
+		var sides := [_units_for("medieval", ["inf", "ranged", "inf", "cav", "ranged"]), _units_for("medieval", ["inf", "ranged", "inf", "cav", "ranged"])]
+		var s := _fight(sides, "plains", [BattleSim.ai_orders(sides[0], sides[1], false, "plains"), BattleSim.ai_orders(sides[1], sides[0], true, "plains")], 2000 + seed)
+		if s.winner == 0: att += 1
+	check("medieval mirror battles stay contested (attacker wins %d/30)" % att, att >= 6 and att <= 24, "")
+	# 4. a decisive ranged victory is still possible: one spear regiment charging four archer regiments
+	var shot_down := 0
+	for seed in 8:
+		var s := _fight([_units_for("medieval", ["inf"]), _units_for("medieval", ["ranged", "ranged", "ranged", "ranged"])], "plains",
+			[{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 3000 + seed)
+		var r: Dictionary = s.regs[0]
+		if r["rout_t"] >= 0.0 and r["contact_t"] < 0.0: shot_down += 1
+	check("medieval: a lone spear regiment charging four archer regiments can still be shot to pieces before contact (%d/8)" % shot_down, shot_down >= 1, "")
+	# 5. legitimate routs remain: levy spearmen charged by knights break from melee losses
+	var melee_routs := 0
+	for seed in 8:
+		var s := _fight([_units_for("medieval", ["cav", "cav", "cav"]), _units_for("medieval", ["inf"])], "plains",
+			[{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}], 4000 + seed)
+		var r: Dictionary = s.regs[3]
+		if r["rout_t"] >= 0.0 and r["contact_t"] >= 0.0: melee_routs += 1
+	check("medieval: levy charged by three knight regiments still routs after melee losses (%d/8)" % melee_routs, melee_routs >= 6, "")
+	# 6. the holding regiment under fire counter-charges and gives up its prepared-position bonus
+	var s6 := BattleSim.new()
+	s6.setup([_units_for("medieval", ["ranged"]), _units_for("medieval", ["inf"])], "plains", [{"objective": "hold", "formation": "line"}, {"objective": "hold", "formation": "line"}], 77)
+	var z0: float = s6.regs[1]["pos"].y
+	s6.run_to_end()
+	var sp6: Dictionary = s6.regs[1]
+	check("medieval: a holding spear regiment sniped by archers out of reach does not stand still forever — it counter-charges (left_line=%s, contact at %.1fs, winner side %d)" % [str(sp6.get("left_line", false)), sp6["contact_t"], s6.winner],
+		sp6.get("left_line", false) and absf(sp6["pos"].y - z0) > 5.0, "")
+	# 7. scenery: battlefield boulders are kept off every era's deployment and fighting ground
+	var ok7 := true
+	for e in BattleSim.ERA_TUNE.keys():
+		if float(BattleSim.ERA_TUNE[e][1]) + 60.0 > BattleView.ROCK_FREE.y: ok7 = false
+	check("battle scenery: no rocks inside the %s m fighting area (covers every era's deployment depth)" % str(BattleView.ROCK_FREE), ok7, "")

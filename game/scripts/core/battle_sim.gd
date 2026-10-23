@@ -9,6 +9,9 @@ const MAX_TIME := 80.0
 const KF := 0.33          # ranged kill factor
 const MK := 0.028         # melee kill factor
 const MORALE_PER_LOSS := 230.0
+const CHARGE_ELAN := 0.7      # morale shock from missiles while a regiment is running in to close (v0.5)
+const COUNTER_CHARGE_GAP := 75.0     # a holding melee regiment under missile fire counter-charges within this gap (v0.5)
+const COUNTER_CHARGE_FAR := 150.0    # ...and from as far as bow/musket range once fire has cost it 60% of its morale (v0.5)
 
 const FORMATIONS := {
 	"line": {"ranks": 3, "fire": 1.0, "melee_def": 1.0, "morale": 0.0, "label": "Line"},
@@ -268,7 +271,13 @@ func _step_reg(i: int, r: Dictionary) -> void:
 	# out of range / melee unit: decide whether to advance
 	var go := true
 	if obj == "hold" and r["role"] != "cav":
-		go = gap < 22.0 and r["role"] != "art" and not can_fire
+		# a melee-only regiment holds its ground, but does not stand still to be shot down: when missiles are
+		# landing on it and the shooters are within charge distance, it counter-charges (v0.5)
+		var under_fire: bool = t - float(r["last_hit"]) < 4.5 and float(r["last_hit"]) > 0.0
+		var worn: bool = float(r["morale"]) < float(r["morale0"]) * 0.4
+		go = (gap < 22.0 or (under_fire and (gap < COUNTER_CHARGE_GAP or (worn and gap < COUNTER_CHARGE_FAR)))) and r["role"] != "art" and not can_fire
+		if go and gap >= 22.0:
+			r["left_line"] = true      # it gave up its prepared position: no "hold" defence bonus any more
 	elif obj == "bombard" and r["role"] in ["inf", "cav"]:
 		go = t > 16.0 or side_morale(1 - side) < 0.6
 	if r["role"] == "art":
@@ -313,7 +322,7 @@ func _volley(i: int, r: Dictionary, e: Dictionary, gap: float, eff: float) -> vo
 	var pen := clampf(float(d["lethality"]) / 4.0, 0.0, 1.0)
 	var armor_f := 1.0 - float(e["def"]["armor"]) * (1.0 - pen)
 	var cover := 1.0
-	if e["side"] == 1 and orders[1].get("objective", "") == "hold":
+	if e["side"] == 1 and orders[1].get("objective", "") == "hold" and not e.get("left_line", false):
 		cover = 0.85
 	var density := 1.0
 	if r["role"] == "art":
@@ -321,7 +330,11 @@ func _volley(i: int, r: Dictionary, e: Dictionary, gap: float, eff: float) -> vo
 	var kills := shooters * float(d["accuracy"]) * dist_f * _terrain_fire_mod() * armor_f * float(d["lethality"]) * KF * kill_scale * _ramp() * cover * density * rng.randf_range(0.8, 1.2)
 	kills = minf(kills, e["men"])
 	e["men"] -= kills
-	e["morale"] -= kills / e["men0"] * MORALE_PER_LOSS * (1.2 if r["role"] == "art" else 1.0)
+	# troops running in to close the distance take the morale shock of missile losses with some élan (v0.5)
+	var shock: float = kills / e["men0"] * MORALE_PER_LOSS * (1.2 if r["role"] == "art" else 1.0)
+	if e["running"] and e["state"] == "advance":
+		shock *= CHARGE_ELAN
+	e["morale"] -= shock
 	e["last_hit"] = t
 	r["kills"] += kills
 	r["fired"] += 1
@@ -332,7 +345,7 @@ func _melee(i: int, r: Dictionary, e: Dictionary) -> void:
 	var ed: Dictionary = e["def"]
 	var def_mod := float(FORMATIONS[orders[e["side"]].get("formation", "line")]["melee_def"])
 	if e["side"] == 1:
-		if orders[1].get("objective", "") == "hold":
+		if orders[1].get("objective", "") == "hold" and not e.get("left_line", false):
 			def_mod *= 1.2
 		if terrain in ["hills", "mountains"]:
 			def_mod *= 1.15
