@@ -18,7 +18,7 @@ import human_mh as HM, v3_parts as V3P
 from char_v2 import V, ss, lerp, gauss, limb, ring, grid_sweep, superellipsoid, set_slot
 
 C.KID = 'v3_c19_grenadier'
-C.SLOT_MAT.update({'fur': 'fur', 'gold': 'brass', 'scabbard': 'leather', 'sash': 'wool'})
+C.SLOT_MAT.update({'fur': 'fur', 'gold': 'brass', 'scabbard': 'leather', 'sash': 'wool', 'shoe': 'shoe_leather'})
 C.BODY_TRIS = 4250                       # LOD0 within 12k with the full grenadier kit (+ gaiter hem bands)
 HM.FIST['.L'] = 0.007                    # empty left hand: relaxed fist (not the open 35 mm musket grip)
 C.HEAD_BOX = (0.15, -0.15, 0.17, 2.07)   # bearskin gets head-level texel density

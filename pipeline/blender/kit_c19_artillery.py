@@ -19,7 +19,7 @@ from char_v2 import V, ss, lerp, limb, ring, grid_sweep, superellipsoid, set_slo
 C.KID = 'v3_c19_artillery'
 C.CLIP_STYLE = 'rammer'
 C.TIP_LOCAL = (0.0, 1.70, 0.0)          # rammer head end (weapon_tip on the prop)
-C.SLOT_MAT.update({'gold': 'brass', 'scabbard': 'leather', 'sponge': 'fur', 'felt': 'leather'})
+C.SLOT_MAT.update({'gold': 'brass', 'scabbard': 'leather', 'sponge': 'fur', 'felt': 'leather', 'shoe': 'shoe_leather'})
 C.BODY_TRIS = 5000
 C.HEAD_BOX = (0.15, -0.15, 0.17, 2.02)  # shako + plume get head-level texel density
 C.KIT_PAL = {'breeches': '#26315c', 'waist': '#26315c'}   # blue waistcoat + breeches (foot artillery)
