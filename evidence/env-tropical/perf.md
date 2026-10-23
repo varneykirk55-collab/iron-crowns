@@ -13,10 +13,13 @@ Same method as evidence/env-scandinavia/perf.md: `tests/env_shots.tscn`, 1600x90
 | q0 | water | 302 -> 360 | +19% | 176 -> 200 | 49 -> 79 |
 | q0 | horizon | 360 -> 490 | +36% | 217 -> 256 | 63 -> 112 |
 | q0 | top | 438 -> 456 | +4% | 237 -> 252 | 63 -> 77 |
-| q1 | overview | 1404 -> 2504 | +78% | 327 -> 408 | 85 -> 138 |
-| q1 | formation | 1151 -> 1976 | +72% | 271 -> 391 | 63 -> 106 |
-| q1 | forest_edge | 912 -> 3498 | +284% | 228 -> 628 | 57 -> 124 |
-| q1 | rocky | 916 -> 2572 | +181% | 212 -> 490 | 57 -> 115 |
+| q1 | overview | 1454 -> 2504 | +72% | 276 -> 408 | 85 -> 138 |
+| q1 | formation | 1108 -> 1976 | +78% | 218 -> 391 | 63 -> 106 |
+| q1 | forest_edge | 894 -> 3498 | +291% | 174 -> 628 | 57 -> 124 |
+| q1 | rocky | 903 -> 2572 | +185% | 171 -> 490 | 57 -> 115 |
+| q1 | water | 890 -> 1662 | +87% | 156 -> 458 | 57 -> 107 |
+| q1 | horizon | 1382 -> 2473 | +79% | 286 -> 606 | 87 -> 141 |
+| q1 | top | 1370 -> 1300 | -5% | 504 -> 318 | 83 -> 101 |
 | q2 | overview | 1390 -> 2708 | +95% | 304 -> 484 | 85 -> 140 |
 | q2 | formation | 1102 -> 2108 | +91% | 299 -> 439 | 61 -> 104 |
 | q2 | forest_edge | 886 -> 4010 | +353% | 224 -> 639 | 59 -> 127 |
@@ -53,7 +56,7 @@ Same method as evidence/env-scandinavia/perf.md: `tests/env_shots.tscn`, 1600x90
 
 
 ## Reading
-These numbers were re-shot at 4c0cd68 (perf trim) merged with framework 64c912d.
+These numbers were re-shot at 4c0cd68 (Manila q1 legacy re-run separately after an interrupted shot) (perf trim) merged with framework 64c912d.
 - **q0 (Low):** +29..+60 % CPU. Wide views are in the same range as Scandinavia.
 - **q1 / q2 forest-facing views (forest_edge, rocky):** still the most expensive at about 3.8-4.5x legacy. The cause is the multi-layer jungle wall (canopy, emergents, palms, thicket, ferns, bananas), which casts shadows at q1/q2 and is fill-bound on llvmpipe.
 - **Effect of the trim** (tree_cell 6.4 -> 7.0, thicket 3200 -> 2400), absolute after-CPU on forest_edge versus the pre-trim run:
