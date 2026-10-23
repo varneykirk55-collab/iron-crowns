@@ -131,4 +131,6 @@
 - [x] audio bot merged audio into lead-dev 07:45 (a526478, Kirk-approved) -> re-verified lead-dev: import 0 err, 140/140, 0e814dda, simhash same, test_audio 28/28 -> ships in v0.3.3
 - [x] docs fdd3571 -> main merge --no-ff 09e357d, tag v0.3.3 (annotated); main: import 0 err, 140/140, 0e814dda, simhash same, test_audio 28/28 (out/v033/main/)
 - [x] exports Linux + Windows (build/; pck 119 MB incl. audio); Linux smoke --closeup --vispass: BATTLE_RESULT winner=1 t=39.5 end_men [5039,5166], c19_officer MM 5+6 vis>0 (out/v033/smoke/)
-- [ ] perflog smoke + rec battle_SWE1800_v033 -> deliverables/v0.3.3 (out/v033/pkg/package_v033.py; Windows zip 111 MB -> top-level .001/.002 halves) + laptop_xfer w033/p033 + join033.ps1
+- [x] perflog smoke: same BATTLE_RESULT. Video: 1st rec.sh run timed out at 700 s (battle_t 37.2, exit 124; log kept as rec/battle_SWE1800_v033_try1_timeout.log); re-run with 1800 s -> exit 0, BATTLERESULT 39.5 s [5039,5166], mp4 61.9 s 1600x900 with audio, peak -4.1 dB
+- [x] deliverables/v0.3.3 via out/v033/pkg/package_v033.py: Windows zip 111 MB and Linux zip 101 MB exceed 95 MB -> top-level .001/.002 halves (rejoin sha verified); laptop_xfer w033 x11 + p033 x8 + join033.ps1 (CRLF, C:\Users\aresg\IronCrowns\v0.3.3), parts rejoin verified, SHA256SUMS OK, no file >= 95 MB
+- [x] removed /workspace/ic_v032_before worktree. v0.3.3 DONE.
