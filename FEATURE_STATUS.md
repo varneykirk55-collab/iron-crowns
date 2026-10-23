@@ -85,7 +85,7 @@ appear only in tests, not in this video. One weakness seen in the 1914 shots: a 
 | Build | Status |
 |---|---|
 | Linux x86_64 export | VERIFIED (xvfb/llvmpipe). The v0.3 export was run with the 1800 battle demo: it completed with no script errors, soldiers rendered (grenadier and gun-crew models included), and BATTLERESULT matched the editor run (39.5 s, end men [5039, 5166], Sweden wins). v0.1/v0.2 exports lacked the VAT data; fixed in v0.2.1. |
-| Windows x86_64 export | PARTIAL. v0.4.0 exported with the official 4.7.2 templates and attached to the GitHub release `v0.4.0` (`IronCrowns_v0.4.0_windows_x86_64.zip`); not run (no Windows machine / wine). The matching Linux export was run under xvfb and completed `--demo=invasion` (Mariehamn captured, undeclared). |
+| Windows x86_64 export | PARTIAL. v0.4.0 exported with the official 4.7.2 templates as `IronCrowns_v0.4.0_windows_x86_64.zip` (shared outside the repo; GitHub releases could not be created from the build session); not run (no Windows machine / wine). The matching Linux export was run under xvfb and completed `--demo=invasion` (Mariehamn captured, undeclared). |
 | Android | MISSING. No Android SDK or Android export templates on the build machine; touch input is implemented and tested with synthesized events. |
 
 ## Known issues / simplifications

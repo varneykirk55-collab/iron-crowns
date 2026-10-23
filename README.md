@@ -12,7 +12,7 @@ You play a country, not individual soldiers. You raise and equip armies, order t
 
 ### Prebuilt (no Godot needed)
 * **Linux x86_64:** `cd build/linux && ./GrandStrategy.x86_64`. Keep `GrandStrategy.pck` next to the binary.
-* **Windows x86_64:** download `IronCrowns_v0.4.0_windows_x86_64.zip` from the repository's **Releases → v0.4.0** page, unzip it anywhere, and double-click `GrandStrategy.exe` (keep `GrandStrategy.pck` in the same folder). If Windows SmartScreen warns about an unknown publisher, choose *More info → Run anyway*. You can also export it yourself: open `game/project.godot` in Godot 4.7.x → Project → Export → Windows. This build was exported but has **not been run on Windows**.
+* **Windows x86_64:** unzip `IronCrowns_v0.4.0_windows_x86_64.zip` (the v0.4.0 Windows export; it is too large for the repo, so it is shared alongside it) anywhere, and double-click `GrandStrategy.exe` (keep `GrandStrategy.pck` in the same folder). If Windows SmartScreen warns about an unknown publisher, choose *More info → Run anyway*. You can also export it yourself: open `game/project.godot` in Godot 4.7.x → Project → Export → Windows. This build was exported but has **not been run on Windows**.
 
 ### From source
 1. Install Godot **4.7.x** (standard build, not .NET).
