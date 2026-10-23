@@ -9,7 +9,7 @@ Renderer: Godot 4.7.2, GL Compatibility, on llvmpipe (software rendering on a sh
 - `keyframes/`: frames from the full battle video.
 - `perf.md`: frame cost before and after at q0, q1 and q2.
 - `ASSETS.md`: asset provenance and licence. Everything is procedural and original.
-- Video (not in git, it is too large): `/workspace/ic_env/out/video/env-scandinavia-battle.mp4`.
+- Video (not in git, 28 MB): `/workspace/ic_env/out/video/env-scandinavia-battle.mp4`. It is H.264 at 1600x900 and 30 fps, 51.6 s long, recorded with `--fixed-fps 30 --write-movie` so the battle plays at natural speed: deployment, 33.4 s of battle, then the result. `keyframes/battle_tNNs.jpg` are frames at video time NN s.
 
 ## Reproduce
 ```
@@ -43,3 +43,4 @@ See the header of `battle_environment.gd` and the Claude note in `COLLAB.md`. In
 ## Tests
 - sim_hash is identical to main: SWE 1800 `417a53009d4b9c30b4c938a756b33f78`, USA 1914 `4679c5a24c8d055f95c9ea95ff868193`, JPN 1500 `e104d558aa9370b28c02ca58db54ae33`.
 - test_runner 163/163, test_audio 28/28, and test_env 7/7.
+- Combat unchanged: the same demo battle at `--fixed-fps 30` with `--env=0` (legacy) and with the new environment (the video run) printed byte-identical `BATTLERESULT` lines. Both runs: DNK attacker vs SWE defender, 33.4 s, winner 1 (Sweden), end men 1232 / 4176. See `battle_result/`.
