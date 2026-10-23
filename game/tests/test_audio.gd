@@ -115,6 +115,9 @@ func _run() -> void:
 
 	print("== Audio: volume settings ==")
 	var mv0: float = A.music_volume; var sv0: float = A.sfx_volume
+	# The test must not leave its values in the player's real settings file: snapshot it and restore it at the end.
+	var cfg_had := FileAccess.file_exists(A.CFG_PATH)
+	var cfg_bytes := FileAccess.get_file_as_bytes(A.CFG_PATH) if cfg_had else PackedByteArray()
 	A.set_volume("music", 0.5); A.set_volume("sfx", 0.3)
 	var mi := AudioServer.get_bus_index(&"Music")
 	check("music slider -> Music bus dB", absf(AudioServer.get_bus_volume_db(mi) - (-2.0 + linear_to_db(0.25))) < 0.01, "%.2f dB" % AudioServer.get_bus_volume_db(mi))
@@ -227,7 +230,12 @@ func _run() -> void:
 	var f := FileAccess.open(out_path, FileAccess.WRITE)
 	if f: f.store_string(JSON.stringify(summary, "  "))
 	print("\n==== %d / %d audio checks passed (%.1f s) ====" % [summary["passed"], summary["total"], summary["seconds"]])
-	A.set_volume("music", mv0); A.set_volume("sfx", sv0)
+	A.set_volume("music", mv0, false); A.set_volume("sfx", sv0, false)
+	if cfg_had:
+		var fc := FileAccess.open(A.CFG_PATH, FileAccess.WRITE)
+		if fc: fc.store_buffer(cfg_bytes); fc.close()
+	elif FileAccess.file_exists(A.CFG_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(A.CFG_PATH))
 	get_tree().quit(fails)
 
 func _pct(a: Array[float], q: float) -> float:
