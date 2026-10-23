@@ -370,7 +370,7 @@ def bake_maps(H, L):
         sc.cycles.filter_width = 0.01 if nm == 'id' else 1.5
         t0 = time.time()
         kw = dict(type=typ)
-        if typ == 'NORMAL': kw.update(normal_space='TANGENT')
+        if typ == 'NORMAL': kw.update(normal_space='TANGENT' if NRM_FRAME == 'mikk' else 'OBJECT')
         bpy.ops.object.bake(**kw)
         log('baked', nm, round(time.time() - t0, 1), 's')
     explode(-1.0)
@@ -455,6 +455,81 @@ def detail_nodes(nt, df):
              math('MULTIPLY', math('SUBTRACT', 1.0, add(skin, wm)), C.NEUTRAL))
     cmb = N('ShaderNodeCombineXYZ'); L(lum, cmb.inputs[0]); L(d2, cmb.inputs[1])
     return cmb.outputs[0]
+
+NRM_FRAME = getattr(C, 'NRM_FRAME', os.environ.get('NRM_FRAME', 'shader'))   # 'mikk' = old tangent-space bake (shards on uv seams)
+
+def shader_frame_nrm(L, nobj):
+    """Re-express an OBJECT-space normal bake in the exact per-pixel frame char_vat.gdshaderinc rebuilds at runtime
+    (screen-derivative cotangent frame: t = -grad u / m, b = +grad v_blender / m with m = max(|grad u|, |grad v|), n =
+    interpolated vertex normal; Godot's dFdy runs down-screen, so det < 0; verified with a probe shader). A MikkTSpace bake
+    decoded in that frame is off per triangle wherever the low mesh is sheared / decimated, which showed as facets and
+    'shards' along uv seams; in this frame the decoded normal equals the high-poly normal on every texel of every triangle,
+    so seams and decimation facets vanish (the ear-fix result, everywhere). nobj: (TEX, TEX, 3) bottom-row-first rgb."""
+    me = L.data; me.calc_loop_triangles()
+    nt = len(me.loop_triangles)
+    tri_l = np.zeros(nt * 3, np.int64); me.loop_triangles.foreach_get('loops', tri_l); tri_l = tri_l.reshape(-1, 3)
+    tri_v = np.zeros(nt * 3, np.int64); me.loop_triangles.foreach_get('vertices', tri_v); tri_v = tri_v.reshape(-1, 3)
+    uv = np.zeros(len(me.loops) * 2); me.uv_layers['atlas'].data.foreach_get('uv', uv); uv = uv.reshape(-1, 2)
+    co = np.zeros(len(me.vertices) * 3); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    try:
+        ln = np.zeros(len(me.loops) * 3); me.corner_normals.foreach_get('vector', ln); ln = ln.reshape(-1, 3)
+    except AttributeError:
+        me.calc_normals_split(); ln = np.zeros(len(me.loops) * 3); me.loops.foreach_get('normal', ln); ln = ln.reshape(-1, 3)
+    U = uv[tri_l]; P = co[tri_v]; Nl = ln[tri_l]
+    # per-triangle surface gradients of u, v
+    e1 = P[:, 1] - P[:, 0]; e2 = P[:, 2] - P[:, 0]
+    d1 = U[:, 1] - U[:, 0]; d2 = U[:, 2] - U[:, 0]
+    fn = np.cross(e1, e2); A2 = np.maximum((fn * fn).sum(1), 1e-30)
+    # grad f = (df1 * (e2 x n_) ... ) closed form: grad f = ((df1) * cross(fn, e2)... use dual basis of (e1, e2) in the plane
+    g11 = (e1 * e1).sum(1); g12 = (e1 * e2).sum(1); g22 = (e2 * e2).sum(1); det = np.maximum(g11 * g22 - g12 * g12, 1e-30)
+    def grad(df1, df2):
+        a = (df1 * g22 - df2 * g12) / det; b = (df2 * g11 - df1 * g12) / det
+        return a[:, None] * e1 + b[:, None] * e2
+    gu = grad(d1[:, 0], d2[:, 0]); gv = grad(d1[:, 1], d2[:, 1])
+    m = np.maximum(np.maximum(np.linalg.norm(gu, axis=1), np.linalg.norm(gv, axis=1)), 1e-12)
+    T = -gu / m[:, None]; Bv = -gv / m[:, None]   # columns for (tx, ty) of the DECODED (nt*2-1) texel, see docstring
+    # rasterise triangle ids + barycentrics (texel centres), bottom row first like Blender pixels
+    R = TEX; tid = np.full((R, R), -1, np.int64)
+    for i in range(nt):
+        t = U[i] * R
+        x0, y0 = np.floor(t.min(0)).astype(int); x1, y1 = np.ceil(t.max(0)).astype(int)
+        x0, y0 = max(x0, 0), max(y0, 0); x1, y1 = min(x1, R), min(y1, R)
+        if x1 <= x0 or y1 <= y0: continue
+        gx, gy = np.meshgrid(np.arange(x0, x1) + 0.5, np.arange(y0, y1) + 0.5)
+        a, b, c = t; dd = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1])
+        if abs(dd) < 1e-12: continue
+        l1 = ((b[1] - c[1]) * (gx - c[0]) + (c[0] - b[0]) * (gy - c[1])) / dd
+        l2 = ((c[1] - a[1]) * (gx - c[0]) + (a[0] - c[0]) * (gy - c[1])) / dd
+        ins = (l1 >= -1e-6) & (l2 >= -1e-6) & (1 - l1 - l2 >= -1e-6)
+        sub = tid[y0:y1, x0:x1]; sub[ins] = i
+    # margin texels (bake margin / bilinear taps): nearest triangle by dilation
+    for _ in range(10):
+        miss = tid < 0
+        if not miss.any(): break
+        for sh, ax in ((1, 0), (-1, 0), (1, 1), (-1, 1)):
+            nb = np.roll(tid, sh, ax); f = miss & (nb >= 0); tid[f] = nb[f]; miss = tid < 0
+    ys, xs = np.nonzero(tid >= 0); ti = tid[ys, xs]
+    q = np.stack([(xs + 0.5) / R, (ys + 0.5) / R], 1)
+    a, b, c = U[ti, 0], U[ti, 1], U[ti, 2]
+    dd = (b[:, 1] - c[:, 1]) * (a[:, 0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (a[:, 1] - c[:, 1])
+    dd = np.where(np.abs(dd) < 1e-14, 1e-14, dd)
+    l1 = ((b[:, 1] - c[:, 1]) * (q[:, 0] - c[:, 0]) + (c[:, 0] - b[:, 0]) * (q[:, 1] - c[:, 1])) / dd
+    l2 = ((c[:, 1] - a[:, 1]) * (q[:, 0] - c[:, 0]) + (a[:, 0] - c[:, 0]) * (q[:, 1] - c[:, 1])) / dd
+    l1 = np.clip(l1, -0.5, 1.5); l2 = np.clip(l2, -0.5, 1.5); l3 = 1 - l1 - l2
+    n = Nl[ti, 0] * l1[:, None] + Nl[ti, 1] * l2[:, None] + Nl[ti, 2] * l3[:, None]
+    n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+    h = nobj[ys, xs] * 2.0 - 1.0; h /= np.maximum(np.linalg.norm(h, axis=1, keepdims=True), 1e-12)
+    G = np.stack([T[ti], Bv[ti], n], 2)   # columns
+    ok = np.abs(np.linalg.det(G)) > 1e-6
+    ts = np.zeros_like(h); ts[:, 2] = 1.0
+    ts[ok] = np.linalg.solve(G[ok], h[ok][..., None])[..., 0]
+    ts[:, 2] = np.maximum(ts[:, 2], 0.05)
+    ts /= np.linalg.norm(ts, axis=1, keepdims=True)
+    out = np.zeros((R, R, 3), np.float32); out[..., 2] = 1.0
+    out[ys, xs] = ts
+    flat = 1.0 - ts[:, 2]
+    log('nrm frame: texels', len(ti), 'mean tilt', round(float(flat.mean()), 4), 'p99', round(float(np.percentile(flat, 99)), 4))
+    return out * 0.5 + 0.5
 
 def finish_maps(px):
     """-> nrm RGBA8 (xyz tangent normal, a = AO) and id RGBA8 (r = slot * 8, g = material * 16, b = team mask), top row first."""
@@ -585,6 +660,7 @@ def main():
     H, L = build_meshes()
     unwrap(L)
     px = bake_maps(H, L)
+    if NRM_FRAME == 'shader': px['nrm'][..., :3] = shader_frame_nrm(L, px['nrm'][..., :3])
     nrm8, id8, ids_top = finish_maps(px)
     save_png(nrm8, os.path.join(OUTP, f'{KID}_nrm_ao.png')); save_png(id8, os.path.join(OUTP, f'{KID}_id.png'))
     alb = np.clip(np.round(px['alb'][..., :3] * 255), 0, 255).astype(np.uint8)[::-1]
