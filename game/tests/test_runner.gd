@@ -489,6 +489,7 @@ func test_camera_determinism() -> void:
 	var kinds: Array = quiet["shots"].keys()
 	check("camera: director cut between event-driven shots", quiet["cuts"] >= 4 and kinds.size() >= 3 and (kinds.has("low_angle") or kinds.has("flank") or kinds.has("tracking")),
 		"%d cuts, shot kinds %s" % [quiet["cuts"], str(kinds)])
+	check("camera: director switches to the aftermath shot when the battle ends", kinds.has("aftermath"), str(kinds))
 	check("camera: no invalid (NaN/inf) camera positions", not quiet["nan"] and not noisy["nan"], "")
 	Sim.auto_deploy = true
 

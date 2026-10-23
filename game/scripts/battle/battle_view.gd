@@ -553,7 +553,7 @@ func _update_cam_ui() -> void:
 		cam_label.text = ("🎥 %s shot" % SHOT_NAMES.get(shot_kind, shot_kind)) if cam_auto else ("Overhead camera — L-stick pan · R-stick orbit/zoom · Y cinematic · RB speed · Back leave" if Controls.last_device == "joy" else ("Overhead camera — drag to pan · pinch to zoom · twist to rotate" if Controls.last_device == "touch" else "Overhead camera — drag to pan, wheel to zoom, right-drag to orbit · C cinematic · T speed · L leave"))
 
 func _cand(kind: String, s_i: int, d_i: int, pri: float) -> void:
-	if s_i < 0 or s_i >= sim.regs.size():
+	if (s_i < 0 and kind != "aftermath") or s_i >= sim.regs.size():   # aftermath is the only subject-less candidate
 		return
 	for c in _cands:
 		if c["kind"] == kind and c["s"] == s_i:
@@ -641,9 +641,16 @@ func _cine_pose() -> Array:
 			var cp3 := m + Vector2(sin(ang), cos(ang)) * 26.0
 			return [Vector3(cp3.x, h_at(cp3.x, cp3.y) + 1.6, cp3.y), Vector3(m.x, h_at(m.x, m.y) + 4.5, m.y)]
 		"aftermath":
-			var c := _centroid(-1)
+			# slow orbit around the side holding the field, sized to its spread
+			var ws: int = sim.winner if sim.winner >= 0 else -1
+			var c := _centroid(ws)
+			var spread := 0.0
+			for r in sim.regs:
+				if (ws < 0 or r["side"] == ws) and sim.active(r):
+					spread = maxf(spread, (r["pos"] - c).length())
+			var dist2 := clampf(spread * 1.3 + 40.0, 70.0, 170.0)
 			var ang2 := base_yaw + 0.4 + shot_t * 0.05
-			return [Vector3(c.x + sin(ang2) * 160.0, h_at(c.x, c.y) + 75.0, c.y + cos(ang2) * 160.0), Vector3(c.x, h_at(c.x, c.y), c.y)]
+			return [Vector3(c.x + sin(ang2) * dist2, h_at(c.x, c.y) + dist2 * 0.42, c.y + cos(ang2) * dist2), Vector3(c.x, h_at(c.x, c.y) + 1.0, c.y)]
 	# establishing: wide, slow orbit over the whole field
 	var c2 := _centroid(-1)
 	var ang3 := base_yaw + 0.35 + shot_t * 0.025
@@ -1026,9 +1033,15 @@ func verification_summary() -> Dictionary:
 		units.append({"side": r["side"], "id": r["def"]["id"], "era": r["def"]["era"], "model": r["def"]["model"], "role": r["role"],
 			"armor": r["def"]["armor"], "men0": int(r["men0"]), "men": int(r["men"]), "kills": int(r["kills"]), "mkills": int(r.get("mkills", 0.0))})
 		kills += r["kills"]; mk += r.get("mkills", 0.0)
+	var defs := {}
+	for r in sim.regs:
+		defs[r["def"]["model"]] = true
 	var models := {}
 	for k in mms.keys():
-		models[str(k).split("|")[0]] = true
+		var nm: String = str(k).split("|")[0]
+		if (nm.begins_with("P") or nm.begins_with("W")) and defs.has(nm.substr(1)):
+			nm = nm.substr(1)   # gun/vehicle team-coloured part (P) and wheels/base (W) multimeshes
+		models[nm] = true
 	return {"era": GameData.eras[Sim.era]["id"], "codes": b["codes"], "winner": sim.winner, "battle_s": snappedf(sim.t, 0.1),
 		"start_men": sim.start_men, "end_men": [int(sim.side_men(0)), int(sim.side_men(1))], "melee_share": snappedf(mk / maxf(kills, 1.0), 0.001),
 		"projectiles": proj_stats, "render_models": models.keys(), "units": units}
