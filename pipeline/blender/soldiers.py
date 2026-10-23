@@ -3,7 +3,7 @@ Character faces +Y in Blender (=> -Z forward in Godot). Run: blender -b --python
 import sys, os, math
 sys.path.insert(0, os.path.dirname(__file__))
 import bpy
-import common, rigkit
+import common, rigkit, c19_kit
 from common import hexc, MeshBuilder
 
 BONES = [
@@ -35,12 +35,14 @@ VARIANTS = {
     'med_archer': dict(coat=TEAM, legs=hexc('5b4a3a'), hat='hood', weapon='bow', quiver=True, style='bow'),
     'em_pike':    dict(coat=TEAM, legs=hexc('3c342c'), hat='morion', weapon='pike', style='spear'),
     'em_musket':  dict(coat=TEAM, legs=hexc('3c342c'), hat='widehat', weapon='musket', style='gun'),
-    'c19_line':   dict(coat=TEAM, legs=WHITE, hat='shako', weapon='musket_bayonet', belts=True, style='gun'),
+    'c19_line':   dict(coat=TEAM, legs=WHITE, hat='shako', weapon='musket_bayonet', belts=True, style='gun', builder='c19_line'),
     'c20_rifle':  dict(coat=DRAB, legs=DRAB_DARK, hat='brodie', weapon='rifle', pack=True, style='gun', armband=True),
     'mod_rifle':  dict(coat=CAMO, legs=CAMO, hat='modern', weapon='carbine', vest=True, style='gun', armband=True),
 }
 
 def build_body(name, kit, detail):
+    if kit.get('builder') == 'c19_line':  # visual pass: detailed Napoleonic kit (pipeline/blender/c19_kit.py)
+        return c19_kit.line_infantry(name, GROUPS, detail)
     s = 8 if detail else 5
     b = MeshBuilder(name, GROUPS)
     coat, legs = kit['coat'], kit['legs']
