@@ -8,8 +8,8 @@ extends RefCounted
 ##  * 1300 spears: formation stops at a contact gap (no interpenetration), front two ranks run a per-soldier
 ##    guard -> thrust -> recover cycle (hash-desynced), neighbours of a casualty flinch (pk_hit), deaths alternate
 ##    die / pk_collapse, a broken regiment holds for a staggered moment, each soldier turns ~180 deg in 0.3-0.6 s and
-##    walks away at the regiment's normal pace and cadence facing his velocity (pk_withdraw / pk_withdraw_look glance;
-##    the view no longer follows the sim's 2.4x rout speed), formation loosening, stragglers lag; advance = pk_advance (no foot slide at 1.4 m/s), charge = pk_charge.
+##    whole regiment turns at once and walks away as one body at the normal pace and cadence (pk_withdraw; no stagger,
+##    stragglers or glance-backs; the view no longer follows the sim's 2.4x rout speed); advance = pk_advance (no foot slide at 1.4 m/s), charge = pk_charge.
 ##  * c19 muskets: front ranks bring the musket up (mk_aim) as the sim's fire cooldown runs out, each shot plays
 ##    mk_fire with the flash / smoke / ball spawned from the baked muzzle position at the shot frame, then mk_reload
 ##    (speed fitted to the unit's fire interval) and back to shoulder arms; march = mk_march.
@@ -18,6 +18,8 @@ extends RefCounted
 const BattleVisuals := preload("res://scripts/battle/battle_visuals.gd")
 
 static var on := false
+static var dbg_k := -1        # demo/debug only: record what instance dbg_k of regiment 0 is fed (clip row, time, LOD, buffer slot)
+static var dbg := {}
 
 const G_SPEAR := 2.7        # m between the two front ranks in melee (spear reach), sim engages at <= 1.6
 const TURN_RATE := 3.2      # rad/s, soldiers turn instead of snapping
@@ -182,21 +184,14 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 			var face := facing
 			var hk := h(fi * 131.0 + float(k), 1.0)
 			if routing:
-				# real retreat at normal pace: hold a staggered moment, turn ~180 deg (0.3-0.6 s), then WALK away at the
-				# regiment's normal speed and cadence (+-3 %, stragglers 4-8 % slower, never faster), facing the direction
-				# of travel; formation loosens slowly (lateral scatter), a few glance back, stragglers start late
-				var hs := h(float(k), fi + 31.0)
-				var straggler := hs < 0.12
-				var nranks := maxf(ceilf(float(n) / float(files)), 1.0)
-				var delay := 0.1 + h(float(k), fi + 7.0) * 0.6 + (1.0 - float(rank) / nranks) * 0.25   # rear ranks go first
-				if straggler:
-					delay += 0.6 + hs * 6.0
-				var turn_d := 0.3 + h(float(k), fi + 41.0) * 0.3
+				# all-or-nothing retreat at normal pace (Kirk): the whole regiment turns at the same moment (one turn time,
+				# no rear-first order, no stragglers, no late starts), then walks off together at the regiment's normal
+				# speed and cadence; only a slight per-soldier phase in the walk cycle so it is not robotic
+				var delay := 0.15
+				var turn_d := 0.45
 				var away := -facing
 				var et := rt - delay   # time since this soldier started to turn
-				var jit := 0.97 + h(float(k), fi + 71.0) * 0.06
-				if straggler: jit = 0.92 + hs * 0.33
-				var vs := walk_v * jit   # this soldier's ground speed, <= 1.03 x normal
+				var vs := walk_v   # one pace for the whole body
 				if et < 0.0:
 					face = toward if toward.length() > 0.5 else facing
 					cname = "pk_guard" if kind == 1 else "idle"; ct = -phase[k] * 2.0; cur = 12 if kind == 1 else 0
@@ -207,7 +202,7 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 					if tw > 0.0:
 						dist_w = vs * (tw * tw / 0.7 if tw < 0.35 else tw - 0.175)
 					var lat := Vector2(-away.y, away.x)
-					var loosen := clampf(et / 8.0, 0.0, 1.0)
+					var loosen := clampf(et / 10.0, 0.0, 1.0) * 0.35   # the block stays a block
 					var slot0: Vector2 = bv._slot_world(r, v, k, rc, facing) + rshift
 					var tgt_p := slot0 + away * dist_w + lat * (h(float(k), fi + 51.0) - 0.5) * 2.4 * loosen
 					var dv2 := tgt_p - p
@@ -218,7 +213,7 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 					var vel := (p - p0) / maxf(dt, 1e-4)
 					var sp := vel.length()
 					# heading: the flight direction (with a per-soldier bias so they turn both ways), then the velocity
-					face = away.rotated((h(float(k), fi + 81.0) - 0.5) * 0.5)
+					face = away.rotated(0.12)   # everyone wheels the same way
 					if et > turn_d and sp > 0.3:
 						face = vel / sp
 					var cad := clampf(vs / 1.4, 0.6, 1.8)   # same cadence law as the normal advance (pk_advance / mk_march)
@@ -228,8 +223,7 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 							cname = "idle"; spd = 1.0; cur = 0
 					else:
 						# pk_flee is no longer used for the retreat (it read as a sprint): everyone walks
-						var look := h(float(k), fi + 101.0) < (0.45 if straggler else 0.18)
-						cname = "pk_withdraw_look" if look else "pk_withdraw"; cur = 19 if look else 17
+						cname = "pk_withdraw"; cur = 17   # no glance-backs (read as hesitation)
 						ct = -phase[k]; spd = cad
 						if sp < 0.2:
 							cname = "pk_guard"; ct = -phase[k] * 2.0; spd = 1.0; cur = 12
@@ -408,7 +402,7 @@ static func _flush_shots(bv, v: Dictionary, r: Dictionary, vt: float) -> void:
 # ---------------- cavalry (kind 3): gaits from pipeline/blender/cavalry_anim_combat.py ----------------
 ## Gait ladder; hv_<a>_<b> transition clips join phase 0 of one gait to phase 0 of the next.
 const GAITS := ["stand", "walk", "trot", "canter", "gallop"]
-const GAIT_UP := [0.25, 1.35, 2.8, 6.2]   # m/s: switch up above, down below (minus GAIT_HYST)
+const GAIT_UP := [0.25, 1.35, 2.8, 5.6]   # m/s: switch up above, down below (minus GAIT_HYST); 5.6 so a knight charge (cap ~6.1) reaches the gallop
 const GAIT_HYST := 0.3
 const GAIT_DWELL := 0.4
 const CAV_ACC := 3.0      # m/s^2 speeding up
@@ -475,17 +469,22 @@ static func _update_cav(bv, i: int, v: Dictionary, r: Dictionary, dt: float, vt:
 	v["ac_cvraw"] = raw
 	var cv: Vector2 = (v["ac_cv"] as Vector2).lerp(raw, minf(dt * 5.0, 1.0))
 	v["ac_cv"] = cv
-	# rout: canter away at the regiment's NORMAL speed (def.speed), not the sim's 2.4x
+	# rout (Kirk): broken cavalry do NOT turn and ride away. They rein in where they broke and mill about; the moment the
+	# sim takes them off the field (state "fled", or the legacy far-away hidden test; sim timing unchanged) is shown as their DEATH: each rider is thrown / falls and
+	# each horse stumbles, buckles at the front knees and rolls onto its side, staggered 0-1.5 s per instance; the
+	# bodies stay on the field (drawn until the view is freed; no BattleView.rng draws for them)
 	if routing and float(v["ac_rout_t"]) < 0.0:
 		v["ac_rout_t"] = vt; v["ac_rc"] = v.get("ac_lastc", center)
 	elif not routing:
 		v["ac_rout_t"] = -1.0; v["ac_lastc"] = center
 		v.erase("ac_vis_c"); v.erase("ac_vis_f")
 	var rt: float = vt - float(v["ac_rout_t"])
-	var walk_v: float = float(r["def"]["speed"])
 	var rc: Vector2 = v.get("ac_rc", center)
 	if routing:
-		v["ac_vis_c"] = rc - facing * walk_v * maxf(rt - 1.5, 0.0); v["ac_vis_f"] = -facing; v["ac_vis_hidden"] = hidden
+		v["ac_vis_c"] = rc; v["ac_vis_f"] = facing; v["ac_vis_hidden"] = hidden
+	if (hidden or st == "fled") and float(v.get("ac_die_t", -1.0)) < 0.0:   # the sim has taken them off the field
+		v["ac_die_t"] = vt
+	var die_t0: float = v.get("ac_die_t", -1.0)
 	var pos: PackedVector2Array = v["pos"]; var yaw: PackedFloat32Array = v["yaw"]
 	var phase: PackedFloat32Array = v["phase"]; var dead: PackedFloat32Array = v["dead"]
 	var vel: PackedVector2Array = v["ac_vel"]; var g: PackedInt32Array = v["ac_g"]; var tr: PackedInt32Array = v["ac_tr"]
@@ -498,26 +497,26 @@ static func _update_cav(bv, i: int, v: Dictionary, r: Dictionary, dt: float, vt:
 		var p: Vector2 = pos[k]
 		var dk := dead[k]
 		var c := Vector2.ZERO; var ct := 0.0; var spd := 1.0
-		if dk < 0.0:
+		if dk < 0.0 and die_t0 >= 0.0 and vt >= die_t0 + h(float(k), fi + 131.0) * 1.5:
+			# dying / dead horse + rider: play the collapse once from its own start time, then hold the body
+			var dtk := die_t0 + h(float(k), fi + 131.0) * 1.5
+			var hv := h(float(k), fi + 137.0)
+			c = _clip(bv, model, "cv_die_a" if hv < 0.34 else ("cv_die_b" if hv < 0.67 else "cv_die_c"))
+			ct = dtk; spd = 0.85 + h(float(k), fi + 139.0) * 0.3
+			vel[k] = Vector2.ZERO
+		elif dk < 0.0:
 			var face := facing
 			var vd := Vector2.ZERO
 			if routing:
-				var delay := 0.2 + h(float(k), fi + 7.0) * 0.9
-				var et := rt - delay
-				var jit := 0.97 + h(float(k), fi + 71.0) * 0.06
-				var vs := walk_v * jit
-				var away := -facing
+				# broken: rein in near where the regiment broke, ranks loosen, horses mill (no turning away)
 				var slot0: Vector2 = bv._slot_world(r, v, k, rc, facing)
-				var dist_w := 0.0
-				var tw := et - 0.6   # wheel about first, then move off (accelerating ~1.2 s)
-				if tw > 0.0:
-					dist_w = vs * (tw * tw / 2.4 if tw < 1.2 else tw - 0.6)
-				var lat := Vector2(-away.y, away.x)
-				var tp := slot0 + away * dist_w + lat * (h(float(k), fi + 51.0) - 0.5) * 3.0 * clampf(et / 8.0, 0.0, 1.0)
-				vd = (tp - p) * 1.5 + (away * vs * clampf(tw / 1.2, 0.0, 1.0) if tw > 0.0 else Vector2.ZERO)
-				if vd.length() > vs * 1.03:
-					vd = vd.normalized() * vs * 1.03
-				face = away.rotated((h(float(k), fi + 81.0) - 0.5) * 0.6) if et > 0.0 else toward
+				var lat := Vector2(-facing.y, facing.x)
+				var mill := clampf(rt / 4.0, 0.0, 1.0)
+				var tp := slot0 + lat * (h(float(k), fi + 51.0) - 0.5) * 1.6 * mill + facing * (h(float(k), fi + 53.0) - 0.5) * 1.2 * mill
+				vd = (tp - p) * 0.8
+				if vd.length() > 1.2:
+					vd = vd.normalized() * 1.2
+				face = facing.rotated((h(float(k), fi + 81.0) - 0.5) * 1.2 * mill + sin(vt * 0.7 + phase[k] * 6.0) * 0.15 * mill)
 			else:
 				var slot: Vector2 = bv._slot_world(r, v, k, center, facing)
 				if st == "melee" and k / files < 3:   # same press / sway as the legacy loop
@@ -584,16 +583,19 @@ static func _update_cav(bv, i: int, v: Dictionary, r: Dictionary, dt: float, vt:
 							ph[k] = fposmod(nph, 1.0)
 							c = _clip(bv, model, "hv_" + GAITS[g[k]])
 							ct = vt - ph[k] * cnt / (24.0 * spd)
-		if hidden and dk < 0.0:
+		if hidden and dk < 0.0 and die_t0 < 0.0:
 			continue
 		var y: float = bv.h_at(p.x, p.y)
 		var d2 := cpos.distance_to(Vector3(p.x, y, p.y))
 		var lod := 1 if d2 > bv.LOD_DIST else 0
 		if dk >= 0.0:
 			c = _clip(bv, model, "die"); ct = dk; spd = 1.0
-		bv._put(bv.mms["%s|%d|%d" % [model, side, lod]], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd), Color(1, 1, 1, 1))
+		var mmk := "%s|%d|%d" % [model, side, lod]
+		if i == 0 and k == dbg_k:
+			dbg = {"key": mmk, "slot": int(bv.mms[mmk]["n"]), "start": c.x, "cnt": c.y, "ct": ct, "spd": spd, "g": g[k], "tr": tr[k], "s": sf[k], "pos": p}
+		bv._put(bv.mms[mmk], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd), Color(1, 1, 1, 1))
 		# dust under fast cavalry: the legacy draw, same condition and order
-		if dk < 0.0 and r["moving"] and bv.rng.randf() < dt * 0.6:
+		if dk < 0.0 and not hidden and r["moving"] and bv.rng.randf() < dt * 0.6:
 			bv.puff("mix", Vector3(p.x, y + 0.4, p.y), Vector3(0, 0.6, 0), 2.5, 1.0, 3.5, Color(0.55, 0.47, 0.36, 0.45))
 	v["pos"] = pos; v["yaw"] = yaw; v["ac_vel"] = vel; v["ac_g"] = g; v["ac_tr"] = tr
 	v["ac_ph"] = ph; v["ac_trt"] = trt; v["ac_trs"] = trs; v["ac_dw"] = dw; v["ac_sf"] = sf

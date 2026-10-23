@@ -15,6 +15,7 @@ var last := 0
 var cam_c := Vector2.ZERO
 var sp_prev := PackedVector2Array()
 var gait_log := {}
+var side_k := -1
 var sp_log := {"rout": [], "walk": []}   # rendered ground speed (m/s) of the --focus regiment's living soldiers
 
 func _ready() -> void:
@@ -25,7 +26,7 @@ func _ready() -> void:
 	scene = a.get("scene", "spear"); out = a.get("out", "/tmp/anim_demo"); tag = a.get("tag", scene)
 	dur = float(a.get("dur", "60"))
 	DirAccess.make_dir_recursive_absolute(out)
-	var year := 1300 if scene in ["spear", "cav"] else 1800
+	var year := 1300 if scene in ["spear", "cav", "cavdie"] else 1800
 	Sim.new_game("FRA" if Sim.nations.has("FRA") else "SWE", year, 7)
 	Sim.set_speed(0)
 	var codes: Array = ["FRA", "ENG"] if (Sim.nations.has("FRA") and Sim.nations.has("ENG")) else Sim.nations.keys().slice(0, 2)
@@ -34,6 +35,9 @@ func _ready() -> void:
 	if scene == "spear":   # two blocks a side; the weaker defender block breaks first while the other pair still fights
 		sides = [[{"army_id": -1, "unit_index": 0, "type": ut, "men": 1000.0}, {"army_id": -1, "unit_index": 1, "type": ut, "men": 1000.0}],
 			[{"army_id": -2, "unit_index": 0, "type": ut, "men": 1000.0}, {"army_id": -2, "unit_index": 1, "type": ut, "men": 650.0}]]
+	elif scene == "cavdie":   # demo only: a small knight squadron charges a deep spear block, breaks, flees and is lost (vanish)
+		sides = [[{"army_id": -1, "unit_index": 0, "type": "knights", "men": float(a.get("men", "120"))}, {"army_id": -1, "unit_index": 1, "type": "levy_spear", "men": 1000.0}],
+			[{"army_id": -2, "unit_index": 0, "type": "levy_spear", "men": 1600.0}, {"army_id": -2, "unit_index": 1, "type": "levy_spear", "men": 1000.0}]]
 	elif scene == "cav":   # mounted knights ride at a spear block: stand -> walk -> trot -> canter -> gallop charge -> melee
 		sides = [[{"army_id": -1, "unit_index": 0, "type": "knights", "men": 400.0}], [{"army_id": -2, "unit_index": 0, "type": "levy_spear", "men": 600.0}]]
 	else:
@@ -71,12 +75,32 @@ func _cam() -> void:
 	var r0: Dictionary = bv.sim.regs[0]
 	bv.cam_auto = false
 	if bv.finished: bv.result_shown = true   # demo only: keep the field visible (no result panel)
-	if scene == "cav":
+	if scene == "cav" and a.has("side"):   # close side-on shot of one horse (front rank, camera-side flank)
+		var v: Dictionary = bv.rv[0]; var pv: PackedVector2Array = v["pos"]
+		var f: Vector2 = v.get("ac_face", bv.sim.regs[0]["facing"])
+		var sd := Vector2(-f.y, f.x)   # camera side
+		var c0: Vector2 = bv.sim.regs[0]["pos"]
+		if side_k < 0:
+			var best := -1e9
+			for k in pv.size():
+				var sc := (pv[k] - c0).dot(sd) + 0.8 * (pv[k] - c0).dot(f)
+				if sc > best: best = sc; side_k = k
+			bv.AC.dbg_k = side_k
+		var hp: Vector2 = pv[side_k]
+		bv.cam_target = Vector3(hp.x, 0, hp.y)
+		var dir := -Vector3(sd.x, 0, sd.y)
+		bv.cam_yaw = atan2(dir.x, dir.z); bv.cam_pitch = -0.06; bv.cam_dist = float(a.get("side", "8"))
+		if float(a.get("side", "8")) <= 1.0: bv.cam_dist = 8.0
+	elif scene == "cav":
 		var c3: Vector2 = r0["pos"]
 		if cam_c == Vector2.ZERO: cam_c = c3
 		cam_c = cam_c.lerp(c3, 0.05)
 		bv.cam_target = Vector3(cam_c.x, 0, cam_c.y)
 		bv.cam_dist = 26.0; bv.cam_pitch = -0.2; bv.cam_yaw = 1.75
+	elif scene == "cavdie":   # fixed camera on the spot where the squadron breaks (same framing with and without --anim-v1)
+		var tg: PackedStringArray = str(a.get("tgt", "17.7,-60")).split(",")
+		bv.cam_target = Vector3(float(tg[0]), 0, float(tg[1]))
+		bv.cam_dist = 34.0; bv.cam_pitch = -0.26; bv.cam_yaw = 1.75
 	elif scene == "spear":
 		var c: Vector2 = (bv.sim.regs[1]["pos"] + bv.sim.regs[3]["pos"]) * 0.5
 		if not cam_c.is_finite() or cam_c == Vector2.ZERO: cam_c = c
@@ -131,6 +155,18 @@ func _process(delta: float) -> void:
 		ft.append((now - last) / 1000.0); units_us.append(float(bv.perf.get("units_us", 0)))
 	last = now
 	_speed_log(delta)
+	if a.has("statelog") and int(t * 2.0) != int((t - delta) * 2.0):
+		var r0: Dictionary = bv.sim.regs[0]
+		var hv: bool = bv.rv[0].get("ac_vis_hidden", false)
+		print("STATELOG t=%.1f st=%s pos=%s len=%.0f men=%.0f finished=%s ac_die_t=%s vis_hidden=%s" % [t, r0["state"], r0["pos"], (r0["pos"] as Vector2).length(), float(r0["men"]), bv.finished, bv.rv[0].get("ac_die_t", -1.0), hv])
+	if a.has("vatlog") and not bv.AC.dbg.is_empty():
+		var d: Dictionary = bv.AC.dbg
+		var m: Dictionary = bv.mms[d["key"]]
+		var mm: MultiMesh = m["mm"]
+		var cd: Color = mm.get_instance_custom_data(int(d["slot"])) if int(d["slot"]) < mm.visible_instance_count else Color(-1, -1, -1, -1)
+		var mat: ShaderMaterial = m["mmi"].material_override
+		var tex: Texture2D = mat.get_shader_parameter("vat_tex")
+		print("VATLOG t=%.2f k=%d key=%s slot=%d row=%d cnt=%d ct=%.3f spd=%.2f g=%d tr=%d v=%.2f gpu_custom=(%.0f,%.0f,%.3f,%.2f) tex_h=%d btime=%.2f" % [t, side_k, d["key"], d["slot"], int(d["start"]), int(d["cnt"]), d["ct"], d["spd"], d["g"], d["tr"], d["s"], cd.r, cd.g, cd.b, cd.a, tex.get_height(), float(mat.get_shader_parameter("battle_time"))])
 	if not shots.is_empty() and t >= float(shots[0][0]):
 		var sh: Array = shots.pop_front()
 		get_viewport().get_texture().get_image().save_png(out.path_join("%s_%s.png" % [tag, sh[1]]))

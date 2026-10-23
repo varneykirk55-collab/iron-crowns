@@ -67,14 +67,17 @@ It is presentation only. Nothing here changes BattleSim, stats, rng order or out
    - Officers (`off_yaw`) and cavalry are still on the legacy yaw.
 
 ## 7. Rout presentation (flag on)
-- When the sim sets `rout`, each soldier first holds a staggered moment: 0.1–0.95 s, with rear ranks going first.
-- He then turns ~180° in 0.3–0.6 s (per-soldier turn rate π/turn_d, turning left or right by hash) and **walks** away at the regiment's normal marching speed `def.speed`, with the normal cadence (`pk_advance` leg cycle, playback `speed/1.4` like the advance). His yaw follows his rendered velocity.
-- Speed: ±3 % per soldier around normal; stragglers 4–8 % slower; never faster. Each step is hard-capped at 1.02 × the soldier's own pace. The ease from rest is 0.35 s; there is no build-up beyond normal. Measured in the spear demo (`ANIMSPEED`, def.speed 1.40 m/s): mean 1.39, p95 1.44, max 1.47 m/s. Flag off (legacy, following the sim's 2.4× rout): mean 5.2, max 9.8 m/s.
-- The view no longer follows the sim's 2.4× rout centre. A visual centre starts where the line broke and walks away at `def.speed`. Soldiers keep their pre-rout slots around it. The banner and officer follow that centre (`v.ac_vis_c`, 2-line hook in battle_view). Hiding uses the visual centre (fled and > 260 m).
-- The formation loosens: up to ±1.2 m lateral scatter, growing over 8 s (adds < 1 % speed).
-- About 12 % of soldiers are stragglers: they start 0.6–1.3 s late and walk slower. About 18 % (45 % of stragglers) use `pk_withdraw_look`. `pk_flee` is no longer used: the panicked share is remapped to `pk_withdraw`.
-- Muskets use the same timing with `mk_march` at the normal march cadence.
+- **All or nothing (Kirk, 13:51):** when the sim sets `rout`, the whole regiment turns at the same moment, 0.15 s after the break, using one turn time (0.45 s) and one turn direction. There is no rear-first order, no stagger, no stragglers and no late starts.
+- The regiment then walks away **as one body** at its normal marching speed `def.speed`, with the normal cadence (`pk_withdraw` for spears, `mk_march` for muskets; playback `speed/1.4`, like the advance).
+- The only per-soldier difference is the walk-cycle phase, so the legs are not in lockstep.
+- Once turned, a soldier never fights again: there are no thrusts, no hits and no flinches. Glance-backs (`pk_withdraw_look`) are dropped; the row is kept but not used.
+- Each step is hard-capped at 1.02 × pace, so the rout never runs faster than normal.
+- The formation loosens only slightly (up to ±0.4 m over 10 s), so it stays a block.
+- A visual centre starts where the line broke and walks at `def.speed`. The banner and officer follow it (`v.ac_vis_c`). Hiding uses that visual centre (fled and > 260 m).
 - All of this is hash-driven (no rng). The sim is only read, so outcomes are unchanged.
+- Sim notes (read-only, not changed):
+  - `battle_sim.active()` excludes `rout`, and `_pick_target` skips non-active regiments, so a routing unit is never fought again.
+  - There is no rally. `_step_rout` applies attrition, and the unit becomes `fled` after 9 s.
 
 ## 8. Known limits
 - Only `med_spear` (1300 spear levy) and `c19sr_line` (line_inf) have the new clips. Archers keep the legacy clips, but the arrow now leaves the bow hand at the release frame (0.9 s into `fire`).
@@ -84,7 +87,7 @@ It is presentation only. Nothing here changes BattleSim, stats, rng order or out
 ## 9. Cavalry gaits (flag on) — motion only
 
 Horse look is unchanged: no GLB, texture, material, shader or coat changes. `cavalry.py` is not edited.
-New clips come from `pipeline/blender/cavalry_anim_combat.py`. That script imports `cavalry.py` read-only and **appends** VAT rows 144–425 to the six cav VATs
+New clips come from `pipeline/blender/cavalry_anim_combat.py`. That script imports `cavalry.py` read-only and **appends** VAT rows 144–569 to the six cav VATs
 (`med_knight`, `em_cuirassier`, `c19_hussar`, lod0/lod1). Rows 0–143 are byte-identical to before, and the bake asserts that.
 The legacy clips (idle/walk/run/melee/fire/die) are unchanged.
 
@@ -103,8 +106,40 @@ The rider counter-moves, and the lance lowers toward the gallop. Every JSON clip
 
 Renderer (`anim_combat.gd`, `_update_cav`):
 - Each horse runs a velocity follower with accel/decel/turn limits. The yaw follows the velocity.
-- A gait state machine picks the gait from speed (thresholds 0.25/1.35/2.8/6.2 m/s, with 0.3 hysteresis and 0.4 s dwell). It moves one gait step at a time.
+- A gait state machine picks the gait from speed (thresholds 0.25/1.35/2.8/5.6 m/s, with 0.3 hysteresis and 0.4 s dwell). It moves one gait step at a time.
 - A transition starts at the cycle wrap, so the phase stays continuous.
 - Playback rate is speed/v_nom, clamped to 0.7–1.45 (1.6 for gallop), so hooves do not skate.
 - Determinism: instance order, coat (INSTANCE_ID) and the legacy dust `rng.randf()` draw are kept exactly. Sim hashes are identical with the flag on or off.
 - Limit: a routed cav regiment still hides by the legacy sim-centre test, so the rng sequence stays the same.
+
+### 9a. Gait readability v2 (13:49 fix)
+- **What was wrong.** The hv rows *were* playing. A VATLOG of instance custom data on the GPU shows rows 144+ with the right start, count and time, and the VAT texture is 426 rows high. There is no procedural bob override.
+- **Why it still looked rigid.** The legs barely moved:
+  - The stance sweep was ±0.26–0.38 m. Hoof travel was 0.5–0.8 m per stride, against 1.7 m for the legacy `run`.
+  - The legs stayed near full extension, so the body bob dominated what you saw.
+  - The med_knight caparison hides the upper legs.
+  - Gallop was never reached: the knights' speed cap is ~6.07 m/s, below the 6.2 threshold.
+- **Fix (motion only).**
+  - Each gait now has a swing overreach `E` (fore, hind): walk .16/.12, trot .26/.22, canter .36/.32, gallop .48/.44 m.
+  - Swing lift is larger, the swing has a forearm/hock fold, and the body is lowered 3–9 cm so the stance legs are flexed.
+  - The stance sweep is unchanged, so `v_nom` and the cadence are unchanged and hooves do not skate.
+  - The gallop threshold is now 5.6 m/s.
+  - Both LODs play the same rows. LOD1 is the same rig with fewer vertices, so mid and far horses also cycle their legs.
+
+## 10. Cavalry rout and death (flag on) — motion only
+- Broken cavalry **do not turn and ride away**. They rein in where the squadron broke and mill: up to ±0.8 m lateral and ±0.6 m fore/aft, at ≤ 1.2 m/s, with small heading sways.
+- The moment the sim takes them off the field (state `fled`, or the legacy far-away hidden test) is shown as their **death**. Sim timing is unchanged.
+  - Each instance starts its own death 0–1.5 s after that moment (hash stagger).
+  - Each instance plays one of three play-once clips at 0.85–1.15× speed, then holds the last frame.
+  - The bodies stay on the field for the rest of the battle view.
+
+| clip | rows | frames | what happens |
+|---|---|---|---|
+| cv_die_a | 426 | 48 once | horse stumbles, its front knees buckle, the hind legs fold, and it rolls onto one side with a few last kicks; the rider is thrown forward over the neck |
+| cv_die_b | 474 | 48 once | the same collapse, rolling onto the other side; the rider slides off sideways |
+| cv_die_c | 522 | 48 once | the same collapse as a; the rider falls backwards over the croup |
+
+- Rider legs are weighted to the horse body in the kits, so the bake moves them with the rider (per-vertex override in the bake only).
+- No `BattleView.rng` draws change: the legacy dust draw happens under the same condition and in the same order, and hidden instances draw nothing, as in the legacy code.
+- Demo: `anim_demo.tscn -- --scene=cavdie [--anim-v1] --gap=30 --pre=15 --tgt=19,-66 --cam=16,-0.2,1.75` (120 knights against a deep spear block, with a second regiment per side so the battle continues).
+
