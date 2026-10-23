@@ -28,7 +28,7 @@ The demo battle (`--demo=battle --year=1300 --nation=SWE`, Battle of Malmö) is 
 ## Combat / sim untouched
 - `BATTLERESULT` from the video run is **byte-identical** to the legacy `--env=0` run: md5 `f09210137aaecedfefe8512f38e7d609`.
 - sim_hash matches main: SWE 1800 `417a53009d4b9c30b4c938a756b33f78`, USA 1914 `4679c5a24c8d055f95c9ea95ff868193`, JPN 1500 `e104d558aa9370b28c02ca58db54ae33`.
-- test_runner, test_audio and test_env all pass.
+- test_runner (163/163), test_audio (28/28) and test_env all pass, re-run after merging framework 64c912d (`tests/`).
 - No morale, pathfinding, combat, soldier-model or rules files are touched.
 
 ## Perf reading
