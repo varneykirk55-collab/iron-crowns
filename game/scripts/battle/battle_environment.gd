@@ -85,6 +85,8 @@ static func biome_id(p: Dictionary, terr: String) -> String:
 		return "tropical"                                   # SE Asia, Pacific islands, Hawaii
 	if lon >= 88.0 and lon < 100.0 and lat < 29.0 and terr != "mountains":
 		return "tropical"                                   # Bengal / Assam / Burma monsoon lowlands
+	if lon >= 100.0 and lon < 116.0 and lat >= 42.0 and lat < 50.0:
+		return "steppe"                                     # Mongolian plateau / Inner Mongolia grassland
 	if lon >= 100.0 and lon <= 146.0 and lat >= 20.0 and lat <= 46.0:
 		return "east_asia"                                  # China (east), Korea, Japan, Taiwan
 	if a < 8.0 or (americas and a < 26.0 and lon > -95.0):
