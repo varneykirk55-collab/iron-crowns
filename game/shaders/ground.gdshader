@@ -12,6 +12,11 @@ uniform float vis_pass = 0.0;
 uniform sampler2D noise_tex_aniso : repeat_enable, filter_linear_mipmap_anisotropic;
 uniform float grass_saturation = 0.82;
 uniform float grass_value = 0.82;
+// polish pass (battle_visuals.gd, polish = 1): snow gets its own albedo / variation / slush instead of the flat
+// near-white that washed out top-down winter views; trampled earth less khaki. polish = 0 = the v0.2.1 look.
+uniform float polish = 0.0;
+uniform vec3 snow_albedo = vec3(0.69, 0.69, 0.7);
+uniform vec3 slush = vec3(0.40, 0.38, 0.36);
 varying vec3 wpos;
 varying vec3 wnorm;
 void vertex() {
@@ -52,10 +57,25 @@ void fragment() {
 		g = mix(g, d, trample * 0.5);
 		float slope = 1.0 - wnorm.y;
 		g = mix(g, rock.rgb * 0.9, smoothstep(0.18, 0.38, slope + (n3 - 0.5) * 0.1));
-		g = mix(g, vec3(0.92, 0.94, 0.97), snow * smoothstep(0.45, 0.6, n1 + n3 * 0.3 + wpos.y * 0.01));
-		g *= (0.88 + 0.24 * n3) * grass_value * vec3(0.97, 1.0, 0.97);
-		ALBEDO = g;
-		ROUGHNESS = 0.95;
-		SPECULAR = 0.12;
+		if (polish < 0.5) {
+			g = mix(g, vec3(0.92, 0.94, 0.97), snow * smoothstep(0.45, 0.6, n1 + n3 * 0.3 + wpos.y * 0.01));
+			g *= (0.88 + 0.24 * n3) * grass_value * vec3(0.97, 1.0, 0.97);
+			ALBEDO = g;
+			ROUGHNESS = 0.95;
+			SPECULAR = 0.12;
+		} else {
+			g *= (0.88 + 0.24 * n3) * grass_value * vec3(0.97, 1.0, 0.97);
+			float sm = snow * smoothstep(0.45, 0.6, n1 + n3 * 0.3 + wpos.y * 0.01);
+			// wind-packed drifts (large), crust speckle (fine), cool blue in the hollows, tufts poking through
+			vec3 sn = snow_albedo * mix(0.8, 1.04, smoothstep(0.25, 0.75, n2 * 0.7 + n1 * 0.3)) * mix(0.95, 1.02, n4);
+			sn = mix(sn * vec3(0.94, 0.96, 0.99), sn, smoothstep(0.3, 0.6, n3));
+			float tuft = smoothstep(0.6, 0.8, n3 * 0.6 + n4 * 0.4) * 0.45;
+			g = mix(g, sn, sm * (1.0 - tuft));
+			// trampled snow turns to grey-brown slush where the armies stand (reads as a battlefield from above)
+			g = mix(g, slush * mix(0.85, 1.1, n4), sm * trample * 0.6);
+			ALBEDO = g;
+			ROUGHNESS = mix(0.95, 0.82, sm);
+			SPECULAR = mix(0.12, 0.2, sm);
+		}
 	}
 }

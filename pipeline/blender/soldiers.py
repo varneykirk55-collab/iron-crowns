@@ -36,6 +36,9 @@ VARIANTS = {
     'em_pike':    dict(coat=TEAM, legs=hexc('3c342c'), hat='morion', weapon='pike', style='spear', builder='em_pike'),
     'em_musket':  dict(coat=TEAM, legs=hexc('3c342c'), hat='widehat', weapon='musket', style='gun', builder='em_musket'),
     'c19_line':   dict(coat=TEAM, legs=WHITE, hat='shako', weapon='musket_bayonet', belts=True, style='gun', builder='c19_line'),
+    'c19_grenadier': dict(coat=TEAM, legs=WHITE, hat='bearskin', weapon='musket_bayonet', belts=True, style='gun', builder='c19_grenadier'),  # polish pass
+    'c19_artillery': dict(coat=TEAM, legs=WHITE, hat='shako', weapon='rammer', style='gun', builder='c19_artillery'),         # polish pass: gun crew
+    'em_gunner':  dict(coat=TEAM, legs=hexc('3c342c'), hat='cap', weapon='linstock', style='gun', builder='em_gunner'),            # polish pass: gun crew
     'c20_rifle':  dict(coat=DRAB, legs=DRAB_DARK, hat='brodie', weapon='rifle', pack=True, style='gun', armband=True, builder='c20_rifle'),
     'mod_rifle':  dict(coat=CAMO, legs=CAMO, hat='modern', weapon='carbine', vest=True, style='gun', armband=True, builder='mod_rifle'),
 }
@@ -43,6 +46,12 @@ VARIANTS = {
 def build_body(name, kit, detail):
     if kit.get('builder') == 'c19_line':  # visual pass: detailed Napoleonic kit (pipeline/blender/c19_kit.py)
         return c19_kit.line_infantry(name, GROUPS, detail)
+    if kit.get('builder') == 'c19_grenadier':  # polish pass: bearskin grenadier (c19_kit.grenadier)
+        return c19_kit.grenadier(name, GROUPS, detail)
+    if kit.get('builder') == 'c19_artillery':  # polish pass: c19 foot-artillery gun crew
+        return c19_kit.artillery_crew(name, GROUPS, detail)
+    if kit.get('builder') == 'em_gunner':      # polish pass: early-modern gun crew
+        return em_kit.gunner(name, GROUPS, detail)
     if kit.get('builder') == 'med_spear':  # visual pass: medieval kits (pipeline/blender/med_kit.py)
         return med_kit.spearman(name, GROUPS, detail)
     if kit.get('builder') == 'mod_rifle':  # visual pass: modern kit (pipeline/blender/mod_kit.py)
