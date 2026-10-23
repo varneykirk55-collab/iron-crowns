@@ -1,4 +1,4 @@
-# Feature status (v0.2): honest accounting
+# Feature status (v0.2.1): honest accounting
 
 Status labels:
 - **VERIFIED**: exercised by an automated test (`game/tests/test_runner.gd` → `test_results.txt`), seen in a rendered screenshot or video, or both.
@@ -14,7 +14,7 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Selectable countries and provinces, with borders | VERIFIED | Province panel and highlight in screenshots. 641 provinces. Small countries are a single province. |
 | Camera pan / zoom / orbit, smooth fly-to | VERIFIED (scripted) | Demo fly-to/zoom; `--only=controls` drives keyboard, gamepad and touch with synthesized input events. Not played by a human. |
 | Controls: kbm + gamepad + touch, rebindable InputMap, settings | VERIFIED (synthetic input) | `--only=controls` 19/19: 37 actions all with gamepad bindings, pad cursor select/move, touch tap/drag/pinch/twist/long-press, no virtual joystick nodes. No physical gamepad or touchscreen was available. |
-| F3 performance overlay, quality Low/Medium/High | VERIFIED | Overlay values come from the same probes as `--perfout`; quality toggles MSAA, battle LOD distance and sun shadows. |
+| F3 performance overlay, quality Low/Medium/High | VERIFIED | Overlay values come from the same probes as `--perfout`. Controls owns the setting (saved; `--quality=0/1/2` session override); the per-level render values are owned by `battle_visuals.apply_quality(q)`: low = no MSAA, no sun shadows, LOD 45 m, no glow; medium (default) = 2x MSAA, shadows 260 m, LOD 75 m; high = 4x MSAA, shadows 300 m, LOD 120 m. `--only=visuals` asserts all three levels; c19 battle rendered at q0/q1/q2 (`screenshots/c19_q0..q2/`). |
 | 3 playable nations (USA, SWE, JPN), data-driven | VERIFIED | Per-nation headless playtests (19 checks each). Nations are defined in `data/nations.json`. Adding more playable nations is a data edit. |
 | Real-time clock, pause, 5 speeds | VERIFIED | Tests and the HUD clock in screenshots. |
 | Economy: funds, income, upkeep, resources, needs, administration | VERIFIED (sim) / PARTIAL (depth) | The monthly economy is tested. Domestic activity is automatic. The model is simple and not balanced in depth. |
@@ -41,7 +41,8 @@ All testing ran under Linux on Mesa llvmpipe, a software renderer, using xvfb.
 | Strategic sim keeps running while a battle is watched | VERIFIED | Tests, plus the clock advances in the HUD during the battle. |
 | Era-specific armies (5 eras of soldier/cavalry/artillery models) | VERIFIED | `--only=eras`: each era's battle uses only that era's units and model files (lod0/lod1 glb); projectile classes per era (arrow/stone shot → musket ball/round shot → rifle tracer/shell/tank round); armour matters (medieval knights vs levy, MBT vs rifles). All 5 eras recorded end to end (`videos/era_*`, table below). |
 | Melee | PARTIAL | Melee decides medieval battles (10–38 % of kills); from 1500 on it is ≤0.4 % and 0 % in c20/modern — fire dominates. That is plausible but means pike/bayonet units rarely fight hand to hand. |
-| Blender glTF assets, MultiMesh instancing, VAT animation, 2 LODs | VERIFIED | Scripts in `pipeline/blender/`. LOD switching is distance-based (75 m). |
+| Blender glTF assets, MultiMesh instancing, VAT animation, 2 LODs | VERIFIED | Scripts in `pipeline/blender/`. LOD switching is distance-based (45/75/120 m by quality). |
+| c19 graphics pass (BJORN, `battle_visuals.gd`, handoff 116c310) | VERIFIED (rendered, llvmpipe only) | New c19 line/hussar kit (white pipeclay straps readable from behind, smaller knapsack, short gaiters), own c19 field gun, material classes in the VAT shader, adaptive team dye, FILMIC lighting. c19 only; other eras keep the legacy look (tested). Rendering only: sim hashes and the BATTLERESULT of the recorded 1800 battle are identical to v0.2 and identical at q0/q1/q2. `videos/c19_battle_v021_q1.mp4`, `screenshots/c19_compare/`. Not measured on a GPU. |
 | Terrain/sieges as 3D battles, naval battles | MISSING | Sieges resolve on the map only. |
 
 ## Recorded era battles (v0.2, 960x540, `tools/rec_eras.sh`, summaries from `tools/era_summary.py`)
@@ -77,6 +78,7 @@ appear only in tests, not in this video. One weakness seen in the 1914 shots: a 
 - Performance (v0.2, measured): CPU frame time headless — map 9.3 ms (p95 12.7), battle 7.7 ms (p95 9.7), i.e. >100 fps worth of CPU.
   Rendered under xvfb/llvmpipe 1280x720 the game is render-bound: ~3.5 fps battle / ~4 fps map (render_cpu ~250 ms per frame in the
   software rasteriser). No GPU was available, so real-hardware fps is unmeasured.
-- BJORN's c19 graphics pass (handoff c19) is **not in main or in these builds**. It is merged on the `graphics` branch and integrated on `lead-dev`
-  (hook + quality forwarding, 131/131 tests, sim hashes unchanged), and held back from main until his brightness/readability revision is marked READY.
+- c19 graphics pass: top-down / very wide views still read pale and hazy (worse on the snowy 1800 Oslo field); next step per BJORN is height fog.
+  llvmpipe frame cost (BJORN's bench, mid view): q0 144 ms, q1 279 ms, q2 293 ms vs v0.2 225 ms; the shadow pass dominates. Unmeasured on real GPUs.
+  Grenadiers share the line model; artillery crews wear line uniform. The four other eras do not have a graphics pass yet.
 - Unit balance and the economy are first-pass numbers.

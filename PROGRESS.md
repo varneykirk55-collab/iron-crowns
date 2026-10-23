@@ -73,4 +73,10 @@
 - Patch + binaries applied on `graphics` (6b58baf, binary sha256 verified). Merged into lead-dev-gfx, hooks d1c8a22: apply(self) at end of setup,
   apply_quality forwarding (only once his apply_quality exists), apply_viewport NOT called (Controls quality owns MSAA). 131/131, sim hashes unchanged.
 - NOT on main: parent asked to wait for BJORN's revised READY (brightness/readability). main = v0.2 without visuals.
-NEXT: merge pre-graphics lead-dev to main, export, deliverables/v0.2; on revised READY: re-apply on graphics, retest, merge to main.
+- v0.2 shipped from main without visuals (deliverables/v0.2).
+## v0.2.1 — BJORN FINAL c19 handoff (116c310) MERGED
+- `graphics` 42998e4: old 6b58baf content reverted to c0b0d8d, final patch + 14 binaries applied (sha256/size verified); tree identical to 116c310
+  except his PREVIEW-ONLY main.gd (2a36972, excluded per R4). lead-dev 173e70c merge, 8ebdb95 wiring: BattleView.apply_quality() and
+  main.apply_quality() forward Controls.quality to BattleVisuals.apply_quality(q) (single owner; stand-in + QUALITY_LOD + MSAA line removed),
+  `--quality=` session override. 131/131, sim hashes unchanged, rendered 1800 SWE battle at q0/q1/q2 with identical BATTLERESULT.
+- main f28ce42 merge, tag v0.2.1, deliverables/v0.2.1.

@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.2.1 — 2026-10-22 (BJORN's c19 graphics pass merged)
+### Added
+- **c19 graphics pass** by BJORN (`game/scripts/battle/battle_visuals.gd`, visual-pass 116c310, final handoff): new 1800s line infantry
+  and hussar kit (LOD0/LOD1/rigged + VAT regenerated; white pipeclay straps readable from behind, smaller mid-tone knapsack, short gaiters,
+  brighter trousers), a separate c19 field gun (`art_field_gun_c19.glb`), material classes and adaptive team dye in `vat.gdshader`,
+  FILMIC tonemap / sun 1.45 / contrast 1.08. Only the c19 era changes look; the other eras are unchanged (tested).
+- `--quality=0|1|2` command-line override (this session only, not saved).
+### Changed
+- Quality Low/Medium/High: Controls still owns the setting and the Options UI, but the per-level render values now come from
+  `battle_visuals.apply_quality(q)` (one owner): low = no MSAA, no sun shadows, LOD 45 m, glow off, 2x aniso; medium (default) =
+  2x MSAA, shadows 260 m, LOD 75 m; high = 4x MSAA, shadows 300 m, LOD 120 m, 8x aniso. The lead-side stand-in and duplicate MSAA/LOD/shadow
+  code were removed. `--debug --lod-dist=` still overrides LOD.
+### Verified
+- 131/131 tests (`--only=visuals` now asserts q0/q1/q2), sim hashes unchanged (SWE1800/USA1914/JPN1500), 1800 SWE battle
+  BATTLERESULT identical to v0.2 and across q0/q1/q2 (39.5 s, end men 5039/5166).
+### Not done
+- Android export; Windows build not run; graphics pass for the other 4 eras; top-down c19 haze; no GPU measurements.
+
 ## v0.2 — 2026-10-22 (lead developer pass; BJORN's c19 graphics pass is integrated on lead-dev but not in this build, see COLLAB.md)
 ### Added
 - **Save / load**: full simulation serialization (`Sim.serialize_state/apply_state`, `BattleSim.to_dict/from_dict`), binary saves with
