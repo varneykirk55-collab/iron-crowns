@@ -1,7 +1,7 @@
 extends Node
 ## Combat animation v1 demo (Rob, proto/anim-combat-v1). Builds one small watched battle directly (no campaign), runs it
 ## through a real BattleView at normal speed with a scripted camera, takes stills and prints frame timing.
-## godot --path game --resolution 1280x720 res://tests/anim_demo.tscn -- --scene=spear|musket [--anim-v1] --out=<dir>
+## godot --path game --resolution 1280x720 res://tests/anim_demo.tscn -- --scene=spear|musket|cav [--anim-v1] --out=<dir>
 ##   --tag=<name> [--dur=60] [--pre=0]
 ## The battle outcome does not depend on --anim-v1 (prints ANIMDEMO result + state hash for the comparison).
 var a := {}
@@ -14,6 +14,7 @@ var units_us: Array = []
 var last := 0
 var cam_c := Vector2.ZERO
 var sp_prev := PackedVector2Array()
+var gait_log := {}
 var sp_log := {"rout": [], "walk": []}   # rendered ground speed (m/s) of the --focus regiment's living soldiers
 
 func _ready() -> void:
@@ -24,7 +25,7 @@ func _ready() -> void:
 	scene = a.get("scene", "spear"); out = a.get("out", "/tmp/anim_demo"); tag = a.get("tag", scene)
 	dur = float(a.get("dur", "60"))
 	DirAccess.make_dir_recursive_absolute(out)
-	var year := 1300 if scene == "spear" else 1800
+	var year := 1300 if scene in ["spear", "cav"] else 1800
 	Sim.new_game("FRA" if Sim.nations.has("FRA") else "SWE", year, 7)
 	Sim.set_speed(0)
 	var codes: Array = ["FRA", "ENG"] if (Sim.nations.has("FRA") and Sim.nations.has("ENG")) else Sim.nations.keys().slice(0, 2)
@@ -33,6 +34,8 @@ func _ready() -> void:
 	if scene == "spear":   # two blocks a side; the weaker defender block breaks first while the other pair still fights
 		sides = [[{"army_id": -1, "unit_index": 0, "type": ut, "men": 1000.0}, {"army_id": -1, "unit_index": 1, "type": ut, "men": 1000.0}],
 			[{"army_id": -2, "unit_index": 0, "type": ut, "men": 1000.0}, {"army_id": -2, "unit_index": 1, "type": ut, "men": 650.0}]]
+	elif scene == "cav":   # mounted knights ride at a spear block: stand -> walk -> trot -> canter -> gallop charge -> melee
+		sides = [[{"army_id": -1, "unit_index": 0, "type": "knights", "men": 400.0}], [{"army_id": -2, "unit_index": 0, "type": "levy_spear", "men": 600.0}]]
 	else:
 		sides = [[{"army_id": -1, "unit_index": 0, "type": ut, "men": 1200.0}], [{"army_id": -2, "unit_index": 0, "type": ut, "men": 1200.0}]]
 	var orders := [{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}]
@@ -53,6 +56,8 @@ func _ready() -> void:
 	bv.setup(bid)
 	if scene == "spear":
 		shots = [[3.0, "advance"], [6.6, "charge"], [8.4, "contact"], [9.6, "fight"], [10.6, "fight2"], [11.8, "rout_hold"], [13.0, "withdraw"], [15.0, "flee"], [18.0, "flee2"]]
+	elif scene == "cav":
+		shots = [[1.0, "stand"], [3.0, "move"], [6.0, "canter"], [9.0, "gallop"], [12.0, "contact"], [16.0, "melee"]]
 	else:
 		shots = [[3.0, "march"], [7.0, "march2"], [13.0, "aim"], [15.0, "fire"], [16.0, "reload"], [19.0, "reload2"], [23.0, "volley2"]]
 	if a.has("shots"):
@@ -66,7 +71,13 @@ func _cam() -> void:
 	var r0: Dictionary = bv.sim.regs[0]
 	bv.cam_auto = false
 	if bv.finished: bv.result_shown = true   # demo only: keep the field visible (no result panel)
-	if scene == "spear":
+	if scene == "cav":
+		var c3: Vector2 = r0["pos"]
+		if cam_c == Vector2.ZERO: cam_c = c3
+		cam_c = cam_c.lerp(c3, 0.05)
+		bv.cam_target = Vector3(cam_c.x, 0, cam_c.y)
+		bv.cam_dist = 26.0; bv.cam_pitch = -0.2; bv.cam_yaw = 1.75
+	elif scene == "spear":
 		var c: Vector2 = (bv.sim.regs[1]["pos"] + bv.sim.regs[3]["pos"]) * 0.5
 		if not cam_c.is_finite() or cam_c == Vector2.ZERO: cam_c = c
 		cam_c = cam_c.lerp(c, 0.02)
@@ -103,6 +114,12 @@ func _speed_log(delta: float) -> void:
 			if dead[k] < 0.0 and d > 0.15:   # moving soldiers only
 				sp_log[key].append(d)
 	sp_prev = pv.duplicate()
+	if v.has("ac_g"):   # cavalry: time spent per gait / in transitions (soldier-frames)
+		var gg: PackedInt32Array = v["ac_g"]; var tt: PackedInt32Array = v["ac_tr"]
+		for k in gg.size():
+			if dead[k] < 0.0:
+				var key2 := ("tr>%d" % tt[k]) if tt[k] >= 0 else str(gg[k])
+				gait_log[key2] = int(gait_log.get(key2, 0)) + 1
 
 func _process(delta: float) -> void:
 	if bv == null:
@@ -130,6 +147,8 @@ func _process(delta: float) -> void:
 				if l.size() > 0:
 					print("ANIMSPEED reg=%s %s def_speed=%.2f n=%d mean=%.2f p50=%.2f p95=%.2f p99=%.2f max=%.2f" % [a["focus"], key, float(r["def"]["speed"]), l.size(),
 						l.reduce(func(x, y): return x + y, 0.0) / l.size(), l[l.size() / 2], l[int(l.size() * 0.95)], l[int(l.size() * 0.99)], l[l.size() - 1]])
+		if not gait_log.is_empty():
+			print("ANIMGAIT ", gait_log)
 		var st: Dictionary = bv.sim.to_dict()
 		print("ANIMDEMO result=", bv.sim.result(), " t=", bv.sim.t, " hash=", str(st["regs"] if st.has("regs") else st).md5_text())
 		get_tree().quit()

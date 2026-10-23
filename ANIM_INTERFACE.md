@@ -80,3 +80,31 @@ It is presentation only. Nothing here changes BattleSim, stats, rng order or out
 - Only `med_spear` (1300 spear levy) and `c19sr_line` (line_inf) have the new clips. Archers keep the legacy clips, but the arrow now leaves the bow hand at the release frame (0.9 s into `fire`).
 - The melee contact gap is visual only (2.7 m, shared half and half when both sides are spears). The sim still uses its own `_front_gap ≤ 1.6`.
 - The retreat is visual-time driven, so it carries on after the battle ends. Because it walks at normal pace, the rendered rout lags the sim's (faster) rout centre.
+
+## 9. Cavalry gaits (flag on) — motion only
+
+Horse look is unchanged: no GLB, texture, material, shader or coat changes. `cavalry.py` is not edited.
+New clips come from `pipeline/blender/cavalry_anim_combat.py`. That script imports `cavalry.py` read-only and **appends** VAT rows 144–425 to the six cav VATs
+(`med_knight`, `em_cuirassier`, `c19_hussar`, lod0/lod1). Rows 0–143 are byte-identical to before, and the bake asserts that.
+The legacy clips (idle/walk/run/melee/fire/die) are unchanged.
+
+| clip | frames | footfall phase (br, fr, bl, fl) | duty | v_nom m/s |
+|---|---|---|---|---|
+| hv_stand | 48 loop | weight shift, resting hind, breathing, tail | – | 0 |
+| hv_walk | 24 loop | 0, .25, .5, .75 (4-beat lateral) | .62 | 0.84 |
+| hv_trot | 16 loop | .875, .375, .375, .875 (diagonal pairs) | .42 | 2.14 |
+| hv_canter | 14 loop | .125, .375, .375, .625 (3-beat, leading fl) | .33 | 3.53 |
+| hv_gallop | 12 loop | .125, .475, .225, .575 (4-beat transverse) | .25 | 6.08 |
+| hv_melee | 24 loop | standing horse + legacy rider strike | – | – |
+| hv_idle_walk, hv_walk_idle, hv_walk_trot, hv_trot_walk, hv_trot_canter, hv_canter_trot, hv_canter_gallop, hv_gallop_canter | play-once | gait parameters blended A→B, phase 0 → phase 0 | | |
+
+The head and neck nod with the gait: two nods per stride at walk and gallop, and a steady head at trot. Body pitch, bob, surge and roll are keyed to the footfalls.
+The rider counter-moves, and the lance lowers toward the gallop. Every JSON clip carries `v_nom`.
+
+Renderer (`anim_combat.gd`, `_update_cav`):
+- Each horse runs a velocity follower with accel/decel/turn limits. The yaw follows the velocity.
+- A gait state machine picks the gait from speed (thresholds 0.25/1.35/2.8/6.2 m/s, with 0.3 hysteresis and 0.4 s dwell). It moves one gait step at a time.
+- A transition starts at the cycle wrap, so the phase stays continuous.
+- Playback rate is speed/v_nom, clamped to 0.7–1.45 (1.6 for gallop), so hooves do not skate.
+- Determinism: instance order, coat (INSTANCE_ID) and the legacy dust `rng.randf()` draw are kept exactly. Sim hashes are identical with the flag on or off.
+- Limit: a routed cav regiment still hides by the legacy sim-centre test, so the rng sequence stays the same.

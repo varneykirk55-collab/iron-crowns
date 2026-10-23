@@ -31,19 +31,94 @@
    "start": 108,
    "count": 36,
    "loop": false
+  },
+  "hv_stand": {
+   "start": 144,
+   "count": 48,
+   "loop": true
+  },
+  "hv_melee": {
+   "start": 192,
+   "count": 24,
+   "loop": true
+  },
+  "hv_walk": {
+   "start": 216,
+   "count": 24,
+   "loop": true,
+   "v_nom": 0.839
+  },
+  "hv_trot": {
+   "start": 240,
+   "count": 16,
+   "loop": true,
+   "v_nom": 2.143
+  },
+  "hv_canter": {
+   "start": 256,
+   "count": 14,
+   "loop": true,
+   "v_nom": 3.532
+  },
+  "hv_gallop": {
+   "start": 270,
+   "count": 12,
+   "loop": true,
+   "v_nom": 6.08
+  },
+  "hv_idle_walk": {
+   "start": 282,
+   "count": 24,
+   "loop": false
+  },
+  "hv_walk_idle": {
+   "start": 306,
+   "count": 24,
+   "loop": false
+  },
+  "hv_walk_trot": {
+   "start": 330,
+   "count": 20,
+   "loop": false
+  },
+  "hv_trot_walk": {
+   "start": 350,
+   "count": 20,
+   "loop": false
+  },
+  "hv_trot_canter": {
+   "start": 370,
+   "count": 15,
+   "loop": false
+  },
+  "hv_canter_trot": {
+   "start": 385,
+   "count": 15,
+   "loop": false
+  },
+  "hv_canter_gallop": {
+   "start": 400,
+   "count": 13,
+   "loop": false
+  },
+  "hv_gallop_canter": {
+   "start": 413,
+   "count": 13,
+   "loop": false
   }
  },
- "frames": 144,
+ "frames": 426,
  "aabb": [
   [
    -2.865480661392212,
    -0.6072332859039307,
-   -1.4415721893310547
+   -1.4674952030181885
   ],
   [
-   0.3003770709037781,
+   0.3187776803970337,
    3.4490909576416016,
    1.2881451845169067
   ]
- ]
+ ],
+ "base_frames": 144
 }

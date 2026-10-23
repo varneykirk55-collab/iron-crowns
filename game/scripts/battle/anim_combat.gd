@@ -41,7 +41,7 @@ static func clips_of(bv, model: String) -> Dictionary:
 	return bv.vat[model]["json"][0]["clips"]
 
 static func kind_of(bv, v: Dictionary) -> int:
-	## 1 = spear (pk_*), 2 = musket (mk_*), 0 = not handled
+	## 1 = spear (pk_*), 2 = musket (mk_*), 3 = cavalry (hv_* gaits), 0 = not handled
 	if v.has("ac_kind"):
 		return v["ac_kind"]
 	var k := 0
@@ -51,6 +51,9 @@ static func kind_of(bv, v: Dictionary) -> int:
 			k = 1
 		elif c.has("mk_aim") and c.has("mk_reload"):
 			k = 2
+	elif v["kind"] == "cav":
+		if clips_of(bv, v["model"]).has("hv_walk"):
+			k = 3
 	v["ac_kind"] = k
 	return k
 
@@ -92,6 +95,9 @@ static func update_soldiers(bv, i: int, v: Dictionary, r: Dictionary, dt: float,
 		_flush_shots(bv, v, r, vt)
 	if kind == 0:
 		return false
+	if kind == 3:
+		_update_cav(bv, i, v, r, dt, vt, cpos)
+		return true
 	_init_state(v)
 	var n: int = v["n"]
 	var files: int = v["files"]
@@ -398,3 +404,196 @@ static func _flush_shots(bv, v: Dictionary, r: Dictionary, vt: float) -> void:
 		if s["tracer"]:
 			bv.shoot(tip, s["tp"], 150.0, 0.0, Color(0.3, 0.3, 0.3), 0.04, 1.6, "dust")
 	v["ac_shots"] = keep
+
+# ---------------- cavalry (kind 3): gaits from pipeline/blender/cavalry_anim_combat.py ----------------
+## Gait ladder; hv_<a>_<b> transition clips join phase 0 of one gait to phase 0 of the next.
+const GAITS := ["stand", "walk", "trot", "canter", "gallop"]
+const GAIT_UP := [0.25, 1.35, 2.8, 6.2]   # m/s: switch up above, down below (minus GAIT_HYST)
+const GAIT_HYST := 0.3
+const GAIT_DWELL := 0.4
+const CAV_ACC := 3.0      # m/s^2 speeding up
+const CAV_DEC := 6.0      # m/s^2 slowing down
+const CAV_TURN := 2.0     # rad/s
+
+static func _gait_want(cur: int, s: float) -> int:
+	var g := cur
+	while g < 4 and s > GAIT_UP[g]:
+		g += 1
+	while g > 0 and s < GAIT_UP[g - 1] - GAIT_HYST:
+		g -= 1
+	return g
+
+static func _tr_name(a: int, b: int) -> String:
+	return "hv_%s_%s" % ["idle" if a == 0 else GAITS[a], "idle" if b == 0 else GAITS[b]]
+
+static func _init_cav(v: Dictionary, r: Dictionary) -> void:
+	if v.has("ac_g"):
+		return
+	var n: int = v["n"]
+	var vel := PackedVector2Array(); vel.resize(n)
+	var g := PackedInt32Array(); g.resize(n)
+	var tr := PackedInt32Array(); tr.resize(n); tr.fill(-1)
+	var f := PackedFloat32Array(); f.resize(n)
+	v["ac_vel"] = vel; v["ac_g"] = g; v["ac_tr"] = tr
+	v["ac_ph"] = f.duplicate(); v["ac_trt"] = f.duplicate(); v["ac_trs"] = f.duplicate(); v["ac_dw"] = f.duplicate(); v["ac_sf"] = f.duplicate()
+	v["ac_rout_t"] = -1.0; v["ac_cv"] = Vector2.ZERO; v["ac_pc"] = r["pos"]; v["ac_pct"] = 0.0
+	var yaw: PackedFloat32Array = v["yaw"]
+	var fc: Vector2 = r["facing"]
+	for k in n:
+		yaw[k] = atan2(-fc.x, -fc.y)   # model front along the facing (see update_soldiers)
+	v["yaw"] = yaw
+
+## Horse + rider per-soldier update. Same instance order / set and the same BattleView.rng draws (dust) as the
+## legacy loop: hidden = the legacy test on the SIM centre, one draw per visible living rider while r.moving.
+static func _update_cav(bv, i: int, v: Dictionary, r: Dictionary, dt: float, vt: float, cpos: Vector3) -> void:
+	_init_cav(v, r)
+	var n: int = v["n"]; var files: int = v["files"]; var model: String = v["model"]
+	var cl := clips_of(bv, model)
+	var facing: Vector2 = r["facing"]
+	var center: Vector2 = r["pos"]
+	var st: String = r["state"]
+	var routing := st == "rout" or st == "fled"
+	if not routing:
+		v["ac_face"] = facing
+	elif v.has("ac_face"):
+		facing = v["ac_face"]
+	var hidden: bool = st == "fled" and center.length() > 260.0   # legacy test (keeps the rng sequence)
+	var spd_base: float = float(r["def"]["speed"]) * (2.6 * 1.8 if r["running"] else 1.0)
+	var enemy_pos := center + facing * 3.0
+	var tgt: int = r["target"]
+	if tgt >= 0:
+		enemy_pos = bv.sim.regs[tgt]["pos"]
+	var toward := (enemy_pos - center).normalized() if (enemy_pos - center).length() > 0.1 else facing
+	# regiment ground velocity (the sim moves the centre in 0.1 s steps; measure per step, then smooth)
+	var pc: Vector2 = v["ac_pc"]
+	var raw: Vector2 = v.get("ac_cvraw", Vector2.ZERO)
+	if center.distance_squared_to(pc) > 1e-8:
+		raw = (center - pc) / maxf(vt - float(v["ac_pct"]), 0.03)
+		v["ac_pc"] = center; v["ac_pct"] = vt
+	elif vt - float(v["ac_pct"]) > 0.25:
+		raw = Vector2.ZERO
+	v["ac_cvraw"] = raw
+	var cv: Vector2 = (v["ac_cv"] as Vector2).lerp(raw, minf(dt * 5.0, 1.0))
+	v["ac_cv"] = cv
+	# rout: canter away at the regiment's NORMAL speed (def.speed), not the sim's 2.4x
+	if routing and float(v["ac_rout_t"]) < 0.0:
+		v["ac_rout_t"] = vt; v["ac_rc"] = v.get("ac_lastc", center)
+	elif not routing:
+		v["ac_rout_t"] = -1.0; v["ac_lastc"] = center
+		v.erase("ac_vis_c"); v.erase("ac_vis_f")
+	var rt: float = vt - float(v["ac_rout_t"])
+	var walk_v: float = float(r["def"]["speed"])
+	var rc: Vector2 = v.get("ac_rc", center)
+	if routing:
+		v["ac_vis_c"] = rc - facing * walk_v * maxf(rt - 1.5, 0.0); v["ac_vis_f"] = -facing; v["ac_vis_hidden"] = hidden
+	var pos: PackedVector2Array = v["pos"]; var yaw: PackedFloat32Array = v["yaw"]
+	var phase: PackedFloat32Array = v["phase"]; var dead: PackedFloat32Array = v["dead"]
+	var vel: PackedVector2Array = v["ac_vel"]; var g: PackedInt32Array = v["ac_g"]; var tr: PackedInt32Array = v["ac_tr"]
+	var ph: PackedFloat32Array = v["ac_ph"]; var trt: PackedFloat32Array = v["ac_trt"]; var trs: PackedFloat32Array = v["ac_trs"]
+	var dw: PackedFloat32Array = v["ac_dw"]; var sf: PackedFloat32Array = v["ac_sf"]
+	var side: int = r["side"]
+	var fi := float(i)
+	var vmax := maxf(spd_base, 1.0) * 1.35
+	for k in n:
+		var p: Vector2 = pos[k]
+		var dk := dead[k]
+		var c := Vector2.ZERO; var ct := 0.0; var spd := 1.0
+		if dk < 0.0:
+			var face := facing
+			var vd := Vector2.ZERO
+			if routing:
+				var delay := 0.2 + h(float(k), fi + 7.0) * 0.9
+				var et := rt - delay
+				var jit := 0.97 + h(float(k), fi + 71.0) * 0.06
+				var vs := walk_v * jit
+				var away := -facing
+				var slot0: Vector2 = bv._slot_world(r, v, k, rc, facing)
+				var dist_w := 0.0
+				var tw := et - 0.6   # wheel about first, then move off (accelerating ~1.2 s)
+				if tw > 0.0:
+					dist_w = vs * (tw * tw / 2.4 if tw < 1.2 else tw - 0.6)
+				var lat := Vector2(-away.y, away.x)
+				var tp := slot0 + away * dist_w + lat * (h(float(k), fi + 51.0) - 0.5) * 3.0 * clampf(et / 8.0, 0.0, 1.0)
+				vd = (tp - p) * 1.5 + (away * vs * clampf(tw / 1.2, 0.0, 1.0) if tw > 0.0 else Vector2.ZERO)
+				if vd.length() > vs * 1.03:
+					vd = vd.normalized() * vs * 1.03
+				face = away.rotated((h(float(k), fi + 81.0) - 0.5) * 0.6) if et > 0.0 else toward
+			else:
+				var slot: Vector2 = bv._slot_world(r, v, k, center, facing)
+				if st == "melee" and k / files < 3:   # same press / sway as the legacy loop
+					slot += toward * (1.2 + sin(vt * 1.7 + phase[k] * 6.0) * 0.6) + Vector2(sin(vt * 1.3 + phase[k] * 9.0), 0) * 0.5
+				vd = cv + (slot - p) * 1.2
+				if vd.length() > vmax:
+					vd = vd.normalized() * vmax
+				if st == "melee":
+					face = (enemy_pos - p).normalized() if (enemy_pos - p).length() > 0.1 else facing
+			var v0: Vector2 = vel[k]
+			var dvv := vd - v0
+			var lim := (CAV_ACC if vd.length() > v0.length() else CAV_DEC) * dt
+			if dvv.length() > lim:
+				dvv = dvv.normalized() * lim
+			var v1 := v0 + dvv
+			vel[k] = v1
+			p += v1 * dt
+			var sp := v1.length()
+			sf[k] = lerpf(sf[k], sp, minf(dt * 4.0, 1.0))
+			if sp > 0.6 and st != "melee":
+				face = v1 / sp
+			pos[k] = p
+			yaw[k] = rotate_toward(yaw[k], atan2(-face.x, -face.y), CAV_TURN * dt)
+			# ---- gait state machine (phase-continuous, transitions at the cycle wrap)
+			var s := sf[k]
+			if st == "melee" and s < 1.5 and tr[k] < 0:
+				g[k] = 0
+				c = _clip(bv, model, "hv_melee"); ct = -phase[k] * 3.0
+			else:
+				var want := _gait_want(g[k], s)
+				dw[k] = (dw[k] + dt) if want != g[k] else 0.0
+				if tr[k] >= 0:
+					var tn := _tr_name(g[k], tr[k])
+					var dur := (float(cl[tn]["count"]) - 1.0) / 24.0 / trs[k]
+					if vt - trt[k] >= dur:
+						var over := vt - trt[k] - dur
+						g[k] = tr[k]; tr[k] = -1
+						ph[k] = 0.0
+						if g[k] > 0:
+							var cg: Dictionary = cl["hv_" + GAITS[g[k]]]
+							ph[k] = fposmod(over * trs[k] * 24.0 / float(cg["count"]), 1.0)
+					else:
+						c = _clip(bv, model, tn); ct = trt[k]; spd = trs[k]
+				if tr[k] < 0:
+					if g[k] == 0:
+						c = _clip(bv, model, "hv_stand"); ct = -phase[k] * 4.0
+						if want > 0 and dw[k] > 0.15:
+							tr[k] = 1; trt[k] = vt; trs[k] = 1.0; dw[k] = 0.0
+							c = _clip(bv, model, _tr_name(0, 1)); ct = vt
+					else:
+						var cg: Dictionary = cl["hv_" + GAITS[g[k]]]
+						var cnt := float(cg["count"])
+						spd = clampf(s / float(cg["v_nom"]), 0.7, 1.6 if g[k] == 4 else 1.45)
+						var nph := ph[k] + dt * spd * 24.0 / cnt
+						if nph >= 1.0 and want != g[k] and dw[k] >= GAIT_DWELL:
+							var to := g[k] + (1 if want > g[k] else -1)
+							tr[k] = to; trt[k] = vt; dw[k] = 0.0
+							var s2 := 1.0
+							if to > 0:
+								s2 = clampf(s / float(cl["hv_" + GAITS[to]]["v_nom"]), 0.7, 1.6 if to == 4 else 1.45)
+							trs[k] = (spd + s2) * 0.5 if to > 0 else spd
+							c = _clip(bv, model, _tr_name(g[k], to)); ct = vt; spd = trs[k]
+						else:
+							ph[k] = fposmod(nph, 1.0)
+							c = _clip(bv, model, "hv_" + GAITS[g[k]])
+							ct = vt - ph[k] * cnt / (24.0 * spd)
+		if hidden and dk < 0.0:
+			continue
+		var y: float = bv.h_at(p.x, p.y)
+		var d2 := cpos.distance_to(Vector3(p.x, y, p.y))
+		var lod := 1 if d2 > bv.LOD_DIST else 0
+		if dk >= 0.0:
+			c = _clip(bv, model, "die"); ct = dk; spd = 1.0
+		bv._put(bv.mms["%s|%d|%d" % [model, side, lod]], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd), Color(1, 1, 1, 1))
+		# dust under fast cavalry: the legacy draw, same condition and order
+		if dk < 0.0 and r["moving"] and bv.rng.randf() < dt * 0.6:
+			bv.puff("mix", Vector3(p.x, y + 0.4, p.y), Vector3(0, 0.6, 0), 2.5, 1.0, 3.5, Color(0.55, 0.47, 0.36, 0.45))
+	v["pos"] = pos; v["yaw"] = yaw; v["ac_vel"] = vel; v["ac_g"] = g; v["ac_tr"] = tr
+	v["ac_ph"] = ph; v["ac_trt"] = trt; v["ac_trs"] = trs; v["ac_dw"] = dw; v["ac_sf"] = sf
