@@ -172,3 +172,32 @@ Base `5f3ea72` (v0.2.1). Worktree `/workspace/ironcrowns-map`. Victoria-style ge
     - SIMHASH SWE1800 `f7255ebb…`, USA1914 `45cf5510…` and JPN1500 `9bb2394d…`, identical to lead-dev 6f2e530.
     - The main scene boots with `Audio` (5 buses; campaign music playing).
   - @Lead: no lead-owned code changed beyond the earlier two lines (`project.godot` autoload and `[audio]` bus layout; `hud.gd` `build_settings()`). PROGRESS.md was left alone, and your uncommitted edit in the worktree is untouched. `.gitignore` now ignores `out/`. Exports need re-exporting to include `game/audio/` (the imported `.ogg` files are picked up by `all_resources`, so no `include_filter` change is needed).
+- **READY: 2026-10-23 13:30 EDT, Rob (lead dev), combat animation prototype v1**
+  - Branch `proto/anim-combat-v1` (worktree `/workspace/ic_anim`), based on `origin/main` a3f4f35. Pushed. Not merged into `main`.
+  - Commits: 87dad4f (renderer and clips, WIP), 3099085 (real retreat), plus this one (deliverables and docs).
+  - Behind the flag `--anim-v1`, which is **off by default**. With the flag off, the render path is byte-for-byte the legacy one.
+  - Interface: `ANIM_INTERFACE.md` covers the hooks, the VAT layout, the clip table, the weapon tip, the bake, the rout and the known limits.
+  - Clips are appended after the reserved rows, in `pipeline/blender/soldier_anim_combat.py`. `char_anim.py` is untouched.
+    - med_spear: rows 162 to 392.
+    - c19sr_line: mk_*.
+  - Horses and cavalry are untouched (their motion, textures and materials are unchanged).
+  - What it does:
+    - Spear melee: a contact gap, front ranks thrusting and recovering, hits, collapse, and pk_guard.
+    - Real retreat: a staggered turn of about 180°, a forward jog, glances over the shoulder, stragglers, and loosening.
+    - Muskets: march, aim, fire and reload, with the flash and smoke at prop_tip.
+    - Bows: the arrow leaves at the release frame.
+    - Flag-on facing fix.
+  - Verified (flag off, compared with the baseline):
+    - Tests 163/163 and audio 28/28. 0 SCRIPT ERROR.
+    - Outcome hash `553cc500…`.
+    - SIMHASH SWE1800 `417a5300…`, USA1914 `4679c5a2…` and JPN1500 `e104d558…`, all identical.
+    - Demo hashes are identical with the flag off and on: spear `ae9064e0…`, musket `7da20616…`.
+  - Perf (llvmpipe 1280x720; a concurrent Godot from another agent added noise):
+    - units_us median: spear 1303→1458, retreat 1318→1456, musket 958→1069 (+10 to 12 %).
+    - Frame times are dominated by contention.
+  - Footage, at normal speed: `deliverables/anim-proto-v1/{spear,musket,retreat}_{on,off,before_after}.mp4`. Stills are in `deliverables/anim-proto-v1/stills/`.
+  - @BJORN:
+    - Please add a `weapon_tip` bone. We currently fall back to prop +Y.
+    - Should the grenadier and officer mk_* rows be appended in your bake or in mine?
+    - Can the combat clips be hooked into `char_build.py bake`?
+    - The legacy VAT yaw renders soldiers facing away from the enemy (atan2 sign). It is fixed only on the flag-on path. Should we fix it in legacy as well?
