@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased (branch env/biome-framework, not on main, awaiting Kirk's approval)
+- env/east_asia: East Asian hill-country biome (Japan, Taiwan, Korea, eastern / southern China): sugi, red pine, evergreen broadleaf, maple, bamboo, sasa, azalea, susuki, mossy andesite, humid light; latitude gradient Hokkaido -> Okinawa / Taiwan. Render only. Evidence: evidence/env-east_asia/.
 - The battlefield environment engine is now biome-driven. Every province maps to one of nine biome profiles (boreal, tundra, temperate, east_asia, tropical, savanna, arid, mediterranean, steppe) from its terrain and lat / lon. Each profile lives in its own file, `game/scripts/battle/biomes/<id>.gd`, and supplies species, rocks, ground cover, palette, water and light. A biome without a file keeps the legacy ground. This branch ships only `boreal.gd`, which reproduces the merged Scandinavian look and now also covers the taiga of Russia and Canada. Other biomes land on their own `env/<biome>` branches.
 - The environment is now enabled in every era, not only medieval, so modern battles in North America and elsewhere get it too.
 - `test_env` covers every present biome: selection, model existence, determinism, and obstacle clearance in all eras. `tests/biome_census.tscn` prints the province-to-biome census. See `docs/BIOMES.md`. It is rendering only: sim hashes are unchanged.
