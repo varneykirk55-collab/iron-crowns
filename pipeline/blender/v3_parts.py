@@ -17,10 +17,10 @@ def _center(tree, c0):
             c = c + ax * (m - c).dot(ax)
     return c
 
-def hem_band(tree, c0, top_fn, hi=False, depth=0.032, off=0.0032, name='hem', slot='gaiter'):
+def hem_band(tree, c0, top_fn, hi=False, depth=0.032, off=0.0032, name='hem', slot='gaiter', n=None):
     """band whose upper edge follows z = top_fn(x, y) round the limb whose inside contains c0 (x, y, z~top).
     Profile (hi): tucked inner lip, rounded top edge, flat outer face down to top - depth. lo: 3-point profile."""
-    n = 96 if hi else 14
+    n = n or (96 if hi else 14)
     prof = ([(0.0, -0.0015), (0.0, off * 0.55), (-0.0015, off * 0.92), (-0.004, off), (-depth, off), (-depth - 0.004, -0.0015)]
             if hi else [(0.0, -0.001), (-0.002, off), (-depth, off * 0.8)])
     cz = {}
@@ -55,3 +55,35 @@ def leg_hems(tree, top_fn, hi=False, z0=0.5, slot='gaiter', **kw):
     """one hem band per leg (names hem.R / hem.L, rule 'transfer'); top_fn(x, y) -> edge height."""
     return [hem_band(tree, (s * 0.10, 0.0, z0), top_fn, hi, name='hem.' + ('R' if s > 0 else 'L'), slot=slot, **kw)
             for s in (1, -1)]
+
+def surf(tree, o, d, off=0.0):
+    """first surface hit from o along d: (point + n * off, n) or None."""
+    h = tree.ray_cast(V(o), V(d).normalized())
+    if h[0] is None: return None
+    return h[0] + h[1] * off, h[1]
+
+def ribbon(name, pn, w, hi=False, th=None, slot='gold', caps=True):
+    """flat braid / lace / strap along surface samples pn = [(point, normal)] (points already offset off the surface).
+    lo: a single-sided flat strip facing out; hi: a rounded cord (half-ellipse section, width w, height th) for the bake."""
+    th = th if th is not None else w * 0.35
+    secs = []
+    for i, (p, n) in enumerate(pn):
+        a = pn[max(i - 1, 0)][0]; b = pn[min(i + 1, len(pn) - 1)][0]
+        t = (b - a).normalized(); u = n.cross(t).normalized(); nn = t.cross(u).normalized()
+        if nn.dot(n) < 0: nn = -nn
+        if hi:
+            secs.append(C.ring(p, u, nn, w / 2, th, th * 0.15, 10))
+        else:
+            secs.append([p - u * (w / 2), p + u * (w / 2)])
+    if hi:
+        return C.grid_sweep(name, secs, cap0=caps, cap1=caps, slot=slot)
+    verts = [q for s_ in secs for q in s_]
+    faces = []
+    for i in range(len(secs) - 1):
+        a = 2 * i
+        f = (a, a + 1, a + 3, a + 2)
+        # outward winding: face normal along the surface normal
+        p0, p1, p2 = verts[f[0]], verts[f[1]], verts[f[2]]
+        if (p1 - p0).cross(p2 - p0).dot(pn[i][1]) < 0: f = f[::-1]
+        faces.append(f)
+    return C.mk(name, verts, faces, slot)

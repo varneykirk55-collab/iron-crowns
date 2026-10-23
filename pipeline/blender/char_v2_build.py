@@ -220,10 +220,11 @@ def build_meshes():
     import re
     def gkey(o): return re.match(r'[A-Za-z]*', o.name.split('.')[0]).group(0)
     keys = sorted(set(gkey(o) for o in kit_hi + kit_lo))
+    C.PID_KEYS = keys   # pid i (> 0) = group keys[i - 1] (rider kits classify horse / tack / reins vertices by it)
     log('part groups', keys)
     for o in [hi, lo] + kit_hi + kit_lo:   # group id: the normal / id bakes are 'exploded' per group (no cross-part ray hits)
         i = 0 if o in (hi, lo) or gkey(o) in BODY_KEYS else 1 + keys.index(gkey(o))
-        if gkey(o) in ('handL', 'handR', 'mhhandL', 'mhhandR'): AO_AWAY.add(i)
+        if gkey(o) in ('handL', 'handR', 'mhhandL', 'mhhandR') + tuple(getattr(C, 'AO_AWAY_KEYS', ())): AO_AWAY.add(i)
         if gkey(o) == 'mhhead': HEAD_PID[:] = [i]   # lo collar shell bakes from the fused hi body
         at = o.data.attributes.new('pid', 'FLOAT', 'POINT'); at.data.foreach_set('value', [float(i)] * len(o.data.vertices))
     for o in [hi] + kit_hi:   # painted detail default (neutral) where nothing was painted
@@ -250,13 +251,17 @@ def unwrap(L):
     # temporarily enlarge the head + shako + hands so the area-proportional packer gives them more texels
     hx, hy0, hy1, hz = getattr(C, 'HEAD_BOX', (0.13, -0.13, 0.16, 2.0))   # kits with tall / wide headgear widen it
     hv = [v.index for v in me.vertices if (v.co.z > 1.545 and abs(v.co.x) < hx and hy0 < v.co.y < hy1 and v.co.z < hz)
-          or (v.co.z < 0.93 and 0.16 < abs(v.co.x) < 0.27 and v.co.z > 0.70)]
+          or (v.co.z < 0.93 and 0.16 < abs(v.co.x) < 0.27 and v.co.z > 0.70 and abs(v.co.y) < getattr(C, 'HAND_BOX_Y', 9.0))]
     orig = {i: me.vertices[i].co.copy() for i in hv}
     for i in hv:
         hd = me.vertices[i].co.z > 1.5
         c = Vector((0, 0.01, 1.666)) if hd else Vector((math.copysign(0.215, me.vertices[i].co.x), 0.01, 0.83))
         k = FACE_SCALE if hd and me.vertices[i].co.z < 1.725 else FEATURE_SCALE
         me.vertices[i].co = c + (me.vertices[i].co - c) * k
+    for test, c, k in getattr(C, 'UV_SCALES', []):   # kit regions with less texel density (e.g. the rider kits' horse)
+        for v in me.vertices:
+            if v.index not in orig and test(v.co):
+                orig[v.index] = v.co.copy(); v.co = Vector(c) + (v.co - Vector(c)) * k
     bpy.ops.object.select_all(action='DESELECT'); L.select_set(True); bpy.context.view_layer.objects.active = L
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.002, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
@@ -742,12 +747,18 @@ def main():
     farx = concat([far], KID + '_lod1')
     nv, mv = len(L.data.vertices), len(L.data.vertices) + len(mid.data.vertices)
     for o in (full, farx): game_layers(o)
-    rig = build_rig(KID)
     maps = {'nrm': f'{KID}_nrm.vtex', 'id': f'{KID}_id.vtex', 'alb': f'{KID}_alb.vtex', 'size': TEX, 'format': 'PNG RGBA8',
             'layout': 'nrm: xyz tangent-space normal (Blender / OpenGL convention), a = AO; id: r = slot*8, g = material*16, '
                       'b = team mask; alb: sRGB painted albedo for skin / eye slots (MakeHuman CC0 skin), black elsewhere; all sampled with UV3 (Godot CUSTOM0, the atlas layer)'}
     extra0 = {'tris': tn, 'near_verts': nv, 'mid_verts': mv, 'tris_mid': tm, 'tris_far': tf, 'tris_stored': tn + tm + tf, 'maps': maps,
               'split': 'verts [0,near_verts) = LOD0 set, [near_verts,mid_verts) = mid set, [mid_verts,vertices) = far set'}
+    if getattr(C, 'RIDER', None):   # rider kits (docs/char/ERAS_PROGRESS.md): seated on the existing cavalry rig, see v3_rider.py
+        import v3_rider
+        v3_rider.bake(full, farx, extra0, {'tris': tf, 'maps': maps}, [H, L, mid, far])
+        json.dump({'near': tn, 'mid': tm, 'far': tf, 'near_verts': nv, 'mid_verts': mv - nv, 'far_verts': len(far.data.vertices)},
+                  open(os.path.join(OUTP, 'tris.json'), 'w'), indent=1)
+        log('done'); return
+    rig = build_rig(KID)
     m0 = bake_vat(full, rig, 0, extra0)
     m1 = bake_vat(farx, rig, 1, {'tris': tf, 'maps': maps})
     # keep a rigged blend for Rob (rest pose, all sets skinned to the same bones)
