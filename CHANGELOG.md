@@ -33,7 +33,7 @@ Presentation only: battle logic, movement, reinforcement, AI, economy and diplom
 - Diplomacy, Economy (treasury, income, expenses with upkeep highlighted, people, policy, stockpile, procurement, armies, provinces), Inbox (Military reports section, coloured category chips) and the deployment window were restyled.
 - The battle result is a framed card with engaged / losses / remaining for both sides.
 ### Tests
-- New `ui` suite (6 checks): the title screen lists the right menu entries, ages and only playable nations; a campaign starts by mouse in every era; speed buttons and dock windows work by click; disbanding asks first; long panels scroll on screen; saving shows a notice and Continue resumes it.
+- New `ui` suite (6 checks; full run 216 / 216 after merging the combat-animation work, audio 28 / 28, test_env 0 failures): the title screen lists the right menu entries, ages and only playable nations; a campaign starts by mouse in every era; speed buttons and dock windows work by click; disbanding asks first; long panels scroll on screen; saving shows a notice and Continue resumes it.
 - `tests/ui_shots.tscn` captures the UI at any resolution; `tests/ui_demo.tscn` is a scripted walkthrough used for the demo video.
 
 ## v0.5.0 — 2026-10-23 (gameplay & AI refinement)

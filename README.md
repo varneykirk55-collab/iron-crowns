@@ -68,7 +68,7 @@ overhead camera; C again returns to cinematic. The camera never changes the batt
 ## Developer commands
 Run these from the repo root (`tools/godot` is the Godot 4.7.2 binary used for development):
 ```
-godot --headless --path game res://tests/test_runner.tscn        # 211 checks -> test_results.txt  (--only=save|camera|controls|eras|gameplay|offensive|medieval|aistrategy|detection|reinforce|inbox|ui|bench|USA|SWE|JPN|battle|era)
+godot --headless --path game res://tests/test_runner.tscn        # 216 checks -> test_results.txt  (--only=save|camera|controls|eras|gameplay|offensive|medieval|aistrategy|detection|reinforce|inbox|ui|bench|USA|SWE|JPN|battle|era)
 xvfb-run -a godot --path game --resolution 1920x1080 res://tests/ui_shots.tscn -- --out=/abs/dir --tag=1920x1080   # UI screenshot tour
 godot --headless --path game res://tests/sim_hash.tscn             # deterministic sim fingerprint (3 x 800 AI days)
 xvfb-run -a godot --path game -- --demo=campaign --nation=USA     # scripted demo + screenshots -> shots/
