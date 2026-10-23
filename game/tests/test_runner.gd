@@ -43,6 +43,8 @@ func _run() -> void:
 		await test_controls()
 	if only == "" or only == "eras":
 		test_era_battles()
+	if only == "" or only == "gameplay":
+		await test_gameplay_script()
 	if only == "bench":
 		await bench_cpu()
 	var summary := {"passed": results.size() - fails, "failed": fails, "total": results.size(), "seconds": (Time.get_ticks_msec() - t0) / 1000.0,
@@ -829,6 +831,99 @@ func test_era_battles() -> void:
 				if u["era"] != e2: ok_n = false
 			info.append("%d:%s" % [y, a["units"][0]["type"] if not a.is_empty() and a["units"].size() > 0 else "-"])
 		check("%s: starting armies use the start era's units in every era" % code, ok_n, ", ".join(info))
+
+# ---------------------------------------------------------------- scripted gameplay (Task 7)
+func test_gameplay_script() -> void:
+	print("== Scripted gameplay ==")
+	Sim.auto_deploy = true
+	var m: Node = load("res://scenes/main.tscn").instantiate()
+	add_child(m)
+	await _frames(3)
+	m._start_game("SWE", 1913, 7, 200)
+	await _frames(3)
+	Sim.set_speed(0)
+	var e0 := Sim.era
+	check("gameplay: campaign started as Sweden in %s" % Sim.date_string(), Sim.player == "SWE" and m.map.visible and not m.in_battle, "")
+	# move an army one province
+	var army: Dictionary = m._demo_main_army("SWE")
+	var nb: Array = []
+	for pid in GameData.provinces[army["node"]].get("neighbors", {}).keys():
+		if Sim.prov_owner.get(int(pid), "") == "SWE": nb.append(int(pid))
+	var from: int = army["node"]
+	var mv: Dictionary = Sim.order_move(army["id"], nb[0]) if not nb.is_empty() else {"ok": false}
+	for d in 40:
+		if army["node"] != from: break
+		Sim.tick_day()
+	check("gameplay: army %d marched %d -> %d" % [army["id"], from, army["node"]], mv.get("ok", false) and army["node"] == nb[0], str(mv))
+	# declare war, invade, watch a battle, capture a province
+	var captured := {}
+	var cb := func(pid: int, old: String, new: String) -> void:
+		if new == "SWE": captured[pid] = old
+	Sim.ownership_changed.connect(cb)
+	# test grant: a bigger expeditionary force so the invasion reliably succeeds (_demo_war merges everything at the capital)
+	Sim.nations["SWE"]["funds"] += 20000.0; Sim.nations["SWE"]["manpower"] += 40000.0
+	for k in 3:
+		for uid in GameData.units_by_era[GameData.eras[Sim.era]["id"]]:
+			Sim.buy_unit("SWE", uid, Sim.nations["SWE"]["capital"])
+	var era_date := [""]
+	var ecb := func(i: int) -> void: era_date[0] = Sim.date_string()
+	Sim.era_changed.connect(ecb)
+	var tgt: String = m._demo_war("SWE")
+	check("gameplay: war declared on %s" % tgt, tgt != "" and Sim.at_war("SWE", tgt), "")
+	var watched := false; var toggles_ok := false
+	for d in 500:
+		Sim.tick_day()
+		if not watched:
+			for bid in Sim.battles.keys():
+				var b: Dictionary = Sim.battles[bid]
+				if b["player_side"] >= 0 and not b["done"] and b["sim"] != null:
+					m.watch_battle(bid)
+					for k in 200:
+						await _frames(1)
+						if m.in_battle and not m.transitioning: break
+					if m.in_battle:
+						var bv = m.battle_view
+						var c0: bool = bv.cam_auto
+						var ev := InputEventAction.new(); ev.action = "camera_toggle"; ev.pressed = true
+						Input.parse_input_event(ev); await _frames(2)
+						var ev2 := InputEventAction.new(); ev2.action = "camera_toggle"; ev2.pressed = false
+						Input.parse_input_event(ev2); await _frames(2)
+						var c1: bool = bv.cam_auto
+						toggles_ok = c1 != c0
+						bv.skip()
+						await _frames(2)
+						check("gameplay: watched a battle in 3D (camera toggle %s -> %s), result %s" % [c0, c1, str(bv.finished)], toggles_ok and bv.finished, "")
+						bv.leave_requested.emit(bid)
+						for k in 200:
+							await _frames(1)
+							if not m.in_battle and not m.transitioning: break
+					watched = true
+					break
+		if watched and not captured.is_empty():
+			break
+	Sim.ownership_changed.disconnect(cb)
+	var dbg := []
+	for a in Sim.armies.values():
+		if a["owner"] == "SWE": dbg.append("%d@%d %s men%d path%d" % [a["id"], a["node"], a["state"], int(Sim.army_men(a)), a["path"].size()])
+	print("GPDBG at_war ", Sim.at_war("SWE", tgt), " sieges ", Sim.sieges, " armies ", dbg)
+	check("gameplay: captured enemy province(s) %s by %s" % [str(captured.keys()), Sim.date_string()], not captured.is_empty() and watched and not m.in_battle, "")
+	# save / load round trip
+	var h0 := JSON.stringify(Sim.serialize_state()).md5_text(); var d0 := Sim.date_string()
+	var sv := Sim.save_game("gameplay_test")
+	Sim.advance_days(20)
+	var ld := Sim.load_game("gameplay_test")
+	await _frames(2)
+	check("gameplay: save/load restores %s exactly" % d0, sv["ok"] and ld["ok"] and Sim.date_string() == d0 and JSON.stringify(Sim.serialize_state()).md5_text() == h0, ld["msg"])
+	# era advance (start was 1913)
+	var guard := 0
+	while Sim.era == e0 and guard < 800:
+		Sim.tick_day(); guard += 1
+	await _frames(2)
+	Sim.era_changed.disconnect(ecb)
+	if era_date[0] == "": era_date[0] = Sim.date_string()
+	check("gameplay: era advanced to %s on %s (game started 1913)" % [GameData.eras[Sim.era]["name"], era_date[0]], Sim.era == e0 + 1 and era_date[0].ends_with("1914"), "")
+	m.queue_free()
+	await _frames(2)
 
 func bench_cpu() -> void:
 	print("== CPU bench ==")
