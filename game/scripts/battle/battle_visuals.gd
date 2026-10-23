@@ -10,8 +10,18 @@
 ## (with --bench) holds three fixed cameras for N frames each to measure identical views before/after.
 extends Node
 
-const VERSION := 1   # 0 = measurement only (baseline); 1 = c19 visual pass
-const ERAS := ["c19"]  # scope of the pass until review; other eras keep the legacy look untouched
+const VERSION := 2   # 0 = measurement only (baseline); 1 = c19 visual pass; 2 = + other eras (added one by one)
+const ERAS := ["c19", "medieval", "early_modern", "c20", "modern"]  # eras with the reviewed pass; any era not listed keeps the legacy look untouched
+
+## Per-era light / sky on top of the shared (c19-reviewed) setup. Only the keys listed differ from c19; the
+## readability settings (FILMIC, exposure, sun energy / angle, contrast) stay identical across eras.
+const ERA_ENV := {
+	"c19": {},
+	"medieval": {"sky_top": Color(0.27, 0.45, 0.7), "sky_horizon": Color(0.7, 0.73, 0.76), "sun_color": Color(1.0, 0.94, 0.82), "fog": 0.0005},
+	"early_modern": {"sky_horizon": Color(0.68, 0.71, 0.75), "sun_color": Color(1.0, 0.95, 0.85)},
+	"c20": {"sky_top": Color(0.33, 0.43, 0.58), "sky_horizon": Color(0.66, 0.68, 0.7), "sun_color": Color(1.0, 0.96, 0.9), "fog": 0.00055},
+	"modern": {"sky_top": Color(0.24, 0.43, 0.72), "sky_horizon": Color(0.68, 0.73, 0.8), "sun_color": Color(1.0, 0.97, 0.92)},
+}
 
 # ------------------------------------------------------------------ static API
 ## Quality presets (rendering only). q = 0 low, 1 medium (= shipped defaults), 2 high.
@@ -33,9 +43,10 @@ static func apply(bv: Node) -> void:
 	if bv == null:
 		return
 	_bv_ref = weakref(bv)
-	if str(bv.get("era_id")) in ERAS:
-		_apply_environment(bv.get("environment"), bv.get("sun"))
-		_apply_materials(bv)
+	var era := str(bv.get("era_id"))
+	if era in ERAS:
+		_apply_environment(bv.get("environment"), bv.get("sun"), ERA_ENV.get(era, {}))
+		_apply_materials(bv, era)
 	_apply_scene_quality(bv)
 
 ## Store the quality level and apply it now to the root viewport and (if one was passed to apply() and is
@@ -78,14 +89,14 @@ static func _apply_scene_quality(bv: Node) -> void:
 	if "LOD_DIST" in bv:
 		bv.set("LOD_DIST", Q["lod"])
 
-static func _apply_environment(env: Environment, sun: DirectionalLight3D) -> void:
+static func _apply_environment(env: Environment, sun: DirectionalLight3D, e: Dictionary = {}) -> void:
 	if env != null:
 		var sm: ProceduralSkyMaterial = null
 		if env.sky != null:
 			sm = env.sky.sky_material as ProceduralSkyMaterial
 		if sm != null:
-			sm.sky_top_color = Color(0.25, 0.42, 0.68)
-			sm.sky_horizon_color = Color(0.66, 0.71, 0.77)
+			sm.sky_top_color = e.get("sky_top", Color(0.25, 0.42, 0.68))
+			sm.sky_horizon_color = e.get("sky_horizon", Color(0.66, 0.71, 0.77))
 			sm.ground_horizon_color = Color(0.62, 0.66, 0.66)
 			sm.ground_bottom_color = Color(0.22, 0.23, 0.19)   # earthy bounce light from below
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
@@ -97,7 +108,7 @@ static func _apply_environment(env: Environment, sun: DirectionalLight3D) -> voi
 		env.tonemap_exposure = 1.08
 		env.tonemap_white = 1.0
 		env.fog_light_color = Color(0.68, 0.72, 0.78)
-		env.fog_density = 0.00045                # a touch more aerial perspective to separate distant lines
+		env.fog_density = e.get("fog", 0.00045)               # a touch more aerial perspective to separate distant lines
 		env.fog_sky_affect = 0.3
 		env.glow_enabled = true                  # glow only for HDR hot spots (muzzle flashes / fire), no full-screen haze
 		env.glow_intensity = 0.3
@@ -109,17 +120,23 @@ static func _apply_environment(env: Environment, sun: DirectionalLight3D) -> voi
 	if sun != null:
 		sun.rotation_degrees = Vector3(-36, 35, 0)
 		sun.light_energy = 1.45                  # was 1.75: lower key/fill ratio so the shaded (camera-facing) backs read
-		sun.light_color = Color(1.0, 0.95, 0.86)
+		sun.light_color = e.get("sun_color", Color(1.0, 0.95, 0.86))
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL   # one pass; the 4096 atlas does the sharpening
 		sun.shadow_bias = 0.1
 		sun.shadow_normal_bias = 1.8
 		sun.shadow_blur = 0.5
 		sun.shadow_opacity = 0.92
 
-## c19-only replacement meshes for props whose glb is shared with other eras (art_cannon = early_modern culverins too).
-## Same groups / UV conventions / footprint, so the swap is purely visual. Becomes a no-op once units.json points
-## field_guns at art_field_gun_c19 directly (see Requests in out/INTEGRATION.md).
-const PROP_SWAP := {"art_cannon": "res://assets/models/art_field_gun_c19.glb"}
+## Per-era replacement meshes for props whose glb is shared between eras (art_cannon = early_modern culverins +
+## c19 field guns; art_howitzer = c20 howitzers + modern rocket_art). Same groups / UV conventions / footprint, so
+## the swap is purely visual. Becomes a no-op once units.json points those units at the era glbs directly
+## (see Requests in out/INTEGRATION.md). Era-exclusive props (art_bombard) are rebuilt in place instead.
+const PROP_SWAP := {
+	"c19": {"art_cannon": "res://assets/models/art_field_gun_c19.glb"},
+	"early_modern": {"art_cannon": "res://assets/models/art_culverin_em.glb"},
+	"c20": {"art_howitzer": "res://assets/models/art_howitzer_c20.glb"},
+	"modern": {"art_howitzer": "res://assets/models/art_howitzer_mod.glb"},
+}
 
 static func _glb_mesh(path: String) -> Mesh:
 	var ps = load(path)
@@ -136,23 +153,24 @@ static func _glb_mesh(path: String) -> Mesh:
 	sc.free()
 	return out
 
-static func _swap_props(mms: Dictionary) -> void:
+static func _swap_props(mms: Dictionary, era: String) -> void:
+	var swap: Dictionary = PROP_SWAP.get(era, {})
 	var cache := {}
 	for key in mms.keys():
 		var k := str(key)
 		if not (k.begins_with("P") or k.begins_with("W")):
 			continue
 		var model := k.substr(1).get_slice("|", 0)
-		if not PROP_SWAP.has(model):
+		if not swap.has(model):
 			continue
 		if not cache.has(model):
-			cache[model] = _glb_mesh(PROP_SWAP[model])
+			cache[model] = _glb_mesh(swap[model]) if ResourceLoader.exists(swap[model]) else null
 		if cache[model] != null:
 			(mms[key]["mm"] as MultiMesh).mesh = cache[model]
 
-static func _apply_materials(bv: Node) -> void:
+static func _apply_materials(bv: Node, era: String = "c19") -> void:
 	var mms: Dictionary = bv.get("mms")
-	_swap_props(mms)
+	_swap_props(mms, era)
 	for key in mms.keys():
 		var mmi: MultiMeshInstance3D = mms[key]["mmi"]
 		var mat := mmi.material_override as ShaderMaterial
@@ -211,6 +229,10 @@ func _ready() -> void:
 	log_path = args.get("perflog", "")
 	if log_path == "1": log_path = ""
 	process_priority = 1000   # run after main.gd and BattleView each frame
+	# preview of the overworld markers (the real wiring is the one-line Request in out/INTEGRATION.md)
+	if args.get("vispass", "0") == "1" and get_parent() != null and "map" in get_parent() and get_parent().map != null \
+			and get_parent().map.get_node_or_null("MapVisuals") == null:
+		get_parent().map.add_child.call_deferred(load("res://scripts/map/map_visuals.gd").new())
 	t_prev = Time.get_ticks_usec()
 
 ## Debug-only look ablation: --vx-<shader uniform>=v (vat + battle team_prop materials), --vx-tonemap=filmic|aces,

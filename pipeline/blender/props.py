@@ -3,7 +3,7 @@ Vehicles: UVMap.u = 1 marks the recoiling barrel part (animated in the Godot sha
 import sys, os, math, random
 sys.path.insert(0, os.path.dirname(__file__))
 import bpy
-import common, c19_kit
+import common, c19_kit, med_kit, em_kit, c20_kit, mod_kit
 from common import hexc, MeshBuilder
 
 TEAM = (1, 1, 1, 1.0)
@@ -31,6 +31,10 @@ def finish(b, name):
     return obj
 
 def bombard():
+    # visual pass (medieval): art_bombard is only used by medieval bombards -> rebuilt in place (pipeline/blender/med_kit.py)
+    return finish(med_kit.bombard(G), 'art_bombard')
+
+def bombard_legacy():
     b = MeshBuilder('art_bombard', G)
     b.box((0.9, 2.2, 0.35), (0, -0.2, 0.25), WOOD, 'body')
     b.box((0.15, 0.4, 0.5), (0, -1.1, 0.35), WOOD_D, 'body')
@@ -44,6 +48,10 @@ def field_gun_c19():
     # visual pass (c19): detailed field gun, same groups / footprint as art_cannon (pipeline/blender/c19_kit.py).
     # Separate asset because art_cannon is shared with early_modern 'culverins'; battle_visuals.gd swaps it in for c19.
     return finish(c19_kit.field_gun(G), 'art_field_gun_c19')
+
+def culverin_em():
+    # visual pass (early_modern): own asset, swapped in for art_cannon by battle_visuals.gd (art_cannon stays legacy)
+    return finish(em_kit.culverin(G, wheel), 'art_culverin_em')
 
 def cannon():
     b = MeshBuilder('art_cannon', G)
@@ -75,7 +83,14 @@ def tracks(b, w, l, h, col=TRACK):
         for i in range(6):
             wheel(b, s * (w / 2 - 0.28), -l / 2 + 0.5 + i * (l - 1.0) / 5, 0.38, 0.33, 0.6, hexc('3a3a3a'))
 
+def howitzer_c20():
+    # visual pass (c20): own asset, swapped in for art_howitzer by battle_visuals.gd (art_howitzer is shared with modern)
+    return finish(c20_kit.howitzer(G, wheel), 'art_howitzer_c20')
+
 def tank_c20():
+    return finish(c20_kit.tank(G, tracks), 'tank_c20')  # visual pass (c20); legacy builder kept below as tank_c20_legacy
+
+def tank_c20_legacy():
     b = MeshBuilder('tank_c20', G)
     tracks(b, 3.0, 6.0, 1.0)
     b.box((2.9, 5.6, 0.9), (0, 0, 1.35), OLIVE, 'body', taper=0.92)
@@ -86,7 +101,17 @@ def tank_c20():
     b.cyl(0.18, 0.18, 0.5, (0, 0.85, 2.25), OLIVE, 'recoil', rot=(-90, 0, 0), segs=8)
     return finish(b, 'tank_c20')
 
+def howitzer_mod():
+    # visual pass (modern): own asset, swapped in for art_howitzer by battle_visuals.gd (art_howitzer stays legacy)
+    return finish(mod_kit.howitzer(G, wheel), 'art_howitzer_mod')
+
 def mbt():
+    return finish(mod_kit.mbt(G, tracks), 'mbt_modern')  # visual pass (modern); legacy kept as mbt_legacy
+
+def ifv():
+    return finish(mod_kit.ifv(G, wheel), 'ifv_modern')  # visual pass (modern); legacy kept as ifv_legacy
+
+def mbt_legacy():
     b = MeshBuilder('mbt_modern', G)
     sand = hexc('7d7a5c'); sandt = (0.5, 0.5, 0.38, 0.5)
     tracks(b, 3.6, 7.4, 1.0)
@@ -99,7 +124,7 @@ def mbt():
     b.cyl(0.15, 0.15, 0.8, (0, 3.0, 2.3), sand, 'recoil', rot=(-90, 0, 0), segs=8)
     return finish(b, 'mbt_modern')
 
-def ifv():
+def ifv_legacy():
     b = MeshBuilder('ifv_modern', G)
     green = hexc('4f5a3e'); gt = (0.42, 0.47, 0.32, 0.5)
     for s in (1, -1):
@@ -235,13 +260,13 @@ def fence():
     return finish(b, 'fence')
 
 def main():
-    builders = [bombard, cannon, field_gun_c19, howitzer, tank_c20, mbt, ifv, truck, army_standard, lambda: city(0), lambda: city(1),
+    builders = [bombard, cannon, field_gun_c19, culverin_em, howitzer, howitzer_c20, howitzer_mod, tank_c20, mbt, ifv, truck, army_standard, lambda: city(0), lambda: city(1),
                 lambda: city(2), capital_star, battle_marker, ship_sail, ship_steel, conifer, broadleaf, palm, bush, rock, house, fence]
     only = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []  # e.g. -- field_gun_c19 (skips props.blend)
     common.reset_scene()
     objs = []
     for i, fn in enumerate(builders):
-        if only and getattr(fn, '__name__', '') not in [{'art_cannon': 'cannon', 'art_field_gun_c19': 'field_gun_c19'}.get(n, n) for n in only]:
+        if only and getattr(fn, '__name__', '') not in [{'art_cannon': 'cannon', 'art_field_gun_c19': 'field_gun_c19', 'art_culverin_em': 'culverin_em', 'art_howitzer_c20': 'howitzer_c20', 'art_howitzer_mod': 'howitzer_mod', 'mbt_modern': 'mbt', 'ifv_modern': 'ifv'}.get(n, n) for n in only]:
             continue
         o = fn()
         common.export_glb([o], os.path.join(common.MODELS, o.name + '.glb'))
