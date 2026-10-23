@@ -15,10 +15,15 @@ var _lod_forced_dist := 75.0
 ## distance, LOD distance, glow, anisotropy) are owned by the graphics pass: battle_visuals.apply_quality(q).
 func apply_quality() -> void:
 	BattleVisuals.apply_quality(Controls.quality)
+	if not biome.is_empty(): BattleEnvironment.apply_quality(self)   # env vegetation density tiers (render only)
 	if _lod_forced:
 		LOD_DIST = _lod_forced_dist   # debug --lod-dist= overrides the preset
 
 const BattleVisuals := preload("res://scripts/battle/battle_visuals.gd")
+const BattleEnvironment := preload("res://scripts/battle/battle_environment.gd")
+var biome := {}          # data-driven battlefield biome (BattleEnvironment.biome_for); {} = legacy ground/scenery
+var env := {}            # BattleEnvironment layout / plan / nodes (render only: no collision, sim never reads it)
+var _scatter_dry := false
 const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_gunner", "c19": "c19_artillery", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
@@ -81,6 +86,7 @@ func setup(battle_id: int) -> void:
 	era_id = GameData.eras[Sim.era]["id"]
 	if sim.regs.size() > 0:
 		era_id = sim.regs[0]["def"]["era"]
+	biome = BattleEnvironment.biome_for(b, era_id)
 	for s in 2:
 		side_col[s] = Sim.nations[b["codes"][s]]["color"]
 	if _too_close(side_col[0], side_col[1]):
@@ -94,6 +100,7 @@ func setup(battle_id: int) -> void:
 	_build_hud()
 	BattleVisuals.apply_quality(Controls.quality)   # store the level first: apply() uses it even if we're not in the tree yet
 	BattleVisuals.apply(self)   # graphics pass (rendering only; idempotent; c19 look only, quality presets all eras)
+	if not biome.is_empty(): BattleEnvironment.apply_look(self)   # biome sun / sky / fog (after the pass, so it wins)
 	_officer_check()
 	apply_quality()
 	Controls.settings_changed.connect(apply_quality)
@@ -147,6 +154,9 @@ func _terrain_params() -> Dictionary:
 	return {"amp": 3.5, "freq": 0.005, "a": Color(0.33, 0.45, 0.18), "b": Color(0.48, 0.5, 0.25), "dirt": Color(0.43, 0.35, 0.24), "snow": 0.0}
 
 func _build_ground() -> void:
+	if not biome.is_empty():
+		BattleEnvironment.build_ground(self)
+		return
 	var tp := _terrain_params()
 	var nz := FastNoiseLite.new()
 	nz.seed = int(b["seed"]) % 100000
@@ -246,6 +256,8 @@ func _scatter(model: String, count: int, scale_rng: Vector2, accept: Callable, s
 		var tr := Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(p.x, h_at(p.x, p.y) - 0.1, p.y))
 		mm.set_instance_transform(k, tr)
 		mm.set_instance_color(k, Color.WHITE)
+	if _scatter_dry:
+		return   # biome scenery replaces this: same rng draws (soldier jitter after it is unchanged), no nodes
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	if _vc_mat == null:
@@ -258,6 +270,7 @@ func _scatter(model: String, count: int, scale_rng: Vector2, accept: Callable, s
 	add_child(mmi)
 
 func _build_scenery() -> void:
+	_scatter_dry = not biome.is_empty()
 	var ter: String = b["terrain"]
 	var clear_zone := func(p: Vector2) -> bool: return absf(p.x) > 140.0 or absf(p.y) > 230.0
 	var flank := func(p: Vector2) -> bool: return absf(p.x) > 150.0 and absf(p.x) < 470.0
@@ -281,6 +294,10 @@ func _build_scenery() -> void:
 			_scatter("fence", 40, Vector2(1.5, 1.6), func(p): return absf(p.x) > 150.0 and absf(p.x) < 280.0 and absf(p.y) < 160.0)
 			_scatter("rock", 40, Vector2(0.6, 1.5), func(p): return true)
 	_scatter("bush", 500 if ter != "desert" else 60, Vector2(0.5, 1.1), func(p): return true, false)
+	if _scatter_dry:
+		_scatter_dry = false
+		BattleEnvironment.build_scenery(self)
+
 
 # ======================================================================== units
 func _vat_model(name: String) -> Dictionary:
