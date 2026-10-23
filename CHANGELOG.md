@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.3.1 — 2026-10-23 (overworld terrain refinement, Victoria-style map)
+### Added
+- **New campaign-map look** (`game/shaders/map.gdshader` rewritten; branch `graphics-map` 53b3dcd): relief shading from baked
+  normal/cavity maps, a natural biome albedo with forests, rock on steep slopes and snow on high peaks (prominence-based, so the Tibetan
+  plateau is not white), depth-shaded oceans with shallows, waves, shore foam and fresnel, light haze at oblique views, smooth antialiased
+  coasts. Borders come from a signed distance field: national borders are thicker and darker than province lines and keep a constant
+  pixel width across zoom. The political tint is strong at world/region zoom and fades so terrain dominates close up.
+- **Terrain LOD**: the map is 16x8 chunks with 3 LODs and skirts (`world_map.gd`); Low quality hides the finest LOD and uses a simpler
+  shader path. Quality follows `Controls.settings_changed`.
+- `pipeline/build_map_visuals.py` regenerates the 5 terrain textures in `game/assets/map_terrain/`. Harnesses `game/tests/map_shots`
+  (screenshots, perf, province-pick grid, selection/conquest/zoom checks) and `game/tests/map_flyover` (movie capture).
+### Fixed
+- Horizontal streaks over the open ocean at world zoom (v0.2–v0.3). Cause: the deep-ocean backdrop plane sat 0.06 units under the
+  ocean surface, below the depth-buffer resolution at world-zoom distances, so the two z-fought. The backdrop now sits at y −1.5.
+### Unchanged (verified)
+- Picking, the political LUT, army markers (`map_visuals.gd`, R5), labels, sim and battles. 641 provinces, 186 AI nations.
+### Verified
+- 140/140 tests including the marker click/selection tests; gameplay outcome hash `0e814dda…` unchanged; sim hashes USA1914 `45cf5510…`,
+  JPN1500 `9bb2394d…`, SWE1800 `f7255ebb…` unchanged from v0.3. Province picks identical to v0.3 on 15 views x 576 screen points (and to
+  v0.2.1 on the original 12). Selection highlight, conquest recolour (Oslo → Sweden, re-pick 328) and zoom extremes 4/230 OK.
+- Map frame time on llvmpipe (mean of 8 views): Low −47 %, Medium −29 %, High −34 % vs v0.3; close mountain views at Medium/High are
+  up to +28 % slower (more triangles in the finest LOD). Not measured on a GPU.
+### Not done / limitations
+- At region and close zoom the national colours are deliberately muted (terrain first, like the reference); some neighbours with similar
+  colours are told apart mainly by the dark border line. No cities, fleets or gameplay changes. The terrain is shaded, not re-meshed:
+  mountain height still uses the existing height scale (picking depends on it). Windows build exported but not run.
+
 ## v0.3 — 2026-10-23 (BJORN's eras batch + polish pass merged)
 ### Added
 - **Battle graphics for every era** by BJORN (`battle_visuals.gd`, eras batch 1c951b9): medieval, pike & shot, c20 and modern now get

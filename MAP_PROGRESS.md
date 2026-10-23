@@ -11,3 +11,4 @@ Symlinks (untracked): tools/godot, tools/venv, data_src -> /workspace/grand_stra
 - Perf table: out/perf_table.md (Low -22..-57%, Medium -7..-50%, High -53..+23%; worst close_alps High +23%).
 - Flyover: game/tests/map_flyover.{gd,tscn} + --write-movie -> out/map_flyover.mp4.
 - 00:40 EDT: readability pass per lead review (country tint 0.80, close min 0.30 by cam 7..55, national 1.7px vs province 0.5px lighter; close-zoom world-min widths reduced).
+- 02:10 EDT (lead): merged into lead-dev (6db2728); world-zoom ocean streaks fixed in world_map.gd (backdrop z-fight, 3012eab); re-verified on merged build (out/v031 in lead worktree); shipped as v0.3.1.

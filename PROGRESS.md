@@ -95,4 +95,7 @@
 - [x] map_shots.gd: +3 views europe_world, borders_close, usa_world (streak check); before shots from v0.3 tag worktree /workspace/ic_v03_before -> out/v031/before
 - [x] after shots (merge 6db2728) picks 15/15 views identical to v0.3 and 12/12 to v0.2.1 baseline (out/v031/picks_compare.log)
 - [x] STREAKS: still present after terrain merge; cause = z-fighting of deep-ocean backdrop plane (y -0.12) with ocean (-0.06) at world zoom (depth res ~0.1 at 300 u, near 0.05). Fix: backdrop to y -1.5 in world_map.gd (not a shader issue; mipmapped bathymetry tried, no effect). Verified out/v031/exp/expB_usa_world.png
-- [ ] re-render after (final), tests again, perf q0/q1/q2, compares
+- [x] 3012eab: after re-rendered, picks 15/15 + 12/12 match; tests 140/140 (out/tests_v031b.log), SIMHASH all 3 match, gameplay hash 0e814dda match; compares out/v031/compare/
+- [x] perf q0/q1/q2 -> out/v031/perf_table.md (mean Low -47%, Med -29%, High -34%; close mountains Med/High +16..+28%)
+- [x] docs (CHANGELOG, FEATURE_STATUS, README, COLLAB MERGED v0.3.1, MAP_PROGRESS)
+- [ ] flyover mp4, main merge, tag v0.3.1, exports, smoke, deliverables, laptop_xfer
