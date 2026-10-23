@@ -21,6 +21,9 @@
 // Team tint (stage 9): by instance camera distance (team_near -> team_far) coats blend towards team_color (the
 // BattleView side colour, = HUD / banner) up to team_tint, and trousers / belts / shako / plume up to team_tint_acc,
 // so two blue (or two white-trousered) sides separate at mid / top zoom. Close up (< team_near) = nation colours.
+// Proto v2 (CHAR_NMAP, c19v2_* bakes only, char_vat_v2*.gdshader): a shared atlas in UV3 (Godot CUSTOM0) carries a
+// baked tangent-space normal map + AO (v2_nmap) and a slot-id map (v2_idmap: r = slot*8, g = material*16) so the near
+// set gets crisp sculpted uniform detail; the mid set uses the normal map with per-face slots; the far set is unchanged.
 
 uniform sampler2D vat_tex : filter_nearest, repeat_disable;
 uniform sampler2D vat_nrm : filter_nearest, repeat_disable;
@@ -59,6 +62,15 @@ varying float slot_u;
 varying float rest_h;
 varying float inst_k;
 varying float coat_k;   // 1 = mid / far set: lift dark coats
+
+#ifdef CHAR_NMAP
+uniform sampler2D v2_nmap : hint_default_white, filter_linear_mipmap, repeat_disable;
+uniform sampler2D v2_idmap : hint_default_black, filter_nearest, repeat_disable;
+uniform float nmap_strength = 1.0;
+uniform float nmap_ao = 0.85;
+varying vec2 atl_uv;
+varying float nmap_k;   // 1 = near set (id map + normal map), 0.6 = mid set (normal map only), 0 = far
+#endif
 
 #ifdef CHAR_VPAL
 varying vec3 v_alb;
@@ -137,6 +149,10 @@ void vertex() {
 #else
 	coat_k = 0.0;
 #endif
+#ifdef CHAR_NMAP
+	atl_uv = CUSTOM0.xy;
+	nmap_k = near_verts < vat_verts ? (vid < near_verts ? 1.0 : (vid < max(mid_verts, near_verts) ? 0.6 : 0.0)) : 0.0;
+#endif
 	if (near_verts < vat_verts) {   // LOD0 only: pick the near / mid / far geometry set per instance, collapse the others
 		float d2 = dot(dcam, dcam);
 		int mv = max(mid_verts, near_verts);
@@ -185,7 +201,49 @@ void vertex() {
 }
 
 void fragment() {
-#ifdef CHAR_VPAL
+#if defined(CHAR_NMAP) && !defined(CHAR_VPAL)
+	float su = slot_u; float mi = mat_id; float tm = team_amt;
+	float nao = 1.0;
+	vec4 id4 = vec4(-1.0); vec2 idf = vec2(0.0); vec4 idm = vec4(0.0);
+	if (nmap_k > 0.0) {
+		if (nmap_k > 0.9) {   // near set: per-texel slot / material from the baked id map (2x2 taps, colours blended at edges)
+			ivec2 isz = textureSize(v2_idmap, 0);
+			vec2 fp = atl_uv * vec2(isz) - 0.5;
+			ivec2 i0 = ivec2(floor(fp)); idf = fract(fp);
+			vec4 a = texelFetch(v2_idmap, clamp(i0, ivec2(0), isz - 1), 0);
+			vec4 b = texelFetch(v2_idmap, clamp(i0 + ivec2(1, 0), ivec2(0), isz - 1), 0);
+			vec4 c = texelFetch(v2_idmap, clamp(i0 + ivec2(0, 1), ivec2(0), isz - 1), 0);
+			vec4 d = texelFetch(v2_idmap, clamp(i0 + ivec2(1, 1), ivec2(0), isz - 1), 0);
+			id4 = floor(vec4(a.r, b.r, c.r, d.r) * 255.0 / 8.0 + 0.5);
+			idm = floor(vec4(a.g, b.g, c.g, d.g) * 255.0 / 16.0 + 0.5);
+			vec4 nb = (idf.x < 0.5) ? (idf.y < 0.5 ? a : c) : (idf.y < 0.5 ? b : d);   // nearest texel: material params
+			su = (floor(nb.r * 255.0 / 8.0 + 0.5) + 0.5) / 32.0; mi = floor(nb.g * 255.0 / 16.0 + 0.5); tm = nb.b;
+		}
+		vec4 nt = texture(v2_nmap, atl_uv);
+		vec3 ts = nt.xyz * 2.0 - 1.0;
+		ts.y = -ts.y;   // Blender (OpenGL, V up) bake vs Godot's flipped V
+		ts.xy *= nmap_strength * nmap_k;
+		vec3 n = normalize(NORMAL);
+		vec3 dp1 = dFdx(VERTEX); vec3 dp2 = dFdy(VERTEX);
+		vec2 du1 = dFdx(atl_uv); vec2 du2 = dFdy(atl_uv);
+		vec3 p2 = cross(dp2, n); vec3 p1 = cross(n, dp1);
+		vec3 t = p2 * du1.x + p1 * du2.x; vec3 b2 = p2 * du1.y + p1 * du2.y;
+		float im = inversesqrt(max(max(dot(t, t), dot(b2, b2)), 1.0e-20));
+		NORMAL = normalize(mat3(t * im, b2 * im, n) * normalize(ts));
+		nao = mix(1.0, nt.a, nmap_ao * nmap_k);
+	}
+	vec3 alb; float rough; float metal; float spec; float ao;
+	vmat(su, tm, mi, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, alb, rough, metal, spec, ao);
+	if (id4.x >= 0.0 && (id4.x != id4.y || id4.x != id4.z || id4.x != id4.w)) {   // slot edge: bilinear blend of the 4 colours
+		vec3 c0; vec3 c1; vec3 c2; vec3 c3; float r_; float m_; float s_; float a_;
+		vmat((id4.x + 0.5) / 32.0, id4.x == 0.0 ? 1.0 : 0.0, idm.x, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c0, r_, m_, s_, a_);
+		vmat((id4.y + 0.5) / 32.0, id4.y == 0.0 ? 1.0 : 0.0, idm.y, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c1, r_, m_, s_, a_);
+		vmat((id4.z + 0.5) / 32.0, id4.z == 0.0 ? 1.0 : 0.0, idm.z, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c2, r_, m_, s_, a_);
+		vmat((id4.w + 0.5) / 32.0, id4.w == 0.0 ? 1.0 : 0.0, idm.w, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c3, r_, m_, s_, a_);
+		alb = mix(mix(c0, c1, idf.x), mix(c2, c3, idf.x), idf.y);
+	}
+	ALBEDO = alb * mix(1.0, nao, 0.5); ROUGHNESS = rough; METALLIC = metal; SPECULAR = spec * nao; AO = ao * nao;
+#elif defined(CHAR_VPAL)
 	ALBEDO = v_alb; ROUGHNESS = v_rsm.x; METALLIC = v_rsm.y; SPECULAR = v_rsm.z; AO = v_rsm.w;
 #else
 	vec3 alb; float rough; float metal; float spec; float ao;
