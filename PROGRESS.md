@@ -87,4 +87,4 @@
 - [x] Polish requests: grenadiers model c19_grenadier (make_gamedata.py/units.json), CREW_MODEL per-era crews, --import new glbs (0 errors) (670335a)
 - [x] Full suite 140/140; gameplay outcome hash 0e814dda… matches; sim hashes USA/JPN match, SWE1800 changes to f7255ebb… only because the serialized regiment "model" string changed (state dumps differ only in those 2 lines)
 - [x] Polish re-renders: 5 eras q1, BATTLERESULT identical to pre-polish recordings; c19 grenadier/gun-crew close-ups + tundra/forest/hills overhead (harness on production BattleView.setup); campaign world/region/close for 5 starts
-- [ ] main merge, tag v0.3, exports, deliverables/v0.3 + laptop_xfer
+- [x] main merge (0dcaa7b), main 140/140 twice, gameplay hash 0e814dda match, sim hashes as lead-dev; exports Linux+Windows; Linux export smoke (1800 SWE battle: 39.5 s, [5039,5166], winner 1, soldiers render); tag v0.3; deliverables/v0.3 + laptop_xfer
