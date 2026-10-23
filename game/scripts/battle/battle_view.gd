@@ -18,6 +18,20 @@ func apply_quality() -> void:
 		LOD_DIST = QUALITY_LOD[q]
 	if sun:
 		sun.shadow_enabled = q > 0
+	# Graphics pass (BJORN, battle_visuals.gd): Controls owns the quality setting + UI, the visual pass only
+	# receives it. Forwarded only once his script provides apply_quality(q) (agreed contract, q = 0/1/2).
+	if _visuals_has("apply_quality"):
+		(load(VISUALS_PATH) as Script).call("apply_quality", q)
+
+const VISUALS_PATH := "res://scripts/battle/battle_visuals.gd"
+const BattleVisuals := preload(VISUALS_PATH)
+
+static func _visuals_has(m: String) -> bool:
+	var scr := load(VISUALS_PATH) as Script
+	for d in scr.get_script_method_list():
+		if d["name"] == m:
+			return true
+	return false
 const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_musket", "c19": "c19_line", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
@@ -91,6 +105,7 @@ func setup(battle_id: int) -> void:
 	_build_fx()
 	_build_camera()
 	_build_hud()
+	BattleVisuals.apply(self)   # graphics pass hook (rendering only; idempotent; c19 only for now)
 	apply_quality()
 	Controls.settings_changed.connect(apply_quality)
 
