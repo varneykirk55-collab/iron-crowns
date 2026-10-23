@@ -52,6 +52,8 @@ func _run() -> void:
 		await test_gameplay_script()
 	if only == "" or only == "medieval":
 		test_medieval_morale()
+	if only == "" or only == "aistrategy":
+		test_ai_strategy()
 	if only == "" or only == "offensive":
 		await test_offensive()
 	if only == "bench":
@@ -1576,7 +1578,18 @@ func test_offensive() -> void:
 	var eras_ok: Array = []
 	for yr in [1300, 1500, 1800, 1914, 1980]:
 		Sim.new_game("SWE", yr, 21, 60)
-		var ae: Dictionary = _main_army("SWE")
+		# like a player preparing an invasion: raise extra regiments with the main army first (the v0.5 AI
+		# defends its land properly, so an even fight is no longer a sure win)
+		Sim.nations["SWE"]["funds"] += 20000.0; Sim.nations["SWE"]["manpower"] += 20000.0
+		var cap_e: int = Sim.nations["SWE"]["capital"]
+		var eid: String = GameData.eras[Sim.era]["id"]
+		for role in ["inf", "inf", "ranged", "cav"]:
+			Sim.buy_unit("SWE", GameData.unit_for_role(eid, role), cap_e)
+		var ae: Dictionary = {}
+		for x in Sim.armies_in(cap_e):
+			if x["owner"] == "SWE" and (ae.is_empty() or Sim.army_men(x) > Sim.army_men(ae)): ae = x
+		for x in Sim.armies_in(cap_e):
+			if x["owner"] == "SWE" and x["id"] != ae["id"]: Sim.merge_armies(ae["id"], x["id"])
 		var te := _nearest_foreign("SWE", ae["node"])
 		var oe := Sim.order_invade(ae["id"], te)
 		var de := _until(func(): return Sim.prov_owner[te] == "SWE", 365)
@@ -1680,3 +1693,113 @@ func test_medieval_morale() -> void:
 	for e in BattleSim.ERA_TUNE.keys():
 		if float(BattleSim.ERA_TUNE[e][1]) + 60.0 > BattleView.ROCK_FREE.y: ok7 = false
 	check("battle scenery: no rocks inside the %s m fighting area (covers every era's deployment depth)" % str(BattleView.ROCK_FREE), ok7, "")
+
+# ---------------------------------------------------------------- v0.5: strategic AI targeting
+func _ai_attack_orders(code: String, year: int, seed: int, days: int) -> Array:
+	Sim.new_game(code, year, seed)
+	Sim.auto_respond_player = "decline"
+	var seen := {}; var out := []
+	for d in days:
+		Sim.tick_day()
+		for a in Sim.armies.values():
+			var o: String = a["owner"]
+			if o == Sim.player or a["goal"] < 0: continue
+			var key := "%d:%d" % [a["id"], a["goal"]]
+			if seen.has(key): continue
+			var go: String = Sim.prov_owner.get(a["goal"], "")
+			if go == "" or go == o or not Sim.at_war(o, go): continue
+			seen[key] = true
+			out.append(GameData.km_between(GameData.node_lonlat(Sim.nations[o]["capital"]), GameData.node_lonlat(a["goal"])))
+	out.sort()
+	return out
+
+func _strengthen(code: String, roles: Array, times: int, pid: int = -1) -> Dictionary:
+	var n: Dictionary = Sim.nations[code]
+	n["funds"] += 100000.0; n["manpower"] += 100000.0
+	var at: int = n["capital"] if pid < 0 else pid
+	var eid: String = GameData.eras[Sim.era]["id"]
+	for k in times:
+		for role in roles:
+			Sim.buy_unit(code, GameData.unit_for_role(eid, role), at)
+	var best := {}
+	for x in Sim.armies_in(at):
+		if x["owner"] == code and (best.is_empty() or Sim.army_men(x) > Sim.army_men(best)): best = x
+	for x in Sim.armies_in(at):
+		if x["owner"] == code and x["id"] != best["id"] and x["state"] != "battle": Sim.merge_armies(best["id"], x["id"])
+	return best
+
+func test_ai_strategy() -> void:
+	print("== Strategic AI targeting (v0.5) ==")
+	Sim.auto_deploy = true
+	# 1. geographic relevance in ordinary campaigns (v0.4.0 medians: 3600 km in 1800, 2200 km in 1300, 11600 km in 1914)
+	for cfg in [["JPN", 1800, 31], ["SWE", 1300, 32]]:
+		var ds := _ai_attack_orders(cfg[0], cfg[1], cfg[2], 365 * 2)
+		var med: float = ds[ds.size() / 2] if not ds.is_empty() else 0.0
+		check("AI %d: attacks stay regional (%d orders, median %.0f km, max %.0f km)" % [cfg[1], ds.size(), med, ds[-1] if not ds.is_empty() else 0.0],
+			ds.size() >= 5 and med < 1600.0 and ds[-1] < 3000.0, "")
+	# 2. the reported case: Saudi Arabia at war with Japan in 1800 does not ship a 31k army to Tokyo
+	Sim.new_game("JPN", 1800, 41, 60)
+	Sim.auto_respond_player = "decline"
+	var sau := _strengthen("SAU", ["inf", "ranged", "cav", "inf", "ranged"], 4)
+	Sim.declare_war("SAU", "JPN", true)
+	var to_japan := {"n": 0}
+	for d in 240:
+		Sim.tick_day()
+		for a in Sim.armies.values():
+			if a["owner"] == "SAU" and a["goal"] >= 0 and GameData.provinces[a["goal"]]["owner"] == "JPN": to_japan["n"] += 1
+	check("AI: Saudi Arabia (%dk men) at war with Japan in 1800 sends no army to the Japanese home islands (8,000+ km away) in 240 days" % int(Sim.army_men(sau) / 1000),
+		to_japan["n"] == 0 and Sim.prov_owner[Sim.nations["JPN"]["capital"]] == "JPN", "orders toward Japan: %d" % to_japan["n"])
+	# 3. overseas war with a strategic case still happens: Britain vs France across the Channel
+	Sim.new_game("USA", 1800, 42, 60)
+	Sim.auto_respond_player = "decline"
+	_strengthen("GBR", ["inf", "ranged", "cav", "art"], 3)
+	Sim.declare_war("GBR", "FRA", true)
+	var cross := {"pid": -1, "sea": false}
+	for d in 120:
+		Sim.tick_day()
+		for a in Sim.armies.values():
+			if a["owner"] == "GBR" and a["goal"] >= 0 and Sim.prov_owner.get(a["goal"], "") == "FRA" and cross["pid"] < 0:
+				cross["pid"] = a["goal"]
+				cross["sea"] = a["path"].any(func(n): return n >= GameData.SEA_NODE)
+		if cross["pid"] >= 0: break
+	check("AI: a justified overseas campaign still happens — Britain at war with France lands an army aimed at %s (sea crossing %s)" % [GameData.provinces[cross["pid"]]["name"] if cross["pid"] >= 0 else "-", cross["sea"]],
+		cross["pid"] >= 0 and cross["sea"], "")
+	# 4. home defence and readiness: a threatened nation keeps its army home; a battered army does not attack
+	Sim.new_game("SWE", 1800, 43, 60)
+	Sim.auto_respond_player = "decline"
+	Sim.start_hostilities("SWE", "FIN")
+	_strengthen("SWE", ["inf", "ranged", "cav", "art"], 3)      # a big Swedish army in Stockholm, ~400 km from Helsinki
+	_strengthen("FIN", ["inf", "ranged"], 1)
+	var whys := []
+	var far_campaign := false
+	for a in Sim.armies.values():
+		if a["owner"] == "FIN" and a["state"] != "battle":
+			var dec := Sim._ai_war_decision(a["id"], a, Sim.army_strength(a), Sim.enemies_of("FIN"))
+			whys.append(dec["why"])
+			if dec["why"] == "campaign": far_campaign = true
+	check("AI: Finland, facing a large Swedish army within reach, keeps its armies on guard (%s)" % ", ".join(whys),
+		not whys.is_empty() and not far_campaign and whys.has("guard home"), "")
+	var fa: Dictionary = {}
+	for a in Sim.armies.values():
+		if a["owner"] == "SWE" and Sim.army_men(a) > 1000.0: fa = a
+	for id in Sim.armies.keys().duplicate():
+		if Sim.armies[id]["owner"] == "FIN": Sim.armies.erase(id)   # no threat to Sweden: only readiness differs
+	Sim.ai_enabled = false
+	Sim.nations["SWE"]["ai"] = true    # judge the Swedish army as if the AI commanded it
+	var d_full := Sim._ai_war_decision(fa["id"], fa, Sim.army_strength(fa), Sim.enemies_of("SWE"))
+	for u in fa["units"]: u["men"] = u["max"] * 0.4
+	var d_hurt := Sim._ai_war_decision(fa["id"], fa, Sim.army_strength(fa), Sim.enemies_of("SWE"))
+	Sim.nations["SWE"]["ai"] = false
+	Sim.ai_enabled = true
+	check("AI: a full-strength army campaigns (%s), the same army at 40%% strength does not start a new offensive (%s)" % [d_full["why"], d_hurt["why"]],
+		d_full["why"] == "campaign" and d_hurt["why"] != "campaign" and not d_hurt["why"].begins_with("nearby attack"), "")
+	# 5. no special protection for the player: a strong AI still attacks a weak neighbouring player
+	Sim.new_game("SWE", 1800, 44, 60)
+	Sim.auto_respond_player = "decline"
+	for a in Sim.armies.values():
+		if a["owner"] == "SWE":
+			for u in a["units"]: u["men"] = u["max"] * 0.3
+	_strengthen("FIN", ["inf", "ranged", "cav", "art"], 3)
+	Sim.declare_war("FIN", "SWE", true)
+	var hit := _until(func(): return Sim.armies.values().any(func(a): return a["owner"] == "FIN" and a["goal"] >= 0 and Sim.prov_owner.get(a["goal"], "") == "SWE"), 60)
+	check("AI: no special protection — a strong Finland at war with a weakened player Sweden marches on Swedish land (after %d days)" % hit, hit >= 0, "")
