@@ -49,8 +49,9 @@ def build_rig(name, spread=0.0):
         ax = (R.REST['prop'].to_3x3() @ Vector((0, 1, 0))).normalized()
         tip.head = p; tip.tail = p + ax * 0.05; tip.roll = 0.0
         tip.parent = eb['prop']; tip.use_connect = False; tip.use_deform = False
-    for n in ('root', 'prop'):
-        eb[n].use_deform = False
+    if spread:   # heat-weight rig only: keep root / prop out of the body's automatic weights (the game rig deforms with prop)
+        for n in ('root', 'prop'):
+            eb[n].use_deform = False
     bpy.ops.object.mode_set(mode='OBJECT')
     for pb in rig.pose.bones:
         pb.rotation_mode = 'QUATERNION'
