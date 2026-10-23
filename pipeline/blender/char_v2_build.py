@@ -153,7 +153,8 @@ def relax(o, target, iters=6):
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.beautify_fill()
     bpy.ops.object.mode_set(mode='OBJECT')
 
-BODY_KEYS = ('collar', 'button')   # lo collar shell / hi-only buttons bake against the body group (pid 0)
+BODY_KEYS = ('collar', 'button')
+AO_AWAY = set()   # part groups moved out of the way for the AO bake (hands hang by the thighs in the rest pose)   # lo collar shell / hi-only buttons bake against the body group (pid 0)
 
 def build_meshes():
     t0 = time.time()
@@ -187,7 +188,8 @@ def build_meshes():
     keys = sorted(set(gkey(o) for o in kit_hi + kit_lo))
     log('part groups', keys)
     for o in [hi, lo] + kit_hi + kit_lo:   # group id: the normal / id bakes are 'exploded' per group (no cross-part ray hits)
-        i = 0 if o in (hi, lo) or gkey(o) in BODY_KEYS else 1 + keys.index(gkey(o))   # lo collar shell bakes from the fused hi body
+        i = 0 if o in (hi, lo) or gkey(o) in BODY_KEYS else 1 + keys.index(gkey(o))
+        if gkey(o) in ('handL', 'handR'): AO_AWAY.add(i)   # lo collar shell bakes from the fused hi body
         at = o.data.attributes.new('pid', 'FLOAT', 'POINT'); at.data.foreach_set('value', [float(i)] * len(o.data.vertices))
     for o in [hi] + kit_hi:   # painted detail default (neutral) where nothing was painted
         if 'det2' not in o.data.attributes: C.set_det(o, lambda p: C.NEUTRAL)
@@ -262,8 +264,15 @@ def bake_maps(H, L):
             co = np.zeros(len(o.data.vertices) * 3, np.float32); o.data.vertices.foreach_get('co', co)
             co = co.reshape(-1, 3); co[:, 0] += sign * pid * 4.0
             o.data.vertices.foreach_set('co', co.ravel()); o.data.update()
+    def away(sign):
+        for o in (H, L):
+            pid = np.zeros(len(o.data.vertices), np.float32); o.data.attributes['pid'].data.foreach_get('value', pid)
+            co = np.zeros(len(o.data.vertices) * 3, np.float32); o.data.vertices.foreach_get('co', co)
+            co = co.reshape(-1, 3); co[np.isin(np.round(pid).astype(int), list(AO_AWAY)), 2] += sign * 10.0
+            o.data.vertices.foreach_set('co', co.ravel()); o.data.update()
+    away(1.0)
     for nm, typ, smp in (('ao', 'AO', 64), ('nrm', 'NORMAL', 1), ('id', 'EMIT', 1), ('det', 'EMIT', 4)):
-        if nm == 'nrm': explode(1.0)   # AO in place (belts / pack occlude the coat); normal + id + detail per part pair
+        if nm == 'nrm': away(-1.0); explode(1.0)   # AO in place (belts / pack occlude the coat); normal + id + detail per part pair
         nt.links.new((det_rgb if nm == 'det' else mul.outputs[0]), em.inputs['Color'])
         tn.image = imgs[nm]; lm.node_tree.nodes.active = tn
         sc.cycles.samples = smp

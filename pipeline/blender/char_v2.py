@@ -413,7 +413,7 @@ def build_hand(s, hi=False):
     parts = []
     nt, nu = (14, 16) if hi else (3, 8)
     palm = limb('palm', [(0, sx((0.222, 0.002, 0.902))), (0.45, sx((0.224, 0.004, 0.852))), (1, sx((0.226, 0.005, 0.808)))],
-                [(0, 0.0145, 0.021, 0.021), (0.35, 0.0165, 0.036, 0.034), (1, 0.0150, 0.039, 0.036)], nt, nu, fwd=V(0, 1, 0), e=2.6)
+                [(0, 0.0140, 0.020, 0.020), (0.35, 0.0160, 0.033, 0.031), (1, 0.0145, 0.035, 0.033)], nt, nu, fwd=V(0, 1, 0), e=2.2)
     parts.append(palm)
     cx, cz = GRIP_C
     def fpath(y, L):   # knuckle (back of the hand) -> around the grip -> tip pressed against the palm side
@@ -605,7 +605,7 @@ def shako(hi=False):
     peak = grid_sweep('peak', pk, closed_u=True, cap0=True, cap1=True, slot='felt')
     # plume on a short stem at the front-top, cockade below
     top = T(V(0, 0.086, SHAKO_Z1 - 0.004))
-    plume = superellipsoid('plume', top + V(0, -0.004, 0.040), (0.030, 0.030, 0.038), e=(2, 2), n=(28, 18) if hi else (10, 6),
+    plume = superellipsoid('plume', top + V(0, -0.004, 0.030), (0.030, 0.030, 0.038), e=(2, 2), n=(28, 18) if hi else (10, 6),
                            slot='plume')   # red pompom (concept)
     cock = superellipsoid('cockade', T(V(0, 0.108, SHAKO_Z1 - 0.020)), (0.021, 0.006, 0.021), e=(2, 2), n=(14, 6) if hi else (8, 3),
                           slot='collar')

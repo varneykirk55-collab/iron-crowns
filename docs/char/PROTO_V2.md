@@ -48,3 +48,19 @@ Agreed with Rob (his branch is proto/anim-combat-v1 in /workspace/ic_anim; we do
 - Leaf bone `weapon_tip` (child of `prop`, unweighted, at the bayonet tip, prop-local (0.02, 1.52, -0.006)) is on every LOD. Its per-frame
   position (Godot coordinates, same space as the VAT) is written into the VAT json as `weapon_tip: {clip: [[x,y,z], ...]}`.
 - All LOD sets are skinned to the same bones (the mid and far sets are decimated copies that keep the LOD0 weights), so the clips bake once.
+
+## As built (Oct 23, after Kirk's feedback + concept target ref/c19_line_target_concept.jpg)
+- **Tris**: near (LOD0) ~10.7k, mid 1,999, far 691 (mid/far only past 20 m). Rebuild: `blender -b --python pipeline/blender/char_v2_build.py -- all`
+  (~10 min; run it in the background with nohup).
+- **Maps** (2048^2, stored as PNG bytes in `game/assets/vat/c19v2_line_{nrm,id}.vtex`, referenced from the lod0 json `maps` key):
+  - `nrm`: RGB tangent normal (high-poly folds/seams/buttons/plate + bump-baked wool twill, fibre, leather grain, belt stitching),
+    A = AO (hands moved out of the way while baking, so they don't stain the thighs).
+  - `id`: r = slot * 8; **g = material * 16 + detail nibble** (skin: < 8 stubble/shadow, > 8 ruddy lips/cheeks/nose/ears;
+    eye slot: 0 iris .. 15 sclera; brass/steel/leather: edge wear); **b = luminance detail** (128 neutral; wool fibre noise, worn leather,
+    skin tone). Team colour = slot 0 (coat). The palette stays per nation, the detail only modulates it.
+- The head and face get 3.4x and the hands 2.4x atlas density.
+- **Export gap (for Rob/Kirk)**: export_presets.cfg include_filter only lists `*.vat`; `*.vatn` / `*.vtex` must be added before a
+  packaged build can use v2 (the editor / --path runs are fine).
+- Close-up tooling: `tools/hand_pos.py c19v2_line idle` -> `--hr/--hl`, then `tests/proto_shots.tscn -- --close=1 --tag=X`;
+  `tools/beforeafter_sheet.py` builds the sheet.
+- The idle / walk pose holds the musket shouldered in the left hand (Rob's animation). A concept-style order-arms pose would need a clip change.
