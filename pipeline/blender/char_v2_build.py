@@ -112,7 +112,8 @@ def tail_weights(o):
         if wt > 0.001:
             o.vertex_groups['thigh' + side].add([v.index], wt, 'REPLACE')
 
-RULES = [  # object-name prefix -> weight rule
+RULES = [  # object-name prefix -> weight rule ('own': MakeHuman weights mapped to our bones, human_mh.py)
+    (('mhhead', 'mheye', 'mhhandR', 'mhhandL'), 'own'),
     (('head', 'shako', 'peak', 'plume', 'cockade'), 'head'), (('handR',), 'hand.R'), (('handL',), 'hand.L'),
     (('pack', 'roll', 'strap'), 'chest'), (('stock', 'barrel', 'band', 'lock', 'socket', 'bayonet', 'sling'), 'prop'),
     (('cart', 'scab', 'hilt'), 'hips'), (('tail',), 'tail'), (('belt', 'collar'), 'transfer')]
@@ -182,6 +183,7 @@ def build_meshes():
         r = rule_for(o.name)
         if r == 'tail': tail_weights(o)
         elif r == 'transfer': transfer_weights(lo, o)
+        elif r == 'own': add_groups(o)
         else: rigid(o, r)
     import re
     def gkey(o): return re.match(r'[A-Za-z]*', o.name.split('.')[0]).group(0)
@@ -189,7 +191,7 @@ def build_meshes():
     log('part groups', keys)
     for o in [hi, lo] + kit_hi + kit_lo:   # group id: the normal / id bakes are 'exploded' per group (no cross-part ray hits)
         i = 0 if o in (hi, lo) or gkey(o) in BODY_KEYS else 1 + keys.index(gkey(o))
-        if gkey(o) in ('handL', 'handR'): AO_AWAY.add(i)   # lo collar shell bakes from the fused hi body
+        if gkey(o) in ('handL', 'handR', 'mhhandL', 'mhhandR'): AO_AWAY.add(i)   # lo collar shell bakes from the fused hi body
         at = o.data.attributes.new('pid', 'FLOAT', 'POINT'); at.data.foreach_set('value', [float(i)] * len(o.data.vertices))
     for o in [hi] + kit_hi:   # painted detail default (neutral) where nothing was painted
         if 'det2' not in o.data.attributes: C.set_det(o, lambda p: C.NEUTRAL)
@@ -214,7 +216,7 @@ def unwrap(L):
     me.uv_layers.new(name='atlas')
     # temporarily enlarge the head + shako + hands so the area-proportional packer gives them more texels
     hv = [v.index for v in me.vertices if (v.co.z > 1.545 and abs(v.co.x) < 0.13 and -0.13 < v.co.y < 0.16 and v.co.z < 2.0)
-          or (v.co.z < 0.91 and 0.18 < abs(v.co.x) < 0.25 and v.co.z > 0.70)]
+          or (v.co.z < 0.93 and 0.16 < abs(v.co.x) < 0.27 and v.co.z > 0.70)]
     orig = {i: me.vertices[i].co.copy() for i in hv}
     for i in hv:
         hd = me.vertices[i].co.z > 1.5
@@ -237,7 +239,7 @@ def bake_maps(H, L):
     if sc.world is None: sc.world = bpy.data.worlds.new('w')
     sc.world.light_settings.distance = 0.12
     imgs = {}
-    for nm, cs in (('nrm', 'Non-Color'), ('ao', 'Non-Color'), ('id', 'Non-Color'), ('det', 'Non-Color')):
+    for nm, cs in (('nrm', 'Non-Color'), ('ao', 'Non-Color'), ('id', 'Non-Color'), ('det', 'Non-Color'), ('alb', 'Non-Color')):
         im = bpy.data.images.new(f'{KID}_{nm}', TEX, TEX, alpha=False, float_buffer=False)
         im.colorspace_settings.name = cs; imgs[nm] = im
     # low: one material with an image node per bake target (active node = target)
@@ -254,6 +256,7 @@ def bake_maps(H, L):
     nt.links.new(at.outputs['Fac'], mul.inputs[0]); nt.links.new(mul.outputs[0], em.inputs['Color'])
     nt.links.new(em.outputs[0], add.inputs[0]); nt.links.new(df.outputs[0], add.inputs[1]); nt.links.new(add.outputs[0], out.inputs[0])
     det_rgb = detail_nodes(nt, df)
+    alb_rgb = albedo_nodes(nt)
     H.data.materials.clear(); H.data.materials.append(hm)
     for a in ('visible_camera', 'visible_diffuse', 'visible_glossy', 'visible_transmission', 'visible_volume_scatter', 'visible_shadow'):
         setattr(L, a, False)   # the low cage must not occlude the high-poly AO rays
@@ -271,9 +274,9 @@ def bake_maps(H, L):
             co = co.reshape(-1, 3); co[np.isin(np.round(pid).astype(int), list(AO_AWAY)), 2] += sign * 10.0
             o.data.vertices.foreach_set('co', co.ravel()); o.data.update()
     away(1.0)
-    for nm, typ, smp in (('ao', 'AO', 64), ('nrm', 'NORMAL', 1), ('id', 'EMIT', 1), ('det', 'EMIT', 4)):
+    for nm, typ, smp in (('ao', 'AO', 64), ('nrm', 'NORMAL', 1), ('id', 'EMIT', 1), ('det', 'EMIT', 4), ('alb', 'EMIT', 4)):
         if nm == 'nrm': away(-1.0); explode(1.0)   # AO in place (belts / pack occlude the coat); normal + id + detail per part pair
-        nt.links.new((det_rgb if nm == 'det' else mul.outputs[0]), em.inputs['Color'])
+        nt.links.new({'det': det_rgb, 'alb': alb_rgb}.get(nm, mul.outputs[0]), em.inputs['Color'])
         tn.image = imgs[nm]; lm.node_tree.nodes.active = tn
         sc.cycles.samples = smp
         sc.cycles.filter_width = 0.01 if nm == 'id' else 1.5   # no AA blending between slot ids
@@ -287,6 +290,25 @@ def bake_maps(H, L):
     explode(-1.0)
     px = {k: np.array(v.pixels[:], np.float32).reshape(TEX, TEX, 4) for k, v in imgs.items()}
     return px
+
+MH_ASSETS = os.path.join(os.path.dirname(__file__), '..', 'assets', 'mh')
+
+def albedo_nodes(nt):
+    """painted albedo (MakeHuman CC0 skin with composited brows / eye texture) through the MH uv layer 'mh';
+    face attribute albm: 1 skin, 2 eye, 0 = no albedo (palette by slot). Images are read as Non-Color so the sRGB
+    texel values pass straight through to the (Non-Color) bake target; the game shader linearises."""
+    N = nt.nodes.new; L = nt.links.new
+    uv = N('ShaderNodeUVMap'); uv.uv_map = 'mh'
+    def tex(fn):
+        im = bpy.data.images.load(os.path.join(MH_ASSETS, fn), check_existing=True); im.colorspace_settings.name = 'Non-Color'
+        t = N('ShaderNodeTexImage'); t.image = im; t.interpolation = 'Cubic'; L(uv.outputs['UV'], t.inputs['Vector']); return t.outputs['Color']
+    a = N('ShaderNodeAttribute'); a.attribute_name = 'albm'; a.attribute_type = 'GEOMETRY'
+    def cmpv(v):
+        m = N('ShaderNodeMath'); m.operation = 'COMPARE'; L(a.outputs['Fac'], m.inputs[0]); m.inputs[1].default_value = v; m.inputs[2].default_value = 0.1
+        return m.outputs[0]
+    m1 = N('ShaderNodeMix'); m1.data_type = 'RGBA'; L(cmpv(1.0), m1.inputs['Factor']); m1.inputs[6].default_value = (0, 0, 0, 1); L(tex('skin_soldier.png'), m1.inputs[7])
+    m2 = N('ShaderNodeMix'); m2.data_type = 'RGBA'; L(cmpv(2.0), m2.inputs['Factor']); L(m1.outputs[2], m2.inputs[6]); L(tex('eye_brown.png'), m2.inputs[7])
+    return m2.outputs[2]
 
 def detail_nodes(nt, df):
     """High-poly bake material detail: bump (-> baked into the normal map) and the painted detail emission
@@ -479,6 +501,8 @@ def main():
     px = bake_maps(H, L)
     nrm8, id8, ids_top = finish_maps(px)
     save_png(nrm8, os.path.join(OUTP, f'{KID}_nrm_ao.png')); save_png(id8, os.path.join(OUTP, f'{KID}_id.png'))
+    alb = np.clip(np.round(px['alb'][..., :3] * 255), 0, 255).astype(np.uint8)[::-1]
+    save_png(np.concatenate([alb, np.full(alb.shape[:2] + (1,), 255, np.uint8)], -1), os.path.join(OUTP, f'{KID}_alb.png'))
     vis = np.zeros_like(id8)
     pal = np.array([common.hexc(B.PALETTE[s])[:3] for s in B.SLOT_NAMES]) * 255
     vis[..., :3] = pal[ids_top].astype(np.uint8); vis[..., 3] = 255
@@ -488,6 +512,7 @@ def main():
     import shutil
     shutil.copy(os.path.join(OUTP, f'{KID}_nrm_ao.png'), os.path.join(common.VAT, f'{KID}_nrm.vtex'))
     shutil.copy(os.path.join(OUTP, f'{KID}_id.png'), os.path.join(common.VAT, f'{KID}_id.vtex'))
+    shutil.copy(os.path.join(OUTP, f'{KID}_alb.png'), os.path.join(common.VAT, f'{KID}_alb.vtex'))
     old = os.path.join(common.VAT, f'{KID}_maps.vat')
     if os.path.exists(old): os.remove(old)
     face_slots(L, ids_top)
@@ -522,9 +547,9 @@ def main():
     nv, mv = len(L.data.vertices), len(L.data.vertices) + len(mid.data.vertices)
     for o in (full, farx): game_layers(o)
     rig = build_rig(KID)
-    maps = {'nrm': f'{KID}_nrm.vtex', 'id': f'{KID}_id.vtex', 'size': TEX, 'format': 'PNG RGBA8',
+    maps = {'nrm': f'{KID}_nrm.vtex', 'id': f'{KID}_id.vtex', 'alb': f'{KID}_alb.vtex', 'size': TEX, 'format': 'PNG RGBA8',
             'layout': 'nrm: xyz tangent-space normal (Blender / OpenGL convention), a = AO; id: r = slot*8, g = material*16, '
-                      'b = team mask; both sampled with UV3 (Godot CUSTOM0, the atlas layer)'}
+                      'b = team mask; alb: sRGB painted albedo for skin / eye slots (MakeHuman CC0 skin), black elsewhere; all sampled with UV3 (Godot CUSTOM0, the atlas layer)'}
     extra0 = {'tris': tn, 'near_verts': nv, 'mid_verts': mv, 'tris_mid': tm, 'tris_far': tf, 'tris_stored': tn + tm + tf, 'maps': maps,
               'split': 'verts [0,near_verts) = LOD0 set, [near_verts,mid_verts) = mid set, [mid_verts,vertices) = far set'}
     m0 = bake_vat(full, rig, 0, extra0)

@@ -155,6 +155,7 @@ TORSO_PROF = [  # (z, rx, rf, rb, front offset)
     (1.28, 0.150, 0.122, 0.102, 0.012), (1.35, 0.158, 0.124, 0.110, 0.008), (1.41, 0.162, 0.106, 0.104, 0.000),
     (1.445, 0.152, 0.088, 0.092, -0.006), (1.475, 0.125, 0.074, 0.080, -0.006), (1.50, 0.086, 0.062, 0.064, -0.002), (1.52, 0.058, 0.055, 0.053, 0.004),
     (1.62, 0.054, 0.052, 0.050, 0.012)]
+TORSO_TOP = 1.555   # stage 5: the neck stub ends inside the collar; the MakeHuman head + neck sits on top
 
 def torso_shape(p, a):
     x, y, z = p
@@ -179,7 +180,7 @@ def build_torso(res):
     nz, nu = res
     secs = []
     for i in range(nz + 1):
-        z = lerp(0.80, 1.62, i / nz)
+        z = lerp(0.80, TORSO_TOP if USE_MH else 1.62, i / nz)
         rx, rf, rb, off = interp_prof(TORSO_PROF, z)
         rx = max(rx, 0.04)
         secs.append(ring(V(0, off, z), V(1, 0, 0), V(0, 1, 0), rx, rf, rb, nu, 2.35, 0.5 + nu / 4, torso_shape))
@@ -665,12 +666,31 @@ def slot_body(o, near):
         return body_slot(p, near(p))
     set_slot(o, f)
 
+USE_MH = True
+MH_LO = {'mhhead': 2600, 'mhhandR': 1000, 'mhhandL': 1000}   # LOD0 budgets (tris)
+
+def mh_parts(hi):
+    import human_mh as HM
+    ph = HM.posed()
+    out = [HM.part('mhhead', HM.head_faces(ph), ph), HM.eyes(ph, 'mheye'),
+           HM.part('mhhandR', HM.hand_faces(ph, '.R'), ph), HM.part('mhhandL', HM.hand_faces(ph, '.L'), ph)]
+    for o in out:
+        if hi:
+            HM.subdivide(o, 1 if o.name.startswith('mhhand') else 2)
+        elif o.name in MH_LO:
+            m = o.modifiers.new('d', 'DECIMATE'); m.ratio = min(1.0, MH_LO[o.name] / max(1, tris(o))); m.use_collapse_triangulate = True
+            apply_mods(o)
+    return out
+
 def build_kit(hi, body_tree):
     parts = []
-    parts.append(build_head(192, 144) if hi else build_head(34, 22))
+    if USE_MH:   # stage 5: MakeHuman CC0 head / eyes / hands (pipeline/human, human_mh.py), real skin albedo
+        parts += mh_parts(hi)
+    else:
+        parts.append(build_head(192, 144) if hi else build_head(34, 22))
+        parts += [build_hand(1, hi), build_hand(-1, hi)]
     if not hi:
         cb = collar_band((2, 28)); set_slot(cb, 'collar'); parts.append(cb)   # clean swept collar shell; the low body cage is fused without it (no voxel-ragged edge)
-    parts += [build_hand(1, hi), build_hand(-1, hi)]
     parts += coat_tails(hi)
     parts += [crossbelt(body_tree, 1, hi), crossbelt(body_tree, -1, hi, off=0.0105)]
     parts += knapsack(hi) + cartbox(hi) + scabbard(hi) + shako(hi) + musket(hi)
