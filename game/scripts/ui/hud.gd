@@ -58,6 +58,7 @@ func _ready() -> void:
 	_build_econ()
 	_build_deploy()
 	_build_popup()
+	_build_game_menu()
 	toast = Label.new()
 	toast.add_theme_font_size_override("font_size", 22)
 	toast.add_theme_color_override("font_color", PARCH)
@@ -68,7 +69,6 @@ func _ready() -> void:
 	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(toast)
 	hint = Label.new()
-	hint.text = "LMB select · drag to pan · wheel zoom · MMB/Q/E orbit · RMB move army · Space pause · 1-5 speed · F1 diplomacy · F2 economy"
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", Color(0.9, 0.86, 0.75, 0.75))
 	hint.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -82,6 +82,10 @@ func _ready() -> void:
 	Sim.player_offer.connect(_on_offer)
 	Sim.speed_changed.connect(func(_i): _refresh_speed())
 	Sim.battle_resolved.connect(_on_battle_resolved)
+	Controls.settings_changed.connect(_on_settings_changed)
+	Controls.device_changed.connect(func(_k): _update_hint())
+	_build_pad_cursor()
+	_update_hint()
 
 static func make_theme() -> Theme:
 	var t := Theme.new()
@@ -106,7 +110,21 @@ static func make_theme() -> Theme:
 	t.set_stylebox("hover", "Button", bh)
 	t.set_stylebox("pressed", "Button", bp)
 	t.set_stylebox("disabled", "Button", bd)
-	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	# visible focus ring for gamepad / keyboard navigation
+	var fr := StyleBoxFlat.new(); fr.draw_center = false; fr.border_color = Color(1.0, 0.86, 0.35); fr.set_border_width_all(3)
+	fr.set_corner_radius_all(3); fr.expand_margin_left = 2; fr.expand_margin_right = 2; fr.expand_margin_top = 2; fr.expand_margin_bottom = 2
+	t.set_stylebox("focus", "Button", fr)
+	t.set_stylebox("focus", "OptionButton", fr)
+	t.set_stylebox("focus", "CheckButton", fr)
+	if Engine.get_main_loop() and Engine.get_main_loop().root.has_node("Controls") and Engine.get_main_loop().root.get_node("Controls").large_targets:
+		# touch: taller buttons (>= ~44 px) and larger text
+		for sbx in [bn, bh, bp, bd]:
+			sbx.content_margin_top = 12; sbx.content_margin_bottom = 12; sbx.content_margin_left = 14; sbx.content_margin_right = 14
+		t.set_font_size("font_size", "Button", 18)
+		t.set_font_size("font_size", "Label", 17)
+		t.set_constant("separation", "HBoxContainer", 10)
+		t.set_constant("separation", "VBoxContainer", 8)
+		return t
 	t.set_color("font_color", "Button", PARCH)
 	t.set_color("font_disabled_color", "Button", Color(0.5, 0.47, 0.42))
 	t.set_color("font_hover_color", "Button", Color(1, 0.95, 0.8))
@@ -200,6 +218,105 @@ func _center_win(p: Control) -> void:
 	p.reset_size()
 	p.position = ((vs - p.size) * 0.5).floor().max(Vector2(0, 50))
 
+# ------------------------------------------------------------------ input helpers (gamepad focus, touch hit-tests, settings)
+const HINTS := {
+	"kbm": "LMB select · drag pan · wheel zoom · MMB/Q/E orbit · RMB move army · Tab cycle armies · [ ] provinces · Space pause · 1-5 speed · F1 diplomacy · F2 economy · F3 perf · F5/F9 save/load · Esc menu",
+	"joy": "L-stick cursor · A select · X move here · R-stick orbit/zoom · LB/RB armies · D-pad ↑↓ provinces ←→ speed · Y pause · Back diplomacy · L3 economy · R3 panels · Start menu · B back",
+	"touch": "Tap select · drag pan · pinch zoom · twist to rotate · long-press to march the selected army · ☰ Menu for save/load/settings"}
+var pad_cursor: Control
+var _pad_focus_win: Control = null
+
+func _update_hint() -> void:
+	if hint:
+		hint.text = HINTS.get(Controls.last_device, HINTS["kbm"])
+	if pad_cursor:
+		pad_cursor.visible = Controls.last_device == "joy"
+
+func _build_pad_cursor() -> void:
+	pad_cursor = PadCursor.new()
+	pad_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad_cursor.visible = false
+	add_child(pad_cursor)
+
+func _on_settings_changed() -> void:
+	theme_res = make_theme()
+	theme = theme_res
+
+## Windows that take gamepad focus while open (topmost first).
+func modal_windows() -> Array:
+	return [popup, deploy_win, menu_win, diplo_win, econ_win]
+
+func first_focusable(n: Node) -> Control:
+	for c in n.get_children():
+		if c is Control and not c.is_visible_in_tree():
+			continue
+		if c is BaseButton and not c.disabled and c.focus_mode != Control.FOCUS_NONE:
+			return c
+		var r := first_focusable(c)
+		if r != null:
+			return r
+	return null
+
+func focus_first(n: Node) -> bool:
+	var c := first_focusable(n)
+	if c != null:
+		c.grab_focus()
+		return true
+	return false
+
+## Gamepad: keep focus inside the topmost open window; with no window open the stick drives the map cursor.
+func _pad_focus() -> void:
+	if Controls.last_device != "joy":
+		return
+	var fo := get_viewport().gui_get_focus_owner()
+	for w in modal_windows():
+		if w and w.visible:
+			if fo == null or not fo.is_visible_in_tree() or not w.is_ancestor_of(fo):
+				focus_first(w)
+			return
+	if fo != null and not fo.is_visible_in_tree():
+		fo.release_focus()
+
+func ui_has_focus() -> bool:
+	var fo := get_viewport().gui_get_focus_owner()
+	return fo != null and fo.is_visible_in_tree()
+
+func focus_panels() -> void:
+	## R3 / F6: jump into the selection panel (or the top bar) for gamepad navigation
+	if not focus_first(sel_panel):
+		focus_first(top_bar)
+
+func close_windows() -> bool:
+	var any := false
+	for w in [diplo_win, econ_win, menu_win, popup]:
+		if w and w.visible:
+			w.visible = false; any = true
+	return any
+
+## True when a screen point lies on an interactive HUD element (touch taps there must not hit the map).
+func is_point_over_ui(p: Vector2) -> bool:
+	for c in get_children():
+		if c is Control and c.visible and c.mouse_filter != Control.MOUSE_FILTER_IGNORE and c.get_global_rect().has_point(p):
+			return true
+	return false
+
+func build_settings(box: VBoxContainer) -> void:
+	box.add_child(L("Settings", 16, GOLD))
+	var sc := Controls.ui_scale
+	box.add_child(row([L("UI scale", 14), B("−", func(): Controls.set_setting("ui_scale", maxf(0.75, snappedf(sc - 0.125, 0.125))); refresh_game_menu.call_deferred()),
+		L("%d%%" % int(round(sc * 100)), 14), B("+", func(): Controls.set_setting("ui_scale", minf(2.0, snappedf(sc + 0.125, 0.125))); refresh_game_menu.call_deferred())]))
+	var q := ["Low", "Medium", "High"]
+	var qr: Array = [L("Quality", 14)]
+	for i in 3:
+		var qi := i
+		var qb := B(q[i], func(): Controls.set_setting("quality", qi); refresh_game_menu.call_deferred())
+		qb.toggle_mode = true; qb.button_pressed = Controls.quality == i
+		qr.append(qb)
+	box.add_child(row(qr))
+	box.add_child(row([B("Large touch targets: %s" % ("on" if Controls.large_targets else "off"), func(): Controls.set_setting("large_targets", not Controls.large_targets); refresh_game_menu.call_deferred()),
+		B("Two-finger rotate: %s" % ("on" if Controls.touch_rotate else "off"), func(): Controls.set_setting("touch_rotate", not Controls.touch_rotate); refresh_game_menu.call_deferred()),
+		B("Perf overlay (F3): %s" % ("on" if Controls.show_perf else "off"), func(): Controls.set_setting("show_perf", not Controls.show_perf); refresh_game_menu.call_deferred())]))
+
 # ------------------------------------------------------------------ top bar
 func _build_top_bar() -> void:
 	top_bar = PanelContainer.new()
@@ -217,6 +334,7 @@ func _build_top_bar() -> void:
 	lbl_stab = L("", 16); lbl_stab.tooltip_text = "Stability: driven by citizens' needs, taxes and war"; lbl_stab.mouse_filter = Control.MOUSE_FILTER_PASS; h.add_child(lbl_stab)
 	lbl_exh = L("", 16); lbl_exh.tooltip_text = "War exhaustion"; lbl_exh.mouse_filter = Control.MOUSE_FILTER_PASS; h.add_child(lbl_exh)
 	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(sp)
+	h.add_child(B("☰ Menu", func(): toggle_game_menu(), false, "Save, load, settings (Esc)"))
 	h.add_child(B("Diplomacy (F1)", func(): toggle_diplomacy()))
 	h.add_child(B("Economy & Army (F2)", func(): toggle_economy()))
 	lbl_era = L("", 16, GOLD); h.add_child(lbl_era)
@@ -273,7 +391,40 @@ func select_army(aid: int) -> void:
 		sel_pid = Sim.armies[aid]["node"] if Sim.armies[aid]["node"] < GameData.SEA_NODE else -1
 	refresh_selection()
 
+# Cheap fingerprint of everything the selection panel shows; the periodic refresh only rebuilds the panel
+# (≈100 ms for a large army under llvmpipe-era profiling) when this changes.
+var _sel_sig := ""
+
+func selection_signature() -> String:
+	var parts: Array = [sel_army, sel_pid, Sim.era, Sim.player]
+	if sel_army >= 0 and Sim.armies.has(sel_army):
+		var a: Dictionary = Sim.armies[sel_army]
+		parts.append_array([a["owner"], a["node"], a["state"], a["path"].size(), a["path"][-1] if a["path"].size() > 0 else -1, a.get("battle", -1)])
+		for u in a["units"]:
+			parts.append_array([u["type"], u["era"], int(u["men"])])
+		if a["owner"] == Sim.player:
+			var rc := Sim.refit_cost(a)
+			parts.append_array([int(rc), Sim.nations[Sim.player]["funds"] >= rc])
+			for o in Sim.armies_in(a["node"]):
+				parts.append_array([o["id"], o["owner"], o["state"]])
+	elif sel_pid > 0 and GameData.provinces.has(sel_pid):
+		var o: String = Sim.prov_owner.get(sel_pid, "")
+		parts.append_array([o, money(Sim.prov_pop(sel_pid)), int(Sim.garrison(sel_pid))])
+		if o != "" and o != Sim.player:
+			parts.append_array([int(Sim.relation(Sim.player, o)), Sim.at_war(Sim.player, o)])
+		if Sim.sieges.has(sel_pid):
+			var sg: Dictionary = Sim.sieges[sel_pid]
+			parts.append_array([sg["by"], snappedf(float(sg.get("progress", 0.0)) / maxf(Sim.siege_days_needed(sel_pid), 1.0), 0.003)])
+		for a2 in Sim.armies_in(sel_pid):
+			parts.append_array([a2["id"], a2["owner"], int(Sim.army_men(a2))])
+		if o == Sim.player:
+			for uid in GameData.units_by_era[GameData.eras[Sim.era]["id"]]:
+				var c := Sim.can_afford(Sim.player, uid)
+				parts.append_array([c["ok"], int(c["cost"] + c["res_buy"])])
+	return str(parts)
+
 func refresh_selection() -> void:
+	_sel_sig = selection_signature()
 	clear(sel_box)
 	sel_panel.visible = false
 	if sel_army >= 0 and Sim.armies.has(sel_army):
@@ -410,6 +561,57 @@ func _on_event(ev: Dictionary) -> void:
 	if ev["kind"] in ["war", "peace", "capture"] and ev["nations"].has(Sim.player):
 		show_toast(ev["text"])
 
+# ------------------------------------------------------------------ game menu (save / load / settings)
+var menu_win: PanelContainer
+var menu_box: VBoxContainer
+
+func _build_game_menu() -> void:
+	var w := _window(560, 300)
+	menu_win = w[0]
+	menu_box = w[1]
+
+func toggle_game_menu() -> void:
+	menu_win.visible = not menu_win.visible
+	if menu_win.visible:
+		refresh_game_menu()
+
+func refresh_game_menu() -> void:
+	clear(menu_box)
+	var hdr := row([title("Campaign Menu")])
+	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hdr.add_child(sp)
+	hdr.add_child(B("Close", func(): menu_win.visible = false))
+	menu_box.add_child(hdr)
+	menu_box.add_child(L("%s · %s · %s" % [Sim.nations[Sim.player]["name"], Sim.date_string(), GameData.eras[Sim.era]["name"]], 14, DIM))
+	var sv := row([B("Quick save (F5)", func(): main.save_slot("quicksave"); refresh_game_menu()),
+		B("Quick load (F9)", func(): menu_win.visible = false; main.load_slot("quicksave"), not FileAccess.file_exists(Sim.save_path("quicksave"))),
+		B("Save to new slot", func(): main.save_slot("%s_%d" % [Sim.player, Time.get_unix_time_from_system()]); refresh_game_menu())])
+	menu_box.add_child(sv)
+	menu_box.add_child(HSeparator.new())
+	menu_box.add_child(L("Saved games", 16, GOLD))
+	var saves := Sim.list_saves()
+	if saves.is_empty():
+		menu_box.add_child(L("No saves yet.", 14, DIM))
+	for m in saves.slice(0, 8):
+		var slot: String = m["slot"]
+		var when := Time.get_datetime_string_from_unix_time(int(m["saved_unix"]) + int(Time.get_time_zone_from_system()["bias"]) * 60, true)
+		menu_box.add_child(row([L("%s — %s, %s" % [slot, m["nation"], m["date"]], 14), L(when, 12, DIM),
+			B("Load", func(): menu_win.visible = false; main.load_slot(slot))]))
+	menu_box.add_child(HSeparator.new())
+	build_settings(menu_box)
+	menu_box.add_child(HSeparator.new())
+	menu_box.add_child(row([B("Quit to desktop", func(): get_tree().quit())]))
+
+func on_game_loaded() -> void:
+	for w in [diplo_win, econ_win, popup, menu_win, deploy_win]:
+		if w: w.visible = false
+	log_text.clear()
+	var evs: Array = Sim.event_log.filter(func(e): return Sim.player_relevant(e))
+	for ev in evs.slice(maxi(0, evs.size() - 40)):
+		var col = {"war": "#f07060", "peace": "#90d070", "battle": "#e8b060", "capture": "#f0a050", "era": "#ffd880", "diplo": "#a0c8f0", "economy": "#d0c090"}.get(ev["kind"], "#e8e0c8")
+		log_text.append_text("[color=#9a9080]%s[/color]  [color=%s]%s[/color]\n" % [ev["date"], col, ev["text"]])
+	sel_pid = -1; sel_army = -1
+	refresh_top()
+
 # ------------------------------------------------------------------ diplomacy
 func _build_diplo() -> void:
 	var w := _window(1040, 640)
@@ -420,12 +622,12 @@ func _build_diplo() -> void:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 12)
 	h.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(h)
-	var sc := ScrollContainer.new(); sc.custom_minimum_size = Vector2(330, 560)
+	var sc := ScrollContainer.new(); sc.custom_minimum_size = Vector2(330, 560); sc.follow_focus = true
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	h.add_child(sc)
 	diplo_list = VBoxContainer.new(); diplo_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(diplo_list)
-	var sc2 := ScrollContainer.new(); sc2.size_flags_horizontal = Control.SIZE_EXPAND_FILL; sc2.custom_minimum_size = Vector2(660, 560)
+	var sc2 := ScrollContainer.new(); sc2.follow_focus = true; sc2.size_flags_horizontal = Control.SIZE_EXPAND_FILL; sc2.custom_minimum_size = Vector2(660, 560)
 	h.add_child(sc2)
 	diplo_detail = VBoxContainer.new(); diplo_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	diplo_detail.add_theme_constant_override("separation", 6)
@@ -587,7 +789,7 @@ func _build_econ() -> void:
 	econ_win = w[0]
 	var v: VBoxContainer = w[1]
 	v.add_child(row([title("Economy, Administration & Procurement"), _spacer(), B("Close", func(): econ_win.visible = false)]))
-	var sc := ScrollContainer.new(); sc.size_flags_vertical = Control.SIZE_EXPAND_FILL; sc.custom_minimum_size = Vector2(940, 560)
+	var sc := ScrollContainer.new(); sc.follow_focus = true; sc.size_flags_vertical = Control.SIZE_EXPAND_FILL; sc.custom_minimum_size = Vector2(940, 560)
 	v.add_child(sc)
 	econ_box = VBoxContainer.new(); econ_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	econ_box.add_theme_constant_override("separation", 6)
@@ -798,8 +1000,11 @@ func _process(delta: float) -> void:
 	if _refresh_t <= 0:
 		_refresh_t = 0.25
 		refresh_top()
-		if sel_panel.visible and not get_viewport().gui_get_hovered_control() in _descendants(sel_panel):
+		var fo := get_viewport().gui_get_focus_owner()
+		if sel_panel.visible and not get_viewport().gui_get_hovered_control() in _descendants(sel_panel) and not (fo != null and sel_panel.is_ancestor_of(fo)) \
+				and selection_signature() != _sel_sig:
 			refresh_selection()
+	_pad_focus()
 
 func _descendants(n: Node) -> Array:
 	var out: Array = []
@@ -811,4 +1016,4 @@ func _descendants(n: Node) -> Array:
 	return out
 
 func any_window_open() -> bool:
-	return diplo_win.visible or econ_win.visible or deploy_win.visible or popup.visible
+	return diplo_win.visible or econ_win.visible or deploy_win.visible or popup.visible or menu_win.visible

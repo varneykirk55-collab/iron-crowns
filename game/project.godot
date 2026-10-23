@@ -12,6 +12,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 GameData="*res://scripts/core/game_data.gd"
 Sim="*res://scripts/core/sim.gd"
+Controls="*res://scripts/core/controls.gd"
 
 [display]
 

@@ -355,6 +355,7 @@ func _melee(i: int, r: Dictionary, e: Dictionary) -> void:
 	e["morale"] -= kills / e["men0"] * MORALE_PER_LOSS + (0.8 * DT if flank_f > 1.0 else 0.0)
 	e["last_hit"] = t
 	r["kills"] += kills
+	r["mkills"] = r.get("mkills", 0.0) + kills   # melee share (era verification)
 
 func _step_rout(i: int, r: Dictionary) -> void:
 	var away := Vector2(0, 1 if r["side"] == 0 else -1)
@@ -471,3 +472,23 @@ static func ai_orders(my_units: Array, enemy_units: Array, defending: bool, terr
 	if mine < theirs * 0.7:
 		form = "deep"
 	return {"objective": obj, "formation": form}
+
+# ======================= save / load =======================
+const STATE_FIELDS := ["kill_scale", "deploy_z", "t", "steps", "regs", "done", "winner", "events", "record_events",
+	"terrain", "seed_value", "orders", "side_names", "start_men"]
+
+func to_dict() -> Dictionary:
+	var d := {"rng_seed": rng.seed, "rng_state": rng.state}
+	for f in STATE_FIELDS:
+		var v: Variant = get(f)
+		d[f] = v.duplicate(true) if (v is Array or v is Dictionary) else v
+	return d
+
+static func from_dict(d: Dictionary) -> BattleSim:
+	var s := BattleSim.new()
+	for f in STATE_FIELDS:
+		var v: Variant = d[f]
+		s.set(f, v.duplicate(true) if (v is Array or v is Dictionary) else v)
+	s.rng.seed = d["rng_seed"]
+	s.rng.state = d["rng_state"]
+	return s

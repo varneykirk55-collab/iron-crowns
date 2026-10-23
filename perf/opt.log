@@ -1,0 +1,46 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver.
+     at: set_use_vsync (platform/linuxbsd/x11/gl_manager_x11.cpp:372)
+OpenGL API 4.5 (Core Profile) Mesa 25.0.7-2+deb13u1 - Compatibility - Using Device: Mesa - llvmpipe (LLVM 19.1.7, 256 bits)
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5205:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5728:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) Unknown PCM default
+ERROR: Condition "status < 0" is true. Returning: ERR_CANT_OPEN
+   at: init_output_device (drivers/alsa/audio_driver_alsa.cpp:97)
+WARNING: All audio drivers failed, falling back to the dummy driver.
+     at: initialize (servers/audio/audio_server.cpp:258)
+
+[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 181 ms
+DBG t=3.0 fps=3 battle_t=- day=141
+DBG t=6.2 fps=3 battle_t=- day=429
+SHOT /workspace/ironcrowns-lead/game/../shots/battle_deploy_SWE.png
+DBG t=9.3 fps=6 battle_t=- day=525
+DBG t=12.3 fps=6 battle_t=- day=621
+DBG t=15.5 fps=3 battle_t=2.3 day=680 cam=(-65.19592, 95.68993, -164.5174) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-1.390625, -3.996874) mms=["c19_line|0|0:0/640", "c19_line|0|1:320/640", "c19_hussar|0|0:0/128", "c19_hussar|0|1:64/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+SHOT /workspace/ironcrowns-lead/game/../shots/battle_SWE_deploy_view.png
+DBG t=18.7 fps=3 battle_t=5.5 day=683 cam=(-3.666691, 12.38197, -15.62659) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(5.75, -2.240025) mms=["c19_line|0|0:18/640", "c19_line|0|1:302/640", "c19_hussar|0|0:0/128", "c19_hussar|0|1:64/128", "c19_line|1|0:220/669", "c19_line|1|1:119/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=21.8 fps=3 battle_t=8.6 day=686 cam=(-3.069159, 13.45236, -14.29199) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-1.347893, -7.177422) mms=["c19_line|0|0:38/640", "c19_line|0|1:282/640", "c19_hussar|0|0:0/128", "c19_hussar|0|1:64/128", "c19_line|1|0:209/669", "c19_line|1|1:130/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=25.0 fps=4 battle_t=11.8 day=689 cam=(-92.66051, 2.346588, -29.68269) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-13.63713, -10.57714) mms=["c19_line|0|0:0/640", "c19_line|0|1:320/640", "c19_hussar|0|0:31/128", "c19_hussar|0|1:33/128", "c19_line|1|0:165/669", "c19_line|1|1:174/669", "c19_hussar|1|0:27/108", "c19_hussar|1|1:27/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+SHOT /workspace/ironcrowns-lead/game/../shots/battle_SWE_engage.png
+DBG t=28.1 fps=3 battle_t=15.0 day=692 cam=(-84.17138, 9.882259, 44.85558) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-0.838151, -6.608173) mms=["c19_line|0|0:129/640", "c19_line|0|1:191/640", "c19_hussar|0|0:32/128", "c19_hussar|0|1:32/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:6/108", "c19_hussar|1|1:48/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=31.4 fps=4 battle_t=18.2 day=696 cam=(-84.13047, 9.569031, 83.15155) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-3.598258, -2.307042) mms=["c19_line|0|0:131/640", "c19_line|0|1:189/640", "c19_hussar|0|0:26/128", "c19_hussar|0|1:38/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=34.4 fps=3 battle_t=21.2 day=699 cam=(-37.69698, 9.324238, 96.79105) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-3.598258, -1.605504) mms=["c19_line|0|0:174/640", "c19_line|0|1:146/640", "c19_hussar|0|0:23/128", "c19_hussar|0|1:41/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+SHOT /workspace/ironcrowns-lead/game/../shots/battle_SWE_melee.png
+DBG t=37.4 fps=5 battle_t=24.3 day=702 cam=(-14.74591, 8.797981, 99.3098) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-3.598258, -0.68981) mms=["c19_line|0|0:255/640", "c19_line|0|1:65/640", "c19_hussar|0|0:0/128", "c19_hussar|0|1:64/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=40.6 fps=4 battle_t=27.4 day=705 cam=(-62.21876, 94.52952, -175.1143) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-3.598258, -0.42396) mms=["c19_line|0|0:0/640", "c19_line|0|1:320/640", "c19_hussar|0|0:0/128", "c19_hussar|0|1:64/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=43.6 fps=4 battle_t=30.4 day=708 cam=(5.629693, 20.09546, 52.31864) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-3.598258, -0.230112) mms=["c19_line|0|0:216/640", "c19_line|0|1:104/640", "c19_hussar|0|0:0/128", "c19_hussar|0|1:64/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=46.8 fps=3 battle_t=33.6 day=711 cam=(21.98531, 8.578911, 102.8497) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(-3.598258, 0.656043) mms=["c19_line|0|0:236/640", "c19_line|0|1:84/640", "c19_hussar|0|0:4/128", "c19_hussar|0|1:60/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=50.0 fps=3 battle_t=36.8 day=714 cam=(21.99999, 8.197998, 114.4465) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(3.267126, 2.060969) mms=["c19_line|0|0:210/640", "c19_line|0|1:110/640", "c19_hussar|0|0:3/128", "c19_hussar|0|1:61/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=53.2 fps=3 battle_t=39.5 day=721 cam=(-88.86115, 9.487957, -39.78651) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(3.861149, -9.031406) mms=["c19_line|0|0:0/640", "c19_line|0|1:320/640", "c19_hussar|0|0:0/128", "c19_hussar|0|1:64/128", "c19_line|1|0:118/669", "c19_line|1|1:221/669", "c19_hussar|1|0:25/108", "c19_hussar|1|1:29/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+SHOT /workspace/ironcrowns-lead/game/../shots/battle_SWE_result.png
+DBG t=56.4 fps=3 battle_t=39.5 day=742 cam=(43.44522, 8.9883, -24.10143) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(3.861149, -9.031406) mms=["c19_line|0|0:209/640", "c19_line|0|1:111/640", "c19_hussar|0|0:2/128", "c19_hussar|0|1:62/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=59.4 fps=3 battle_t=39.5 day=742 cam=(7.107754, 45.37553, -38.00044) ct=(0.0, -0.077624, -9.751562) auto=true shot=0 hs=(3.861149, -9.031406) mms=["c19_line|0|0:188/640", "c19_line|0|1:132/640", "c19_hussar|0|0:24/128", "c19_hussar|0|1:40/128", "c19_line|1|0:0/669", "c19_line|1|1:339/669", "c19_hussar|1|0:0/108", "c19_hussar|1|1:54/108", "Part_cannon|1:3/3", "Wart_cannon:0/3"]
+DBG t=62.6 fps=6 battle_t=- day=742
+SHOT /workspace/ironcrowns-lead/game/../shots/battle_SWE_after_map.png
+PERFOUT 268 samples -> /workspace/ironcrowns-lead/perf/opt_swe1800.json
+EXIT 0

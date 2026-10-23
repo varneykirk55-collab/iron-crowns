@@ -8,6 +8,16 @@ signal leave_requested(bid: int)
 const FIELD := 1000.0
 const GRID := 161
 var LOD_DIST := 75.0
+var _lod_forced := false
+const QUALITY_LOD := [45.0, 75.0, 120.0]
+
+## Quality setting (Controls.quality). Medium = the shipped defaults; Low trades shadows/LOD distance for CPU time.
+func apply_quality() -> void:
+	var q: int = Controls.quality
+	if not _lod_forced:
+		LOD_DIST = QUALITY_LOD[q]
+	if sun:
+		sun.shadow_enabled = q > 0
 const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_musket", "c19": "c19_line", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
@@ -27,6 +37,7 @@ var banners: Array = []
 var particles := {"mix": [], "add": []}
 var pmm := {}
 var projectiles: Array = []
+var proj_stats := {}   # projectile class -> visual shots fired (era verification / tests)
 var tracer_mm: MultiMesh
 var ev_idx := 0
 var time_scale := 1.0
@@ -59,7 +70,8 @@ var player_side := 0
 # ======================================================================== setup
 func setup(battle_id: int) -> void:
 	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--lod-dist="): LOD_DIST = float(a.substr(11))
+		if a.begins_with("--lod-dist="): LOD_DIST = float(a.substr(11)); _lod_forced = true
+	add_to_group("battle_view")
 	bid = battle_id
 	b = Sim.battles[bid]
 	sim = b["sim"]
@@ -79,6 +91,8 @@ func setup(battle_id: int) -> void:
 	_build_fx()
 	_build_camera()
 	_build_hud()
+	apply_quality()
+	Controls.settings_changed.connect(apply_quality)
 
 func _too_close(a: Color, c: Color) -> bool:
 	return absf(a.r - c.r) + absf(a.g - c.g) + absf(a.b - c.b) < 0.35
@@ -449,6 +463,8 @@ func _build_camera() -> void:
 	cam_target = Vector3(c.x, 0, c.y)
 	cam_dist = 170.0; cam_pitch = -0.42
 	_ct = cam_target + Vector3(0, 0, 0); _cd = 320.0; _cy = cam_yaw + 0.6; _cp = -0.8
+	var o := overhead_pose()
+	cine_pos = o[0]; cine_look = o[1]; _cine_init = true   # intro: glide from a high overview into the first shot
 	_apply_cam()
 
 func first_reg(side: int) -> int:
@@ -463,6 +479,8 @@ func snap_cam(reg_i: int, dist: float, pitch: float, yaw_off: float) -> void:
 	cam_target = Vector3(c.x, 0, c.y); cam_dist = dist; cam_pitch = pitch
 	cam_yaw = (0.0 if player_side == 0 else PI) + yaw_off
 	_ct = Vector3(c.x, h_at(c.x, c.y), c.y); _cd = dist; _cp = pitch; _cy = cam_yaw
+	blend_w = 0.0
+	_update_cam_ui()
 	_apply_cam()
 	print("CAM pos=", cam.global_position, " target=", _ct, " reg=", reg_i, " regs=", sim.regs.size())
 	for k in mms.keys():
@@ -491,59 +509,276 @@ func _hot_spot() -> Vector2:
 			s += r["pos"]; n += 1.0
 	return s / n if n > 0 else _centroid(-1)
 
-func _update_cam(delta: float) -> void:
-	shot_t += delta
-	if cam_auto:
-		if shot_t > 7.0:
-			shot_t = 0.0
-			shot_i = (shot_i + 1) % 4
+## ---- Camera: two rigs (player overhead + event-driven cinematic director) blended smoothly.
+## Read-only with respect to the BattleSim: no sim calls, no shared RNG (choices are deterministic).
+const BLEND_TIME := 1.25
+var blend_w := 1.0            # 0 = overhead rig, 1 = cinematic rig
+var shot_kind := "establishing"
+var shot_subj := -1           # regiment index the shot is about
+var shot_obj := -1            # second regiment (engagement partner)
+var shot_point := Vector2.ZERO
+var shot_seq := 0             # number of cuts so far (debug/test)
+var cine_pos := Vector3.ZERO
+var cine_look := Vector3.ZERO
+var _cine_init := false
+var _cands: Array = []        # pending shot candidates {kind, s, d, pri, t}
+var _prev_state: Array = []
+var cam_label: Label
+var cam_btn: Button
+const SHOT_MIN := 3.5
+const SHOT_MAX := 8.5
+const SHOT_NAMES := {"establishing": "Establishing", "tracking": "Tracking", "flank": "Flank", "low_angle": "Low angle", "rout": "Pursuit", "aftermath": "Aftermath"}
+
+func toggle_camera() -> void:
+	set_cinematic(not cam_auto)
+
+func set_cinematic(on: bool) -> void:
+	if on == cam_auto:
+		return
+	cam_auto = on
+	if on:
+		shot_t = SHOT_MAX   # pick a fresh shot immediately
+	else:
+		# overhead rig takes over centred on the current action, keeping the player's zoom/orbit
 		var hs := _hot_spot()
-		var base_yaw := 0.0 if player_side == 0 else PI
-		match shot_i:
-			0:
-				var c := _centroid(-1)
-				cam_target = Vector3(c.x, 0, c.y); cam_dist = 190.0; cam_pitch = -0.5; cam_yaw = base_yaw + 0.35 + shot_t * 0.02
-			1:
-				cam_target = Vector3(hs.x, 0, hs.y); cam_dist = 80.0; cam_pitch = -0.3; cam_yaw = base_yaw - 0.7 + shot_t * 0.05
-			2:
-				var c2 := _centroid(player_side)
-				var mid := (c2 + hs) * 0.5
-				cam_target = Vector3(mid.x, 0, mid.y); cam_dist = 95.0; cam_pitch = -0.24; cam_yaw = base_yaw + 0.15
-			3:
-				cam_target = Vector3(hs.x, 0, hs.y); cam_dist = 120.0; cam_pitch = -0.85; cam_yaw = base_yaw + 1.2 + shot_t * 0.03
+		cam_target = Vector3(hs.x, 0, hs.y)
+		if cam_pitch > -0.5: cam_pitch = -0.75
+		cam_dist = maxf(cam_dist, 140.0)
+	_update_cam_ui()
+
+func _update_cam_ui() -> void:
+	if cam_btn:
+		cam_btn.text = "Camera: %s (C)" % ("Cinematic" if cam_auto else "Overhead")
+	if cam_label:
+		cam_label.text = ("🎥 %s shot" % SHOT_NAMES.get(shot_kind, shot_kind)) if cam_auto else ("Overhead camera — L-stick pan · R-stick orbit/zoom · Y cinematic · RB speed · Back leave" if Controls.last_device == "joy" else ("Overhead camera — drag to pan · pinch to zoom · twist to rotate" if Controls.last_device == "touch" else "Overhead camera — drag to pan, wheel to zoom, right-drag to orbit · C cinematic · T speed · L leave"))
+
+func _cand(kind: String, s_i: int, d_i: int, pri: float) -> void:
+	if (s_i < 0 and kind != "aftermath") or s_i >= sim.regs.size():   # aftermath is the only subject-less candidate
+		return
+	for c in _cands:
+		if c["kind"] == kind and c["s"] == s_i:
+			c["t"] = sim.t; c["pri"] = maxf(c["pri"], pri)
+			return
+	_cands.append({"kind": kind, "s": s_i, "d": d_i, "pri": pri, "t": sim.t})
+
+## Called for every BattleSim event the view consumes.
+func _director_event(e: Dictionary) -> void:
+	match e["k"]:
+		"charge": _cand("tracking", int(e["s"]), int(e["d"]), 3.0)
+		"volley":
+			var si := int(e["s"])
+			if int(sim.regs[si]["fired"]) <= 3:   # first exchanges of a firing line are the interesting ones
+				_cand("flank", si, int(e["d"]), 1.5)
+		"rout": _cand("rout", int(e["s"]), -1, 2.0)
+		"end": _cand("aftermath", -1, -1, 9.0)
+
+func _director_poll() -> void:
+	if _prev_state.size() != sim.regs.size():
+		_prev_state.resize(sim.regs.size())
+	for i in sim.regs.size():
+		var st: String = sim.regs[i]["state"]
+		if st == "melee" and _prev_state[i] != "melee":
+			_cand("low_angle", i, int(sim.regs[i]["target"]), 4.0)
+		_prev_state[i] = st
+
+func _pick_shot() -> void:
+	# drop stale candidates and those about dead/fled regiments
+	var best := {}
+	var keep: Array = []
+	for c in _cands:
+		if sim.t - float(c["t"]) > 6.0:
+			continue
+		if c["s"] >= 0 and c["kind"] != "rout" and not sim.active(sim.regs[c["s"]]):
+			continue
+		keep.append(c)
+		var score: float = c["pri"] - (0.8 if c["kind"] == shot_kind else 0.0) - (sim.t - float(c["t"])) * 0.2
+		if best.is_empty() or score > best["score"]:
+			best = c.duplicate(); best["score"] = score
+	_cands = keep
+	if best.is_empty():
+		shot_kind = "establishing" if shot_kind != "establishing" or shot_t > 20.0 else shot_kind
+		shot_subj = -1; shot_obj = -1
+	else:
+		shot_kind = best["kind"]; shot_subj = best["s"]; shot_obj = best["d"]
+		_cands.erase(_cands.filter(func(c): return c["kind"] == best["kind"] and c["s"] == best["s"])[0])
+	if shot_kind == "aftermath":
+		shot_subj = -1
+	shot_t = 0.0
+	shot_seq += 1
+	_update_cam_ui()
+
+func _reg_pos(i: int) -> Vector2:
+	return sim.regs[i]["pos"] if i >= 0 and i < sim.regs.size() else _hot_spot()
+
+## Desired cinematic camera position + look point for the current shot.
+func _cine_pose() -> Array:
+	var base_yaw := 0.0 if player_side == 0 else PI
+	match shot_kind:
+		"tracking", "rout":
+			var r: Dictionary = sim.regs[shot_subj]
+			var p: Vector2 = r["pos"]
+			var f: Vector2 = r["facing"]
+			if shot_kind == "rout": f = -f
+			if f.length() < 0.01: f = Vector2(0, -1)
+			f = f.normalized()
+			var side := Vector2(-f.y, f.x)
+			var off := -f * 28.0 + side * 22.0
+			var cp := p + off
+			var look := p + f * 18.0
+			return [Vector3(cp.x, h_at(cp.x, cp.y) + 9.0, cp.y), Vector3(look.x, h_at(look.x, look.y) + 2.0, look.y)]
+		"flank":
+			var a := _reg_pos(shot_subj); var d := _reg_pos(shot_obj)
+			var mid := (a + d) * 0.5
+			var ax := (d - a); if ax.length() < 1.0: ax = Vector2(0, 1)
+			var perp := Vector2(-ax.y, ax.x).normalized()
+			var dist := clampf(ax.length() * 0.55, 45.0, 140.0)
+			var cp2 := mid + perp * dist + ax.normalized() * dist * 0.15
+			return [Vector3(cp2.x, h_at(cp2.x, cp2.y) + 11.0 + shot_t * 0.6, cp2.y), Vector3(mid.x, h_at(mid.x, mid.y) + 1.5, mid.y)]
+		"low_angle":
+			var m := _reg_pos(shot_subj)
+			if shot_obj >= 0: m = (m + _reg_pos(shot_obj)) * 0.5
+			var ang := base_yaw + 0.9 + shot_t * 0.07
+			var cp3 := m + Vector2(sin(ang), cos(ang)) * 26.0
+			return [Vector3(cp3.x, h_at(cp3.x, cp3.y) + 1.6, cp3.y), Vector3(m.x, h_at(m.x, m.y) + 4.5, m.y)]
+		"aftermath":
+			# slow orbit around the side holding the field, sized to its spread
+			var ws: int = sim.winner if sim.winner >= 0 else -1
+			var c := _centroid(ws)
+			var spread := 0.0
+			for r in sim.regs:
+				if (ws < 0 or r["side"] == ws) and sim.active(r):
+					spread = maxf(spread, (r["pos"] - c).length())
+			var dist2 := clampf(spread * 1.3 + 40.0, 70.0, 170.0)
+			var ang2 := base_yaw + 0.4 + shot_t * 0.05
+			return [Vector3(c.x + sin(ang2) * dist2, h_at(c.x, c.y) + dist2 * 0.42, c.y + cos(ang2) * dist2), Vector3(c.x, h_at(c.x, c.y) + 1.0, c.y)]
+	# establishing: wide, slow orbit over the whole field
+	var c2 := _centroid(-1)
+	var ang3 := base_yaw + 0.35 + shot_t * 0.025
+	return [Vector3(c2.x + sin(ang3) * 170.0, h_at(c2.x, c2.y) + 95.0, c2.y + cos(ang3) * 170.0), Vector3(c2.x, h_at(c2.x, c2.y), c2.y)]
+
+func _pad_cam(delta: float) -> void:
+	## gamepad sticks / keyboard keys move the overhead camera (and leave cinematic mode)
+	if get_viewport().gui_get_focus_owner() != null:
+		return
+	var mv := Input.get_vector("cursor_left", "cursor_right", "cursor_up", "cursor_down") + Input.get_vector("pan_left", "pan_right", "pan_up", "pan_down")
+	var orb := Input.get_action_strength("orbit_right") - Input.get_action_strength("orbit_left")
+	var z := Input.get_action_strength("zoom_in") - Input.get_action_strength("zoom_out")
+	if mv.length() < 0.05 and absf(orb) < 0.05 and absf(z) < 0.05:
+		return
+	set_cinematic(false)
+	var right := Vector3(cos(_cy), 0, -sin(_cy)); var fwd := Vector3(sin(_cy), 0, cos(_cy))
+	cam_target += (right * mv.x + fwd * mv.y) * cam_dist * 0.9 * delta
+	cam_yaw -= orb * 1.4 * delta
+	cam_dist = clampf(cam_dist * exp(-z * 1.6 * delta), 12.0, 500.0)
+
+func _update_cam(delta: float) -> void:
+	_pad_cam(delta)
+	shot_t += delta
+	_director_poll()
+	# ---- cinematic director (always runs so the blend has a live target)
+	var shot_valid = shot_subj < 0 or (shot_subj < sim.regs.size() and (sim.active(sim.regs[shot_subj]) or shot_kind == "rout") and sim.regs[shot_subj]["state"] != "fled")
+	var better := false
+	for c in _cands:
+		if c["pri"] > 3.5 and shot_kind != "low_angle" and shot_kind != "aftermath":
+			better = true
+	if (shot_t > SHOT_MAX) or (not shot_valid) or (shot_t > SHOT_MIN and (better or not _cands.is_empty() and shot_kind == "establishing")) or (finished and shot_kind != "aftermath" and shot_t > 1.5):
+		if finished and shot_kind != "aftermath":
+			_cand("aftermath", -1, -1, 9.0)
+		_pick_shot()
+	var pose := _cine_pose()
+	if not _cine_init:
+		cine_pos = pose[0]; cine_look = pose[1]; _cine_init = true
+	var kc := 1.0 - exp(-delta * 2.2)
+	cine_pos = cine_pos.lerp(pose[0], kc)
+	cine_look = cine_look.lerp(pose[1], 1.0 - exp(-delta * 3.0))
+	# ---- overhead rig (player controlled)
 	var tt := Vector3(cam_target.x, h_at(cam_target.x, cam_target.z), cam_target.z)
-	var k := 1.0 - exp(-delta * (1.4 if cam_auto else 8.0))
+	var k := 1.0 - exp(-delta * 8.0)
 	_ct = _ct.lerp(tt, k); _cd = lerpf(_cd, cam_dist, k); _cy = lerp_angle(_cy, cam_yaw, k); _cp = lerpf(_cp, cam_pitch, k)
+	# ---- blend
+	blend_w = move_toward(blend_w, 1.0 if cam_auto else 0.0, delta / BLEND_TIME)
 	_apply_cam()
 
-func _apply_cam() -> void:
+func overhead_pose() -> Array:
 	var dir := Vector3(sin(_cy) * cos(_cp), sin(_cp), cos(_cy) * cos(_cp))
 	var p := _ct - dir * _cd
 	p.y = maxf(p.y, h_at(p.x, p.z) + 2.0)
+	return [p, _ct + Vector3(0, 1.5, 0)]
+
+func _apply_cam() -> void:
+	var o := overhead_pose()
+	var f := smoothstep(0.0, 1.0, blend_w)
+	if not _cine_init:
+		f = 0.0
+	var p: Vector3 = (o[0] as Vector3).lerp(cine_pos, f)
+	var look: Vector3 = (o[1] as Vector3).lerp(cine_look, f)
+	p.y = maxf(p.y, h_at(p.x, p.z) + 1.2)
 	cam.global_position = p
-	cam.look_at(_ct + Vector3(0, 1.5, 0), Vector3.UP)
+	if p.distance_to(look) > 0.01:
+		cam.look_at(look, Vector3.UP)
+
+var _touches := {}
+var _pinch_d := 0.0
+var _pinch_a := 0.0
+const BATTLE_SPEEDS := [1.0, 2.0, 4.0]
+
+func _pinch() -> Array:
+	var ps: Array = _touches.values()
+	var d: Vector2 = ps[1] - ps[0]
+	return [d.length(), d.angle()]
 
 func _unhandled_input(ev: InputEvent) -> void:
 	if not visible:
 		return
+	if ev.is_action_pressed("battle_speed"):
+		var i := BATTLE_SPEEDS.find(time_scale)
+		time_scale = BATTLE_SPEEDS[(i + 1) % BATTLE_SPEEDS.size()]
+		get_viewport().set_input_as_handled(); return
+	if ev.is_action_pressed("battle_leave"):
+		leave_requested.emit(bid)
+		get_viewport().set_input_as_handled(); return
+	if ev is InputEventScreenTouch:
+		if ev.pressed:
+			_touches[ev.index] = ev.position
+			if _touches.size() == 2:
+				var p := _pinch(); _pinch_d = p[0]; _pinch_a = p[1]
+		else:
+			_touches.erase(ev.index)
+		return
+	if ev is InputEventScreenDrag:
+		_touches[ev.index] = ev.position
+		set_cinematic(false)
+		if _touches.size() == 1:
+			var right := Vector3(cos(_cy), 0, -sin(_cy)); var fwd := Vector3(sin(_cy), 0, cos(_cy))
+			cam_target -= (right * -ev.relative.x + fwd * -ev.relative.y) * cam_dist * 0.0018
+		elif _touches.size() >= 2:
+			var p := _pinch()
+			if _pinch_d > 1.0 and p[0] > 1.0:
+				cam_dist = clampf(cam_dist * _pinch_d / p[0], 12.0, 500.0)
+			if Controls.touch_rotate:
+				cam_yaw -= angle_difference(_pinch_a, p[1])
+			_pinch_d = p[0]; _pinch_a = p[1]
+		return
+	if Controls.is_emulated(ev):
+		return
 	if ev is InputEventMouseButton:
 		if ev.button_index == MOUSE_BUTTON_WHEEL_UP and ev.pressed:
-			cam_auto = false; cam_dist = maxf(cam_dist * 0.88, 12.0)
+			set_cinematic(false); cam_dist = maxf(cam_dist * 0.88, 12.0)
 		elif ev.button_index == MOUSE_BUTTON_WHEEL_DOWN and ev.pressed:
-			cam_auto = false; cam_dist = minf(cam_dist * 1.13, 500.0)
+			set_cinematic(false); cam_dist = minf(cam_dist * 1.13, 500.0)
 		elif ev.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
 			_drag = ev.button_index if ev.pressed else -1
-	elif ev is InputEventMouseMotion and _drag >= 0:
-		cam_auto = false
+	elif ev is InputEventMouseMotion and _drag >= 0 and ev.relative.length() > 0.5:
+		set_cinematic(false)
 		if _drag == MOUSE_BUTTON_LEFT:
 			var right := Vector3(cos(_cy), 0, -sin(_cy)); var fwd := Vector3(sin(_cy), 0, cos(_cy))
 			cam_target -= (right * -ev.relative.x + fwd * -ev.relative.y) * cam_dist * 0.0018
 		else:
 			cam_yaw -= ev.relative.x * 0.006
 			cam_pitch = clampf(cam_pitch - ev.relative.y * 0.004, -1.4, -0.08)
-	elif ev is InputEventKey and ev.pressed and not ev.echo:
-		if ev.keycode == KEY_C:
-			cam_auto = true; shot_t = 0.0
+	if ev.is_action_pressed("camera_toggle", false, true):
+		toggle_camera()
+		get_viewport().set_input_as_handled()
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
@@ -608,7 +843,12 @@ func _build_hud() -> void:
 		var sv: float = s2
 		var bb := Button.new(); bb.text = "%d×" % int(s2); bb.pressed.connect(func(): time_scale = sv)
 		bh.add_child(bb)
-	var cb := Button.new(); cb.text = "Cinematic (C)"; cb.pressed.connect(func(): cam_auto = true; shot_t = 0.0); bh.add_child(cb)
+	cam_btn = Button.new(); cam_btn.focus_mode = Control.FOCUS_NONE; cam_btn.pressed.connect(toggle_camera); bh.add_child(cam_btn)
+	cam_label = Label.new(); cam_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT); cam_label.position = Vector2(16, -96)
+	cam_label.add_theme_font_size_override("font_size", 15); cam_label.add_theme_color_override("font_outline_color", Color.BLACK); cam_label.add_theme_constant_override("outline_size", 5)
+	cam_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(cam_label)
+	_update_cam_ui()
 	var sk := Button.new(); sk.text = "Skip to result"; sk.pressed.connect(skip); bh.add_child(sk)
 	var lv := Button.new(); lv.text = "Leave (battle continues)"; lv.pressed.connect(func(): leave_requested.emit(bid)); bh.add_child(lv)
 	hud_feed = RichTextLabel.new()
@@ -648,6 +888,7 @@ func skip() -> void:
 func _show_result() -> void:
 	result_shown = true
 	var res: Dictionary = b.get("result", sim.result())
+	print("BATTLERESULT ", JSON.stringify(verification_summary()))
 	result_panel = PanelContainer.new()
 	result_panel.set_anchors_preset(Control.PRESET_CENTER)
 	result_panel.custom_minimum_size = Vector2(560, 0)
@@ -675,16 +916,26 @@ func _show_result() -> void:
 	v.add_child(bt)
 
 # ======================================================================== per-frame
+var perf := {"sim_us": 0, "units_us": 0, "fx_us": 0, "instances": 0}
+
 func _process(delta: float) -> void:
 	if sim == null:
 		return
+	var t0 := Time.get_ticks_usec()
 	if not finished:
 		if Sim.step_watched(bid, delta, time_scale):
 			finished = true
+	var t1 := Time.get_ticks_usec()
 	vis_t += delta * (time_scale if not finished else 1.0)
 	_process_events()
 	_update_units(delta * (time_scale if not finished else 1.0))
+	var t2 := Time.get_ticks_usec()
 	_update_fx(delta * (time_scale if not finished else 1.0))
+	perf["sim_us"] = t1 - t0; perf["units_us"] = t2 - t1; perf["fx_us"] = Time.get_ticks_usec() - t2
+	var ni := 0
+	for m in mms.values():
+		ni += int(m["n"])
+	perf["instances"] = ni
 	_update_cam(delta)
 	_update_hud()
 	for m in mms.values():
@@ -713,6 +964,7 @@ func _process_events() -> void:
 	while ev_idx < evs.size():
 		var e: Dictionary = evs[ev_idx]
 		ev_idx += 1
+		_director_event(e)
 		match e["k"]:
 			"volley": _fx_volley(int(e["s"]), int(e["d"]))
 			"charge":
@@ -736,6 +988,8 @@ func _fx_volley(si: int, di: int) -> void:
 		return
 	var powder: float = POWDER.get(era, 0.5)
 	v["fire_t"] = vis_t
+	var pcls := projectile_class(r)
+	proj_stats[pcls] = proj_stats.get(pcls, 0) + 1
 	var alive := _alive_idx(v)
 	if r["kind"] == "vat":
 		var nshoot := mini(alive.size(), 14)
@@ -770,6 +1024,38 @@ func _fx_volley(si: int, di: int) -> void:
 			var tp2 := _soldier_pos3(tv, targets[rng.randi() % targets.size()], 0.5) + Vector3(rng.randf_range(-4, 4), 0, rng.randf_range(-4, 4))
 			var spd := 140.0 if heavy else 400.0
 			shoot(mp2, tp2, spd, 0.12 if heavy else 0.0, Color(1.0, 0.8, 0.45) if not heavy or era in ["c20", "modern"] else Color(0.12, 0.12, 0.12), 0.18 if heavy else 0.1, 1.2 if heavy else 4.0, "shell" if heavy else "big")
+
+func verification_summary() -> Dictionary:
+	var units := []
+	var kills := 0.0; var mk := 0.0
+	for i in sim.regs.size():
+		var r: Dictionary = sim.regs[i]
+		units.append({"side": r["side"], "id": r["def"]["id"], "era": r["def"]["era"], "model": r["def"]["model"], "role": r["role"],
+			"armor": r["def"]["armor"], "men0": int(r["men0"]), "men": int(r["men"]), "kills": int(r["kills"]), "mkills": int(r.get("mkills", 0.0))})
+		kills += r["kills"]; mk += r.get("mkills", 0.0)
+	var defs := {}
+	for r in sim.regs:
+		defs[r["def"]["model"]] = true
+	var models := {}
+	for k in mms.keys():
+		var nm: String = str(k).split("|")[0]
+		if (nm.begins_with("P") or nm.begins_with("W")) and defs.has(nm.substr(1)):
+			nm = nm.substr(1)   # gun/vehicle team-coloured part (P) and wheels/base (W) multimeshes
+		models[nm] = true
+	return {"era": GameData.eras[Sim.era]["id"], "codes": b["codes"], "winner": sim.winner, "battle_s": snappedf(sim.t, 0.1),
+		"start_men": sim.start_men, "end_men": [int(sim.side_men(0)), int(sim.side_men(1))], "melee_share": snappedf(mk / maxf(kills, 1.0), 0.001),
+		"projectiles": proj_stats, "render_models": models.keys(), "units": units}
+
+static func projectile_class(r: Dictionary) -> String:
+	var era: String = r["def"]["era"]
+	match r["kind"]:
+		"vat":
+			if era == "medieval": return "arrow"
+			return "rifle_tracer" if era in ["c20", "modern"] else "musket_ball"
+		"gun":
+			if era == "medieval": return "stone_shot"
+			return "shell" if era in ["c20", "modern"] else "round_shot"
+	return "tank_round" if era in ["c20", "modern"] else "pistol"
 
 func _update_units(dt: float) -> void:
 	for m in mms.values():

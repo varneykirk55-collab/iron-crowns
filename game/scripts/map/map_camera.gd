@@ -21,6 +21,19 @@ var fly_t := -1.0
 var _fly_from := {}
 var _fly_to := {}
 var _fly_dur := 1.0
+var edge_pan := Vector2.ZERO      # set by the gamepad cursor when it pushes against a screen edge
+# touch gestures
+signal tapped(pos: Vector2)
+signal long_pressed(pos: Vector2)
+var touches := {}                 # index -> position
+var _t_start := 0.0
+var _t_pos := Vector2.ZERO
+var _t_moved := false
+var _t_long_done := false
+var _pinch_d := 0.0
+var _pinch_a := 0.0
+const TAP_SLOP := 14.0
+const LONG_PRESS := 0.55
 
 func _ready() -> void:
 	fov = 40.0
@@ -50,10 +63,66 @@ func fly_to(p: Vector3, d: float, dur: float, y: float = INF) -> void:
 func is_flying() -> bool:
 	return fly_t >= 0.0
 
+func _now() -> float:
+	return Time.get_ticks_msec() / 1000.0
+
+func pan_screen(rel: Vector2) -> void:
+	var k := dist * 0.0016
+	var right := Vector3(cos(yaw), 0, -sin(yaw))
+	var fwd := Vector3(-sin(yaw), 0, -cos(yaw))
+	_t_target -= right * rel.x * k
+	_t_target -= fwd * -rel.y * k
+	target = _t_target
+
+func _pinch_state() -> Array:
+	var ps: Array = touches.values()
+	var d: Vector2 = ps[1] - ps[0]
+	return [d.length(), d.angle()]
+
+## Touch: one finger taps/long-presses/pans, two fingers pinch-zoom and (optionally) twist-rotate.
+func handle_touch(ev: InputEvent) -> bool:
+	if ev is InputEventScreenTouch:
+		var st := ev as InputEventScreenTouch
+		if st.pressed:
+			touches[st.index] = st.position
+			if touches.size() == 1:
+				_t_start = _now(); _t_pos = st.position; _t_moved = false; _t_long_done = false
+			elif touches.size() == 2:
+				_t_moved = true
+				var p := _pinch_state(); _pinch_d = p[0]; _pinch_a = p[1]
+		else:
+			touches.erase(st.index)
+			if touches.is_empty() and not _t_moved and not _t_long_done and _now() - _t_start < LONG_PRESS:
+				tapped.emit(st.position)
+			if touches.size() == 1:
+				_t_moved = true   # remaining finger after a pinch must not become a tap
+		return true
+	if ev is InputEventScreenDrag:
+		var sd := ev as InputEventScreenDrag
+		touches[sd.index] = sd.position
+		if touches.size() == 1:
+			if sd.position.distance_to(_t_pos) > TAP_SLOP:
+				_t_moved = true
+			if _t_moved:
+				pan_screen(sd.relative)
+		elif touches.size() >= 2:
+			var p := _pinch_state()
+			if _pinch_d > 1.0 and p[0] > 1.0:
+				_t_dist = clampf(_t_dist * _pinch_d / p[0], min_dist, max_dist)
+			if Controls.touch_rotate:
+				_t_yaw += angle_difference(_pinch_a, p[1])
+			_pinch_d = p[0]; _pinch_a = p[1]
+		return true
+	return false
+
 func handle_input(ev: InputEvent) -> bool:
 	## returns true when the event was consumed as a camera drag (so it is not a click)
 	if not input_enabled:
 		return false
+	if ev is InputEventScreenTouch or ev is InputEventScreenDrag:
+		return handle_touch(ev)
+	if Controls.is_emulated(ev):
+		return true   # mouse events synthesized from touch: gestures above already handled them
 	if ev is InputEventMouseButton:
 		var mb := ev as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
@@ -84,12 +153,7 @@ func handle_input(ev: InputEvent) -> bool:
 			if mm.position.distance_to(_drag_start) > 6.0:
 				_drag_moved = true
 			if _drag_moved:
-				var k := dist * 0.0016
-				var right := Vector3(cos(yaw), 0, -sin(yaw))
-				var fwd := Vector3(-sin(yaw), 0, -cos(yaw))
-				_t_target -= right * mm.relative.x * k
-				_t_target -= fwd * -mm.relative.y * k
-				target = _t_target
+				pan_screen(mm.relative)
 				return true
 	return false
 
@@ -106,13 +170,16 @@ func _process(delta: float) -> void:
 		_apply()
 		return
 	if input_enabled:
-		var mv := Vector2.ZERO
-		if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): mv.y -= 1
-		if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): mv.y += 1
-		if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): mv.x -= 1
-		if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): mv.x += 1
-		if Input.is_key_pressed(KEY_Q): _t_yaw += delta * 1.2
-		if Input.is_key_pressed(KEY_E): _t_yaw -= delta * 1.2
+		var gui_focus := get_viewport().gui_get_focus_owner() != null
+		var mv := Vector2.ZERO if gui_focus else Input.get_vector("pan_left", "pan_right", "pan_up", "pan_down")
+		mv += edge_pan
+		_t_yaw += (Input.get_action_strength("orbit_left") - Input.get_action_strength("orbit_right")) * delta * 1.2
+		var z := Input.get_action_strength("zoom_in") - Input.get_action_strength("zoom_out")
+		if absf(z) > 0.01:
+			_t_dist = clampf(_t_dist * exp(-z * delta * 1.8), min_dist, max_dist)
+		if touches.size() == 1 and not _t_moved and not _t_long_done and _now() - _t_start >= LONG_PRESS:
+			_t_long_done = true
+			long_pressed.emit(_t_pos)
 		if mv != Vector2.ZERO:
 			var right := Vector3(cos(yaw), 0, -sin(yaw))
 			var fwd := Vector3(-sin(yaw), 0, -cos(yaw))

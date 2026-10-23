@@ -183,9 +183,14 @@ func date_string() -> String:
 	var p := date_parts()
 	return "%d %s %d" % [p[2], MONTH_NAMES[p[1]], p[0]]
 
+var perf_tick_us := 0      # CPU time spent in campaign ticks this frame (not saved)
+var perf_days := 0
+
 func _process(delta: float) -> void:
+	perf_tick_us = 0; perf_days = 0
 	if not running or speed_idx == 0 or _awaiting_deploy():
 		return
+	var t0 := Time.get_ticks_usec()
 	var spd: float = SPEEDS[speed_idx]
 	if watching_battle >= 0 and slow_during_watch:
 		spd = minf(spd, WATCH_DAYS_PER_SEC)
@@ -195,6 +200,8 @@ func _process(delta: float) -> void:
 		accum -= 1.0
 		tick_day()
 		n += 1
+	perf_days = n
+	perf_tick_us = Time.get_ticks_usec() - t0
 
 func set_speed(i: int) -> void:
 	speed_idx = clampi(i, 0, SPEEDS.size() - 1)
@@ -260,7 +267,7 @@ func army_upkeep(a: Dictionary) -> float:
 		s += float(GameData.units[u["type"]]["upkeep"]) * (0.4 + 0.6 * u["men"] / u["max"])
 	return s
 
-func _economy_month(code: String, preview: bool = false) -> void:
+func _economy_month(code: String, preview: bool = false, ctx: Dictionary = {}) -> void:
 	var n: Dictionary = nations[code]
 	var provs: Array = nation_provs[code]
 	var prod := productivity()
@@ -281,9 +288,12 @@ func _economy_month(code: String, preview: bool = false) -> void:
 				tax -= (3.0 + 2.6 * pow(maxf(prov_pop(pid) / 1.0e6, 0.01), 0.6)) * prod * 0.8
 	tax *= tax_mult * stab_mult
 	var trade_partners := 0
-	for other in nations.keys():
-		if other != code and has_treaty(code, other, "trade"):
-			trade_partners += 1
+	if ctx.has("trade"):
+		trade_partners = ctx["trade"].get(code, 0)
+	else:
+		for other in nations.keys():
+			if other != code and has_treaty(code, other, "trade"):
+				trade_partners += 1
 	var trade_bonus := tax * 0.06 * trade_partners
 	# resource production; surplus above the strategic reserve is sold automatically
 	var sales := 0.0
@@ -300,11 +310,15 @@ func _economy_month(code: String, preview: bool = false) -> void:
 			sales += produced[r] * GameData.resource_price * prod * 0.3
 	var upkeep := 0.0
 	var army_men := 0.0
-	for a in armies.values():
-		if a["owner"] == code:
-			upkeep += army_upkeep(a)
-			for u in a["units"]:
-				army_men += u["men"]
+	if ctx.has("upkeep"):
+		upkeep = ctx["upkeep"].get(code, 0.0)
+		army_men = ctx["men"].get(code, 0.0)
+	else:
+		for a in armies.values():
+			if a["owner"] == code:
+				upkeep += army_upkeep(a)
+				for u in a["units"]:
+					army_men += u["men"]
 	var admin := 0.45 * pow(float(provs.size()), 1.12) * prod
 	var welfare: float = n["welfare"] * 0.25 * tax
 	var interest: float = maxf(-n["funds"], 0.0) * 0.02
@@ -321,7 +335,7 @@ func _economy_month(code: String, preview: bool = false) -> void:
 	var need_food := clampf(0.35 + float(food) / np * 1.1 + n["welfare"] * 0.35, 0.0, 1.0)
 	var need_goods := clampf(0.3 + 0.12 * trade_partners + n["welfare"] * 0.3 + (0.15 if n["funds"] > 0 else -0.1), 0.0, 1.0)
 	var garrison_need := np * 600.0 * (0.5 + pop_factor())
-	var need_sec := clampf(0.3 + 0.5 * army_men / garrison_need - n["exhaustion"] * 0.4 - 0.1 * _enemy_armies_inside(code), 0.0, 1.0)
+	var need_sec := clampf(0.3 + 0.5 * army_men / garrison_need - n["exhaustion"] * 0.4 - 0.1 * (ctx["inside"].get(code, 0) if ctx.has("inside") else _enemy_armies_inside(code)), 0.0, 1.0)
 	n["needs"] = {"food": need_food, "goods": need_goods, "security": need_sec}
 	var target = 0.25 * (need_food + need_goods + need_sec) + 0.25 - [0.0, 0.05, 0.15][n["tax"]] - n["exhaustion"] * 0.3 - (0.2 if n["funds"] < 0 else 0.0)
 	n["stability"] = clampf(n["stability"] + (target - n["stability"]) * 0.15, 0.05, 1.0)
@@ -339,6 +353,30 @@ func _economy_month(code: String, preview: bool = false) -> void:
 		if code == player:
 			log_event("Treasury in deep debt: unpaid soldiers are deserting.", "economy", [code])
 
+# perf: per-month tables so _economy_month doesn't rescan every army/nation for each of ~190 nations.
+# Built in the same iteration order as the per-nation loops (identical float sums). Valid for the whole
+# economy pass: it only changes a nation's own armies (desertion) after that nation's figures are read.
+func _economy_ctx() -> Dictionary:
+	var upkeep := {}; var men := {}; var inside := {}; var trade := {}
+	for a in armies.values():
+		var o: String = a["owner"]
+		upkeep[o] = upkeep.get(o, 0.0) + army_upkeep(a)
+		var m: float = men.get(o, 0.0)
+		for u in a["units"]:
+			m += u["men"]
+		men[o] = m
+		if a["node"] < GameData.SEA_NODE:
+			var po: String = prov_owner.get(a["node"], "")
+			if po != "" and at_war(o, po):
+				inside[po] = inside.get(po, 0) + 1
+	for k in treaties.keys():
+		if treaties[k].get("trade", false):
+			var p: PackedStringArray = k.split("|")
+			if p[0] != p[1] and nations.has(p[0]) and nations.has(p[1]):
+				trade[p[0]] = trade.get(p[0], 0) + 1
+				trade[p[1]] = trade.get(p[1], 0) + 1
+	return {"upkeep": upkeep, "men": men, "inside": inside, "trade": trade}
+
 func _enemy_armies_inside(code: String) -> int:
 	var k := 0
 	for a in armies.values():
@@ -353,15 +391,37 @@ func strength(code: String) -> float:
 			s += army_strength(a)
 	return s
 
+func _strength_table() -> Dictionary:
+	var out := {}
+	for a in armies.values():
+		out[a["owner"]] = out.get(a["owner"], 0.0) + army_strength(a)
+	return out
+
+func _alliance_table() -> Dictionary:
+	var out := {}
+	for k in treaties.keys():
+		if treaties[k].get("alliance", false):
+			var p: PackedStringArray = k.split("|")
+			if not out.has(p[0]): out[p[0]] = []
+			if not out.has(p[1]): out[p[1]] = []
+			out[p[0]].append(p[1]); out[p[1]].append(p[0])
+	return out
+
 func army_strength(a: Dictionary) -> float:
 	var s := 0.0
 	for u in a["units"]:
 		s += u["men"] * unit_power(u["type"])
 	return s
 
+var _upow := {}   # perf: unit_power memo (unit stats are static data)
 func unit_power(uid: String) -> float:
+	var c = _upow.get(uid)
+	if c != null:
+		return c
 	var d: Dictionary = GameData.units[uid]
-	return (float(d["melee"]) + float(d["defense"])) * 0.5 + float(d["lethality"]) * float(d["accuracy"]) * 40.0 + float(d["armor"]) * 25.0
+	c = (float(d["melee"]) + float(d["defense"])) * 0.5 + float(d["lethality"]) * float(d["accuracy"]) * 40.0 + float(d["armor"]) * 25.0
+	_upow[uid] = c
+	return c
 
 func army_men(a: Dictionary) -> float:
 	var s := 0.0
@@ -1286,9 +1346,10 @@ func _eliminate(code: String, by: String) -> void:
 
 # ======================= monthly =======================
 func _month() -> void:
+	var ctx := _economy_ctx()
 	for code in nations.keys():
 		if nations[code]["alive"]:
-			_economy_month(code)
+			_economy_month(code, false, ctx)
 	_relations_drift()
 	if ai_enabled:
 		var codes: Array = nations.keys()
@@ -1304,7 +1365,6 @@ func _month() -> void:
 
 func _relations_drift() -> void:
 	for k in relations.keys():
-		var p: PackedStringArray = k.split("|")
 		var v: float = relations[k]
 		var tr: Dictionary = treaties.get(k, {})
 		var d := -v * 0.01
@@ -1386,14 +1446,21 @@ func _ai_diplomacy(code: String) -> void:
 	# 3) war
 	if not enemies_of(code).is_empty() or n["exhaustion"] > 0.15 or day < 60 or day - int(n.get("last_peace", -9999)) < 365 * 2:
 		return
-	var my_s := strength(code)
+	# perf: one pass over armies/treaties instead of strength()/allies_of() per neighbour. Nothing changes
+	# armies or treaties inside this scan and the per-owner sums keep army order, so values are bit-identical.
+	var st_tab := _strength_table()
+	var al_tab := _alliance_table()
+	var my_s: float = st_tab.get(code, 0.0)
 	var best := ""; var best_v := 0.0
 	for t in neighbors_of(code):
 		if not nations[t]["alive"] or not can_declare_war(code, t)["ok"] or has_treaty(code, t, "nap"):
 			continue
-		var their := strength(t)
-		for al in allies_of(t):
-			their += strength(al) * 0.7
+		# cheap filter first: a target is only ever chosen when rel < 10, so skip the strength sums otherwise
+		if relation(code, t) >= 10.0:
+			continue
+		var their: float = st_tab.get(t, 0.0)
+		for al in al_tab.get(t, []):
+			their += st_tab.get(al, 0.0) * 0.7
 		var ratio := my_s / maxf(their, 1.0)
 		var rel := relation(code, t)
 		var v := ratio * 10.0 - rel * 0.3 + (8.0 if not nations[t]["major"] else 0.0)
@@ -1473,3 +1540,115 @@ func player_relevant(ev: Dictionary) -> bool:
 		if nations.has(c) and nations[c]["major"]:
 			return ev["kind"] in ["war", "peace", "capture"]
 	return false
+
+# ======================= save / load =======================
+const SAVE_VERSION := 1
+const SAVE_DIR := "user://saves"
+const SAVE_FIELDS := ["speed_idx", "day", "start_year", "start_doy", "era", "player", "nations", "prov_owner", "nation_provs",
+	"sieges", "armies", "next_army_id", "battles", "next_battle_id", "relations", "treaties", "wars", "event_log", "accum",
+	"stats", "pending_offers", "ai_enabled", "slow_during_watch"]
+signal game_loaded
+
+## Full campaign state as plain Variants (no objects). Battle sims are converted with BattleSim.to_dict().
+func serialize_state() -> Dictionary:
+	var d := {"version": SAVE_VERSION, "rng_seed": rng.seed, "rng_state": rng.state}
+	for f in SAVE_FIELDS:
+		if f == "battles":
+			continue
+		var v: Variant = get(f)
+		d[f] = v.duplicate(true) if (v is Array or v is Dictionary) else v
+	var bs := {}
+	for bid in battles.keys():
+		var b: Dictionary = battles[bid]
+		var c := {}
+		for k in b.keys():
+			if k == "sim":
+				c[k] = b[k].to_dict() if b[k] != null else null
+			else:
+				var v2: Variant = b[k]
+				c[k] = v2.duplicate(true) if (v2 is Array or v2 is Dictionary) else v2
+		bs[bid] = c
+	d["battles"] = bs
+	return d
+
+func apply_state(d: Dictionary) -> void:
+	GameData.load_all()
+	for f in SAVE_FIELDS:
+		if f == "battles" or not d.has(f):
+			continue
+		var v: Variant = d[f]
+		set(f, v.duplicate(true) if (v is Array or v is Dictionary) else v)
+	battles = {}
+	for bid in d["battles"].keys():
+		var c: Dictionary = d["battles"][bid].duplicate(true)
+		if c["sim"] != null:
+			c["sim"] = BattleSim.from_dict(c["sim"])
+		battles[bid] = c
+	rng.seed = d["rng_seed"]
+	rng.state = d["rng_state"]
+	_port_reach.clear(); _neighbors_cache.clear(); _path_cache.clear()
+	# A battle that was being watched continues off-screen after loading (no 3D view is open).
+	watching_battle = -1
+	for b in battles.values():
+		if b["watched"]:
+			b["watched"] = false
+			if b["sim"] != null:
+				b["sim"].record_events = false
+	running = true
+	game_loaded.emit()
+
+static func save_path(slot: String) -> String:
+	return SAVE_DIR.path_join(slot.validate_filename() + ".save")
+
+## Binary Variant file (FileAccess.store_var): exact floats, int keys and Vector2 survive, unlike JSON.
+func save_game(slot: String = "quicksave") -> Dictionary:
+	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
+	var path := save_path(slot)
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		return {"ok": false, "msg": "Cannot write %s (%s)" % [path, error_string(FileAccess.get_open_error())]}
+	var meta := {"magic": "IRONCROWNS", "version": SAVE_VERSION, "player": player,
+		"nation": nations[player]["name"] if nations.has(player) else player, "date": date_string(),
+		"era": GameData.eras[era]["name"], "saved_unix": int(Time.get_unix_time_from_system())}
+	f.store_var(meta)
+	f.store_var(serialize_state())
+	f.close()
+	return {"ok": true, "path": path, "msg": "Saved \"%s\" (%s)" % [slot, date_string()]}
+
+static func read_meta(path: String) -> Dictionary:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var m: Variant = f.get_var()
+	return m if m is Dictionary and m.get("magic", "") == "IRONCROWNS" else {}
+
+func load_game(slot: String = "quicksave") -> Dictionary:
+	var path := save_path(slot)
+	if not FileAccess.file_exists(path):
+		return {"ok": false, "msg": "No save named \"%s\"" % slot}
+	var f := FileAccess.open(path, FileAccess.READ)
+	var meta: Variant = f.get_var()
+	if not (meta is Dictionary) or meta.get("magic", "") != "IRONCROWNS":
+		return {"ok": false, "msg": "Not an Iron Crowns save"}
+	if int(meta["version"]) > SAVE_VERSION:
+		return {"ok": false, "msg": "Save is from a newer version"}
+	var st: Variant = f.get_var()
+	f.close()
+	if not (st is Dictionary):
+		return {"ok": false, "msg": "Save file is corrupt"}
+	apply_state(st)
+	return {"ok": true, "msg": "Loaded \"%s\" (%s)" % [slot, date_string()]}
+
+static func list_saves() -> Array:
+	var out: Array = []
+	var da := DirAccess.open(SAVE_DIR)
+	if da == null:
+		return out
+	for fn in da.get_files():
+		if fn.ends_with(".save"):
+			var m := read_meta(SAVE_DIR.path_join(fn))
+			if not m.is_empty():
+				m["slot"] = fn.get_basename()
+				out.append(m)
+	out.sort_custom(func(a, b): return a["saved_unix"] > b["saved_unix"])
+	return out
