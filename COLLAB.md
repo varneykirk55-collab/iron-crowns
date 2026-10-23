@@ -51,4 +51,19 @@
   - `main.gd` input handling changed a lot (actions via `Controls` autoload). Your PREVIEW-ONLY hook in `main.gd` (2a36972) will conflict; prefer a one-line hook I add myself — just say which call you need.
 
 ## Handoffs
-- (none yet)
+- **READY: 2026-10-22 20:45 EDT, BJORN, c19 visual pass (initial target, review before other eras)**
+  - Branch `visual-pass` HEAD `580e1ee` in `/workspace/iron-crowns-visual`, based on `32fb914` (byte copy of v0.1).
+  - Patch: `/workspace/iron-crowns-visual/out/visual-pass-c19.patch` (text only, excludes the PREVIEW-ONLY `main.gd` commit 2a36972, do NOT merge that). Binaries: 14 assets listed in `out/binary_assets.md`, packed in `out/visual-pass-c19-binaries.tar.gz`.
+  - Full notes: `/workspace/iron-crowns-visual/out/INTEGRATION.md` (diff stat, Requests with exact code, risks, perf, 5-era + map marker plan).
+  - What changed: c19 line infantry, hussar, and field gun rebuilt via the pipeline (contract kept: glb names, nodes, VAT layout, UV2.y mask, unit ids); material classes (wool/leather/steel/brass/etc.) in `vat`/`team_prop` shaders; contact darkening; horse coats; battle-only dye deepening for pastel nation colours; ground tones; lighting/env (ACES, lower ambient, no bloom, single-pass shadows); 4x MSAA, scale 1.0, 8x aniso. All gated in `battle_visuals.gd` (c19 only; legacy look otherwise). New asset `art_field_gun_c19.glb` (`art_cannon.glb` untouched since it's shared with early-modern).
+  - Verified: 61/61 tests on baseline and HEAD, result outputs hash-identical; same-seed demo battle identical (winner 1, t=25.6). Before/after shots: `out/before`, `out/after`, `out/compare/`. MP4s: `out/visual-pass-c19.mp4`, `out/visual-pass-c19-closeup.mp4`.
+  - Perf (llvmpipe, 1600x900, box shared/noisy): full demo 267 ms/frame to 302 ms (+13%), mostly 4x MSAA; draw calls unchanged, tris +3-4%. Not measured on a GPU.
+  - Requests: (1) call `battle_visuals.apply(self)` at end of `battle_view.gd setup()` (and again if units are added after setup); (2) viewport sharpness settings: I see your new `apply_quality()` sets MSAA per quality, so I'll expose `battle_visuals.apply_quality(q)` for shadows/AA if you want me to own those values, your call; (3) optional: point c19 `field_guns` at `art_field_gun_c19` in `units.json` instead of the runtime swap.
+  - Known open issues: top-down view still pale/hazy (next: height fog); grenadiers share line model; gun crews wear line uniform.
+  - **Lead status (2026-10-22 ~21:10 EDT): MERGED to `graphics` (6b58baf; binary sha256 checked against `binary_assets.md`) and integrated on `lead-dev-gfx` → `lead-dev` (d1c8a22). NOT on `main` / v0.2 builds yet**, held until the brightness/readability revision (uniforms too dark at distance) gets a new READY entry here.
+    - R1 done: `BattleVisuals.apply(self)` right after `_build_hud()` in `BattleView.setup()`, before `apply_quality()`, so Controls quality wins (low = no sun shadows).
+    - Quality: `BattleView.apply_quality()` forwards `Controls.quality` (0/1/2) to `battle_visuals.apply_quality(q)` as soon as your script has it (checked via the script method list; static func is fine). Controls keeps the setting and UI.
+    - R2 not wired: `apply_viewport()` would force 4x MSAA and a 4096 shadow atlas regardless of quality, which conflicts with `main.apply_quality()` (MSAA off/2x/4x by quality). Put the viewport and shadow values per quality into `apply_quality(q)` instead.
+    - R3 not done (optional): the runtime `PROP_SWAP` still handles `field_guns`. `units.json` is unchanged, so sim hashes stay identical.
+    - Tests on lead-dev with your patch: 131/131, including 4 new `--only=visuals` checks (hook applied on c19, idempotent, medieval keeps the legacy look, quality owns shadows). Sim hashes are unchanged.
+    - FYI: the aftermath camera shot now actually fires (it orbits the winner). Untouched reads: `era_id`, `environment`, `sun`, `mms`, `_vc_mat`.
