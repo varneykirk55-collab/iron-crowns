@@ -24,6 +24,17 @@ C.TIP_LOCAL = (0.0, PIKE_Y1, 0.0)       # pike point (weapon_tip on the prop)
 C.SLOT_MAT.update({'sash': 'wool', 'waist': 'canvas', 'stock': 'wool', 'felt': 'wool', 'plume': 'canvas', 'cartbox': 'worn_leather',
                    'scabbard': 'worn_leather', 'shoe': 'worn_leather', 'breeches': 'wool', 'gaiter': 'wool'})
 C.BODY_TRIS = 4700
+
+# low gathered shirt neck (1500): replaces the shared 6 cm stand collar, which read as a tall white tube
+_ring = C.ring
+def _low_collar(res):
+    nz, nu = res
+    secs = []
+    for t in (0.0, 0.5, 1.0):
+        r = _ring(V(0, 0.020, 0), V(1, 0, 0), V(0, 1, 0), 0.074 - 0.004 * t, 0.072 - 0.004 * t, 0.070 - 0.004 * t, nu, 2.2, 0.5)
+        secs.append([V(p.x, p.y, C.lerp(1.478, 1.512 - 0.010 * C.ss(0.04, 0.085, p.y), t)) for p in r])
+    return C.grid_sweep('collar', secs, cap0=True, cap1=True)
+C.collar_band = _low_collar
 HM.FIST['.L'] = 0.007                   # empty left hand: relaxed fist
 C.HEAD_BOX = (0.21, -0.21, 0.22, 1.95)  # wide beret + plumes get head-level texel density
 C.KIT_PAL = {'sash': '#d8c99a', 'waist': '#ebe6d8', 'stock': '#2f2a26', 'felt': '#262220', 'plume': '#f0ebe0',
@@ -78,7 +89,7 @@ def zone(p, part):
         return ('sash', None) if f < W_LEG else ('coat', (f - W_LEG) / (1 - W_LEG))
     if part == 'leg':
         return ('breeches' if x > 0 else 'gaiter', None)
-    if z > 1.586: return ('skin', None)
+    if z > 1.512: return ('skin', None)   # low gathered shirt neck
     if y > 0.0 and z > 1.462 + 0.03 * ss(0.05, 0.11, ax): return ('waist', None)       # shirt in the low square neck
     if y < -0.02 and 1.12 < z < 1.42 and ax < 0.125:                                   # back: rows of short slashes
         rz = (z - 1.12) / 0.10; fr = rz % 1.0

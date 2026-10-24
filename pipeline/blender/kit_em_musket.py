@@ -24,6 +24,17 @@ C.SLOT_MAT.update({'sash': 'wool', 'waist': 'canvas', 'piping': 'wool', 'felt': 
                    'scabbard': 'worn_leather', 'shoe': 'worn_leather', 'breeches': 'wool', 'roll': 'canvas', 'stock': 'wood',
                    'epaulette': 'hide'})
 C.BODY_TRIS = 4700
+
+# low gathered shirt neck (1500): replaces the shared 6 cm stand collar, which read as a tall white tube
+_ring = C.ring
+def _low_collar(res):
+    nz, nu = res
+    secs = []
+    for t in (0.0, 0.5, 1.0):
+        r = _ring(V(0, 0.020, 0), V(1, 0, 0), V(0, 1, 0), 0.074 - 0.004 * t, 0.072 - 0.004 * t, 0.070 - 0.004 * t, nu, 2.2, 0.5)
+        secs.append([V(p.x, p.y, C.lerp(1.478, 1.512 - 0.010 * C.ss(0.04, 0.085, p.y), t)) for p in r])
+    return C.grid_sweep('collar', secs, cap0=True, cap1=True)
+C.collar_band = _low_collar
 HM.FIST['.L'] = 0.007
 C.HEAD_BOX = (0.21, -0.21, 0.22, 1.92)
 C.KIT_PAL = {'sash': '#e2d6b0', 'waist': '#ece7da', 'piping': '#24211f', 'felt': '#4a4038', 'plume': '#3a3430',
@@ -78,8 +89,8 @@ def zone(p, part):
         f = _frac(a + 0.2, N_PANE)
         return ('sash', 'lin', f / W_LIN) if f < W_LIN else ('coat', None, 0)
     if part == 'leg': return ('breeches', None, 0)
-    if z > 1.586: return ('skin', None, 0)
-    neck = 1.448 + 0.035 * ss(0.06, 0.12, ax) if y > 0 else 1.52
+    if z > 1.512: return ('skin', None, 0)   # low gathered shirt neck
+    neck = 1.448 + 0.035 * ss(0.06, 0.12, ax) if y > 0 else 1.49
     if z > neck: return ('waist', None, 0)
     if y > 0.03 and 1.16 < z < 1.42 and 0.025 < ax < 0.13:      # chevron slashes across the chest
         u = (ax * 0.8 + (z - 1.16) * 0.6) / 0.034
@@ -123,14 +134,14 @@ def frill(tree, hi=False):
     """gathered shirt band round the neck: a small ruffled stand above the doublet's square neck."""
     n = 120 if hi else 22
     secs = []
-    for zz, off in ((1.535, 0.0), (1.560, 0.004), (1.572, 0.010)):
+    for zz, off in ((1.498, 0.0), (1.515, 0.004), (1.524, 0.010)):
         ring_ = []
         for j in range(n):
             a = 2 * math.pi * j / n; d = V(math.cos(a), math.sin(a), 0)
             c = V(0, 0.020, zz)
             h = tree.ray_cast(c + d * 0.3, -d)
             r = ((V(h[0].x, h[0].y, 0) - V(0, 0.02, 0)).length if h[0] is not None else 0.06) + 0.004 + off
-            if hi and zz > 1.55: r += 0.004 * abs(math.sin(a * 22))
+            if hi and zz > 1.51: r += 0.004 * abs(math.sin(a * 22))
             ring_.append(V(math.cos(a) * r, 0.020 + math.sin(a) * r, zz))
         secs.append(ring_)
     secs = secs + [[V(p.x * 0.93, 0.02 + (p.y - 0.02) * 0.93, p.z) for p in secs[-1]]]
