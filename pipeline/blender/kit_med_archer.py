@@ -256,7 +256,7 @@ CAPE_NR, CAPE_NA = 30, 96   # hi grid; lo takes every 6th row / column (same fit
 def _cape_z(a, t):
     fr = 0.5 + 0.5 * math.sin(a)                       # 1 at the front (+y), 0 at the back
     ztop = lerp(1.630, 1.556, fr ** 1.5)
-    zhem = 1.330 + 0.025 * abs(math.cos(a))
+    zhem = 1.330 + 0.060 * abs(math.cos(a)) ** 1.5   # shorter over the upper arms (arm swings stay under it)
     return lerp(ztop, zhem, t)
 
 def _fit_cape(trees):
@@ -278,7 +278,7 @@ def _fit_cape(trees):
         m = np.isnan(R[i])
         if m.any(): R[i, m] = np.nanmax(R[i]) if not m.all() else 0.15
     for i in range(CAPE_NR + 1):   # surface clearance growing to the hem
-        R[i] += 0.006 + 0.014 * ss(0.0, 0.5, i / CAPE_NR)
+        R[i] += 0.006 + 0.014 * ss(0.0, 0.5, i / CAPE_NR) + 0.012 * ss(0.3, 1.0, i / CAPE_NR) * np.abs(np.cos(2 * np.pi * np.arange(CAPE_NA) / CAPE_NA))
     for i in range(1, CAPE_NR + 1):   # cloth hangs: never tucks back in below a ledge (shoulders)
         R[i] = np.maximum(R[i], R[i - 1] - 0.002)
     for _ in range(6):
@@ -298,7 +298,7 @@ def cape(hi=False):
             a = 2 * math.pi * j / CAPE_NA
             r = R[i, j]
             if not hi:   # lo: padded local max of the hi fit (shoulders / hood bib between samples stay inside, no bake bleed)
-                r = float(R[max(0, i - 3):i + 4, [(j + k) % CAPE_NA for k in range(-3, 4)]].max()) + 0.003 + 0.006 * ss(0.4, 1.0, t)
+                r = float(R[max(0, i - 3):i + 4, [(j + k) % CAPE_NA for k in range(-3, 4)]].max()) + 0.006 + 0.010 * abs(math.cos(a)) * ss(0.25, 0.75, t) + 0.006 * ss(0.4, 1.0, t)
             if hi: r += 0.010 * ss(0.4, 1.0, t) * math.sin(a * 11.0 + 0.8) + 0.010 * math.exp(-((t - 1.0) / 0.03) ** 2)
             z = _cape_z(a, t)
             outer.append(V(math.cos(a) * r, cy + math.sin(a) * r, z))
