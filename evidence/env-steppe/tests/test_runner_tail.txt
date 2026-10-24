@@ -1,0 +1,5 @@
+  [PASS] ui: disbanding a regiment asks for confirmation; Cancel keeps it (7 regiments)
+  [PASS] ui: a 40-regiment army panel stays on screen and scrolls (panel bottom 1564 of 1600)
+  [PASS] ui: saving shows a notice ('Saved "ui_test" (1 Jan 1800)'); Continue on the title resumes the newest save (1 Jan 1800)
+
+==== 216 / 216 checks passed (223.9 s) ====

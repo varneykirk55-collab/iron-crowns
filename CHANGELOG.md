@@ -17,6 +17,20 @@
 ### Region: east_asia (env/east_asia)
 - New `east_asia` biome: East Asian hill-country biome (Japan, Taiwan, Korea, eastern / southern China): sugi, red pine, evergreen broadleaf, maple, bamboo, sasa, azalea, susuki, mossy andesite, humid light; latitude gradient Hokkaido -> Okinawa / Taiwan. Render only. Evidence: evidence/env-east_asia/.
 
+### Region: steppe (env/steppe; merged to main 2026-10-23 on Kirk's instruction)
+- New `steppe` biome: an open, nearly treeless grass sea under a huge sky, covering the Kazakh / Pontic-Caspian and Central Asian steppe, the Mongolian plateau and the southern Siberian forest-steppe, the Tibetan / Pamir / Hindu Kush high steppe, the Great Plains, the pampa and the Andean-foot monte (37 provinces). It has feather grass and wormwood, pea-shrub scrub, weathered granite tors and kurgan mounds; trees appear only as groves, gallery trees and north-slope stands. Sub-regions from province data:
+  - kazakh: birch kolki from 50 N;
+  - semi: Caspian / Aral / Caucasus-Iranian semi-desert;
+  - mongol: larch on the north slopes;
+  - highland: elev >= 2.2, with juniper, snowy peaks, and blue pine / spruce on the Himalayan front;
+  - prairie: cottonwood creeks;
+  - pampa: ombu, lagoons;
+  - monte: dry jarilla scrub.
+- Continental seasons: spring flush / tawny summer-autumn / dormant winter with snow on the hill tops; southern hemisphere shifted; override with `--env-season=spring|summer|winter`.
+- 11 procedural models in `pipeline/blender/env_steppe.py`; no shader changes.
+- Framework: optional `lone_n` profile field (default 90, so other biomes are unchanged).
+- Rendering only; sim hashes and BATTLERESULT unchanged. Evidence: `evidence/env-steppe/` (tests, battle-result check, perf numbers; no images or videos, per Kirk's 9:24 PM directive).
+
 ## v0.6.0 — 2026-10-23 (UI and main menu refinement)
 Presentation only: battle logic, movement, reinforcement, AI, economy and diplomacy calculations are unchanged (`sim_hash` fingerprints are identical to v0.5.0).
 ### Design system

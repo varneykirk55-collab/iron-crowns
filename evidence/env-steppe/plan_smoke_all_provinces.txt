@@ -1,0 +1,118 @@
+== spring
+STP 168 Atyrau semi spring trees=38 { "env_cottonwood": 38 } cover=18920 far=79 snow=1919 tl=1219
+STP 169 Almaty kazakh spring trees=85 { "env_cottonwood": 20, "env_birch_a": 33, "env_birch_b": 32 } cover=46064 far=112 snow=2070 tl=1370
+STP 170 Oskemen kazakh spring trees=85 { "env_cottonwood": 20, "env_birch_a": 33, "env_birch_b": 32 } cover=46064 far=112 snow=1826 tl=1126
+STP 171 Qaraghandy kazakh spring trees=503 { "env_cottonwood": 142, "env_birch_a": 213, "env_birch_b": 148 } cover=45957 far=442 snow=1648 tl=948
+STP 172 Rudniy kazakh spring trees=503 { "env_cottonwood": 142, "env_birch_a": 213, "env_birch_b": 148 } cover=45725 far=442 snow=1569 tl=869
+STP 173 Aqtobe semi spring trees=38 { "env_cottonwood": 38 } cover=18916 far=79 snow=1899 tl=1199
+STP 174 Shymkent semi spring trees=38 { "env_cottonwood": 38 } cover=18916 far=79 snow=2097 tl=1397
+STP 226 Dund-Us mongol spring trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45832 far=138 snow=1886 tl=1186
+STP 227 Southwestern Mongolia mongol spring trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45832 far=138 snow=2136 tl=1436
+STP 228 Choibalsan mongol spring trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45852 far=138 snow=1912 tl=1212
+STP 229 Erdenet mongol spring trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45877 far=594 snow=1793 tl=1093
+STP 230 Ulaanbaatar mongol spring trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45847 far=138 snow=2084 tl=1384
+STP 94 Inner Mongol mongol spring trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45852 far=138 snow=2169 tl=1469
+STP 95 Xizang highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=695 tl=417
+STP 19 Novosibirsk mongol spring trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45803 far=594 snow=1418 tl=718
+STP 23 Irkutsk mongol spring trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45888 far=594 snow=1457 tl=757
+STP 54 South Dakota prairie spring trees=83 { "env_cottonwood": 83 } cover=45931 far=137 snow=2143 tl=1443
+STP 56 North Dakota prairie spring trees=83 { "env_cottonwood": 83 } cover=46064 far=137 snow=1919 tl=1219
+STP 61 Oklahoma prairie spring trees=83 { "env_cottonwood": 83 } cover=46075 far=137 snow=2809 tl=2109
+STP 176 Mendoza monte summer trees=38 { "env_cottonwood": 38 } cover=17435 far=95 snow=3046 tl=2346
+STP 178 Mar del Plata pampa spring trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44896 far=75 snow=2690 tl=1990
+STP 179 Buenos Aires pampa spring trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44896 far=75 snow=3026 tl=2326
+STP 182 Neuquén monte summer trees=38 { "env_cottonwood": 38 } cover=17442 far=95 snow=2433 tl=1733
+STP 531 Montevideo pampa spring trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44898 far=75 snow=3013 tl=2313
+STP 199 Ladakh highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=695 tl=417
+STP 200 Himachal Pradesh highland spring trees=854 { "env_juniper": 141, "env_pine_a": 441, "env_spruce_a": 272 } cover=14503 far=648 snow=468 tl=421
+STP 201 Uttarakhand highland spring trees=854 { "env_juniper": 141, "env_pine_a": 441, "env_spruce_a": 272 } cover=14581 far=575 snow=361 tl=325
+STP 203 Jammu and Kashmir highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=380 tl=228
+STP 214 Siachen Glacier highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=770 tl=462
+STP 335 Northeastern Pakistan highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=500 tl=300
+STP 252 Tabriz semi spring trees=38 { "env_cottonwood": 38 } cover=18878 far=79 snow=2743 tl=2043
+STP 399 Kabul highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=372 tl=223
+STP 402 Southeastern Afghanistan highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=374 tl=225
+STP 439 Nukus semi spring trees=38 { "env_cottonwood": 38 } cover=18920 far=79 snow=2209 tl=1509
+STP 521 Bishkek highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=404 tl=242
+STP 535 Dushanbe highland spring trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14612 far=50 snow=442 tl=265
+STP 561 Baku semi spring trees=38 { "env_cottonwood": 38 } cover=18721 far=79 snow=2453 tl=1753
+MISSING []
+== summer
+STP 168 Atyrau semi summer trees=38 { "env_cottonwood": 38 } cover=18920 far=79 snow=1919 tl=1219
+STP 169 Almaty kazakh summer trees=85 { "env_cottonwood": 20, "env_birch_a": 33, "env_birch_b": 32 } cover=46064 far=112 snow=2070 tl=1370
+STP 170 Oskemen kazakh summer trees=85 { "env_cottonwood": 20, "env_birch_a": 33, "env_birch_b": 32 } cover=46064 far=112 snow=1826 tl=1126
+STP 171 Qaraghandy kazakh summer trees=503 { "env_cottonwood": 142, "env_birch_a": 213, "env_birch_b": 148 } cover=45957 far=442 snow=1648 tl=948
+STP 172 Rudniy kazakh summer trees=503 { "env_cottonwood": 142, "env_birch_a": 213, "env_birch_b": 148 } cover=45725 far=442 snow=1569 tl=869
+STP 173 Aqtobe semi summer trees=38 { "env_cottonwood": 38 } cover=18916 far=79 snow=1899 tl=1199
+STP 174 Shymkent semi summer trees=38 { "env_cottonwood": 38 } cover=18916 far=79 snow=2097 tl=1397
+STP 226 Dund-Us mongol summer trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45832 far=138 snow=1886 tl=1186
+STP 227 Southwestern Mongolia mongol summer trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45832 far=138 snow=2136 tl=1436
+STP 228 Choibalsan mongol summer trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45852 far=138 snow=1912 tl=1212
+STP 229 Erdenet mongol summer trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45877 far=594 snow=1793 tl=1093
+STP 230 Ulaanbaatar mongol summer trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45847 far=138 snow=2084 tl=1384
+STP 94 Inner Mongol mongol summer trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45852 far=138 snow=2169 tl=1469
+STP 95 Xizang highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=695 tl=417
+STP 19 Novosibirsk mongol summer trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45803 far=594 snow=1418 tl=718
+STP 23 Irkutsk mongol summer trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45888 far=594 snow=1457 tl=757
+STP 54 South Dakota prairie summer trees=83 { "env_cottonwood": 83 } cover=45931 far=137 snow=2143 tl=1443
+STP 56 North Dakota prairie summer trees=83 { "env_cottonwood": 83 } cover=46064 far=137 snow=1919 tl=1219
+STP 61 Oklahoma prairie summer trees=83 { "env_cottonwood": 83 } cover=46075 far=137 snow=2809 tl=2109
+STP 176 Mendoza monte summer trees=38 { "env_cottonwood": 38 } cover=17435 far=95 snow=3046 tl=2346
+STP 178 Mar del Plata pampa summer trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44896 far=75 snow=2690 tl=1990
+STP 179 Buenos Aires pampa summer trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44896 far=75 snow=3026 tl=2326
+STP 182 Neuquén monte summer trees=38 { "env_cottonwood": 38 } cover=17442 far=95 snow=2433 tl=1733
+STP 531 Montevideo pampa summer trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44898 far=75 snow=3013 tl=2313
+STP 199 Ladakh highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=695 tl=417
+STP 200 Himachal Pradesh highland summer trees=854 { "env_juniper": 141, "env_pine_a": 441, "env_spruce_a": 272 } cover=14503 far=648 snow=468 tl=421
+STP 201 Uttarakhand highland summer trees=854 { "env_juniper": 141, "env_pine_a": 441, "env_spruce_a": 272 } cover=14581 far=575 snow=361 tl=325
+STP 203 Jammu and Kashmir highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=380 tl=228
+STP 214 Siachen Glacier highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=770 tl=462
+STP 335 Northeastern Pakistan highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=500 tl=300
+STP 252 Tabriz semi summer trees=38 { "env_cottonwood": 38 } cover=18878 far=79 snow=2743 tl=2043
+STP 399 Kabul highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=372 tl=223
+STP 402 Southeastern Afghanistan highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=374 tl=225
+STP 439 Nukus semi summer trees=38 { "env_cottonwood": 38 } cover=18920 far=79 snow=2209 tl=1509
+STP 521 Bishkek highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=404 tl=242
+STP 535 Dushanbe highland summer trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14612 far=50 snow=442 tl=265
+STP 561 Baku semi summer trees=38 { "env_cottonwood": 38 } cover=18721 far=79 snow=2453 tl=1753
+MISSING []
+== winter
+STP 168 Atyrau semi winter trees=38 { "env_cottonwood": 38 } cover=18920 far=79 snow=63 tl=263
+STP 169 Almaty kazakh winter trees=85 { "env_cottonwood": 20, "env_birch_a": 33, "env_birch_b": 32 } cover=46064 far=112 snow=146 tl=346
+STP 170 Oskemen kazakh winter trees=85 { "env_cottonwood": 20, "env_birch_a": 33, "env_birch_b": 32 } cover=46064 far=112 snow=143 tl=343
+STP 171 Qaraghandy kazakh winter trees=503 { "env_cottonwood": 142, "env_birch_a": 213, "env_birch_b": 148 } cover=45957 far=442 snow=99 tl=299
+STP 172 Rudniy kazakh winter trees=503 { "env_cottonwood": 142, "env_birch_a": 213, "env_birch_b": 148 } cover=45725 far=442 snow=83 tl=283
+STP 173 Aqtobe semi winter trees=38 { "env_cottonwood": 38 } cover=18916 far=79 snow=73 tl=273
+STP 174 Shymkent semi winter trees=38 { "env_cottonwood": 38 } cover=18916 far=79 snow=95 tl=295
+STP 226 Dund-Us mongol winter trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45832 far=138 snow=270 tl=470
+STP 227 Southwestern Mongolia mongol winter trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45832 far=138 snow=243 tl=443
+STP 228 Choibalsan mongol winter trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45852 far=138 snow=169 tl=369
+STP 229 Erdenet mongol winter trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45888 far=579 snow=249 tl=449
+STP 230 Ulaanbaatar mongol winter trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45847 far=138 snow=201 tl=401
+STP 94 Inner Mongol mongol winter trees=109 { "env_birch_b": 15, "env_larch": 77, "env_birch_a": 17 } cover=45852 far=138 snow=171 tl=371
+STP 95 Xizang highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=445 tl=417
+STP 19 Novosibirsk mongol winter trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45803 far=594 snow=135 tl=335
+STP 23 Irkutsk mongol winter trees=704 { "env_birch_b": 69, "env_larch": 504, "env_birch_a": 131 } cover=45888 far=594 snow=160 tl=360
+STP 54 South Dakota prairie winter trees=83 { "env_cottonwood": 83 } cover=45931 far=137 snow=131 tl=331
+STP 56 North Dakota prairie winter trees=83 { "env_cottonwood": 83 } cover=46064 far=137 snow=118 tl=318
+STP 61 Oklahoma prairie winter trees=83 { "env_cottonwood": 83 } cover=46075 far=137 snow=100 tl=300
+STP 176 Mendoza monte winter trees=38 { "env_cottonwood": 38 } cover=17435 far=95 snow=3046 tl=2346
+STP 178 Mar del Plata pampa winter trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44896 far=75 snow=2690 tl=1990
+STP 179 Buenos Aires pampa winter trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44896 far=75 snow=3026 tl=2326
+STP 182 Neuquén monte winter trees=38 { "env_cottonwood": 38 } cover=17442 far=95 snow=2433 tl=1733
+STP 531 Montevideo pampa winter trees=39 { "env_ombu": 20, "env_cottonwood": 19 } cover=44898 far=75 snow=3013 tl=2313
+STP 199 Ladakh highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=445 tl=417
+STP 200 Himachal Pradesh highland winter trees=854 { "env_juniper": 141, "env_pine_a": 441, "env_spruce_a": 272 } cover=14503 far=648 snow=299 tl=421
+STP 201 Uttarakhand highland winter trees=854 { "env_juniper": 141, "env_pine_a": 441, "env_spruce_a": 272 } cover=14581 far=575 snow=231 tl=325
+STP 203 Jammu and Kashmir highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=243 tl=228
+STP 214 Siachen Glacier highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=493 tl=462
+STP 335 Northeastern Pakistan highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14507 far=64 snow=320 tl=300
+STP 252 Tabriz semi winter trees=38 { "env_cottonwood": 38 } cover=18878 far=79 snow=240 tl=440
+STP 399 Kabul highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=238 tl=223
+STP 402 Southeastern Afghanistan highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=240 tl=225
+STP 439 Nukus semi winter trees=38 { "env_cottonwood": 38 } cover=18920 far=79 snow=66 tl=266
+STP 521 Bishkek highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14521 far=48 snow=259 tl=242
+STP 535 Dushanbe highland winter trees=38 { "env_juniper": 27, "env_cottonwood": 11 } cover=14612 far=50 snow=283 tl=265
+STP 561 Baku semi winter trees=38 { "env_cottonwood": 38 } cover=18721 far=79 snow=125 tl=325
+MISSING []
+SMOKEDONE
