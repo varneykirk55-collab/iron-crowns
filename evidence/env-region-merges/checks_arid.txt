@@ -1,0 +1,13 @@
+runner exit 0
+audio exit 0
+env exit 0
+done
+SIMHASH SWE 1800: 0b3153c6f9fb7c454686cb49f19cb866 wars 6 armies 203
+SIMHASH USA 1914: a9beef573f5922b7eb83ba8f2beb5e63 wars 5 armies 205
+SIMHASH JPN 1500: 563be302cdf34e56b4a33a873230ebf1 wars 5 armies 205
+==== 220 / 220 checks passed (190.9 s) ====
+==== 28 / 28 audio checks passed (61.7 s) ====
+==== test_env: 0 failures ====
+BATTLERESULT md5 env1 / env0:
+1521b887c9d353430d51b7e6ab22815c  -
+1521b887c9d353430d51b7e6ab22815c  -
