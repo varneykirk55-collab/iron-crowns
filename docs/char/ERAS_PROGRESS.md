@@ -27,7 +27,9 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
 - [x] push + report (kits 3-4): c2cda55 + this docs commit; tests 163/163, outcome hash + 3 sim hashes = main
 - [~] 6a v3 horse (18:52 decision): smooth semi-realistic horse (muscle forms, head, hooves, mane, tail) on the EXISTING  ** DROPPED here: handed off to another bot (Kirk 19:11) **
       horse bones/anim, shared by hussar + knight; barding is a separate kit layer; rebuild hussar on it
-- [ ] 5 archer (1300)             unit med_archer
+- [x] 5 archer (1300)             kid v3_med_archer  unit med_archer (kit_med_archer.py): longbowman c.1300: team wool cote
+      with split skirt, green chaperon hood + cape + liripipe, belt / knife / buckler, linen arrow bag + strap, bracer,
+      hose + worn-leather shoes, yew longbow (musket clip slot; bow clips requested). tris 11982 / 1995 / 694
 - [x] 6 medieval cavalry rider (1300) kid v3_med_knight  unit med_knight (kit_med_knight.py; rider only per Kirk 21:01):
       mail hauberk + chausses + coif (ring-row relief), aketon implied, team surcoat with cream chevron and riding slits,
       great helm (slits, breaths, brass cross), heater shield on the left forearm, sword at the left hip, poleyns, prick
