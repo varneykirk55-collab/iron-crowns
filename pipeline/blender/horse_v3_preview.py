@@ -123,13 +123,13 @@ def render_distance():
     for name in horse + ('tack_1800',):
         o = lod0[name]
         c = o.copy(); c.data = o.data.copy(); sc.collection.objects.link(c)
-        c.parent = None; c.matrix_world = Matrix.Translation((2.6, 0.4, 0)) @ o.matrix_world
+        c.parent = None; c.matrix_world = Matrix.Translation((2.1, -1.85, 0)) @ o.matrix_world
         c.hide_render = False
         c.data.materials.clear(); c.data.materials.append(bay if name in horse else tackmat)
     for name, o in lod0.items():
         o.data.materials.clear(); o.data.materials.append(grey if name in horse else tackmat)
     hide_parts(lod0['horse_hair'], ['mane'])
-    tgt = Vector((1.3, 0.2, 0.8)); loc = tgt + Vector((15.0, 17.0, 20.0))   # ~30 m
+    tgt = Vector((1.05, -0.75, 0.8)); loc = tgt + Vector((15.0, 17.0, 20.0))   # ~30 m
     cam.location = loc; cam.data.lens = 50
     cam.rotation_euler = (tgt - loc).to_track_quat('-Z', 'Y').to_euler()
     sc.render.filepath = os.path.join(OUTDIR, 'horse_v3_distance%s.png' % ('_lod%d' % LOD if LOD else ''))
