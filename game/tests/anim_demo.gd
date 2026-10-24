@@ -90,6 +90,7 @@ func _cam() -> void:
 		var v: Dictionary = bv.rv[0]; var pv: PackedVector2Array = v["pos"]
 		var f: Vector2 = v.get("ac_face", bv.sim.regs[0]["facing"])
 		var sd := Vector2(-f.y, f.x)   # camera side
+		if a.has("sideflip"): sd = -sd   # demo only: film the other (sun-lit) flank
 		var c0: Vector2 = bv.sim.regs[0]["pos"]
 		if side_k < 0:
 			var best := -1e9
