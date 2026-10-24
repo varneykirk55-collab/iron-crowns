@@ -288,46 +288,51 @@ def _crest_points(n):
     p = resample(crest, n)
     return push_out(hd, p, 0.0, 6)
 
-def hair_field():
+def hair_field(which='mane'):
+    """which = 'mane' (mane + forelock) or 'tail'.  Two parts in the horse_hair layer (part_id) so a variant can drop
+    the mane (1300 crinet) without losing the tail."""
     Hh = S.Field()
     rng = np.random.default_rng(7)
-    # mane
-    base = _crest_points(22)
-    for i, b in enumerate(base):
-        t = i / (len(base) - 1)
-        L = 0.10 + 0.12 * math.sin(math.pi * min(1, t * 1.15)) ** 0.7
-        side = np.array([1.0, 0, 0])
-        p0 = b + np.array([0.012, 0, 0.012])
-        p1 = b + np.array([0.06, -0.03, -0.35 * L])
-        p2 = b + np.array([0.075 + 0.02 * rng.random(), -0.05, -L])
-        pts = push_out(hd, np.array([p0, p1, p2]), 0.014, 10)
-        r0 = 0.024 if 0.05 < t < 0.95 else 0.018
-        Hh.u(S.chain(list(map(tuple, pts)), [r0, 0.017, 0.007], (0.75, 1, 1)), 0.012, 'mane')
-    # forelock
-    for k, (dx, ln) in enumerate(((-0.02, 0.16), (0.0, 0.19), (0.022, 0.15))):
-        p0 = np.array([dx, 0.985, 1.84]); p1 = np.array([dx * 1.3, 1.04, 1.79]); p2 = np.array([dx * 1.6, 1.07, 1.84 - ln])
-        pts = push_out(hd, np.array([p0, p1, p2]), 0.012, 10)
-        Hh.u(S.chain(list(map(tuple, pts)), [0.018, 0.014, 0.006]), 0.010, 'forelock')
-    # tail: fan of locks from the dock
-    for k in range(14):
-        a = 2 * math.pi * k / 14
-        ox, oz = 0.03 * math.cos(a), 0.025 * math.sin(a)
-        p0 = np.array([ox, -0.74 + 0.02 * math.sin(a), 1.31 + oz])
-        p1 = np.array([1.4 * ox, -0.86, 1.10 + oz])
-        p2 = np.array([2.0 * ox + 0.01 * rng.standard_normal(), -0.91 - 0.02 * rng.random(), 0.82 + oz])
-        p3 = np.array([2.7 * ox + 0.02 * rng.standard_normal(), -0.93 - 0.03 * rng.random(), 0.43 + 0.05 * rng.random()])
-        Hh.u(S.chain([tuple(p0), tuple(p1), tuple(p2), tuple(p3)], [0.032, 0.034, 0.028, 0.010]), 0.012, 'tail')
-    # strand grooves
+    if which == 'mane':
+        base = _crest_points(30)
+        for i, b in enumerate(base):
+            t = i / (len(base) - 1)
+            L = 0.12 + 0.13 * math.sin(math.pi * min(1, t * 1.15)) ** 0.7
+            # two staggered rows: a full body of hair on the crest that falls to the +X side
+            for row, (dx, dz, rs) in enumerate(((0.006, 0.020, 1.0), (0.030, 0.006, 0.85))):
+                if row == 1 and i % 2:
+                    continue
+                p0 = b + np.array([dx, 0, dz])
+                p1 = b + np.array([0.050 + dx, -0.03, -0.30 * L + 0.01])
+                p2 = b + np.array([0.068 + dx + 0.02 * rng.random(), -0.05, -L * (0.9 + 0.2 * rng.random())])
+                pts = push_out(hd, np.array([p0, p1, p2]), 0.016, 10)
+                r0 = (0.030 if 0.05 < t < 0.95 else 0.020) * rs
+                Hh.u(S.chain(list(map(tuple, pts)), [r0, 0.022 * rs, 0.008]), 0.016, 'mane')
+        for k, (dx, ln) in enumerate(((-0.024, 0.16), (0.0, 0.20), (0.024, 0.15))):
+            p0 = np.array([dx, 0.985, 1.84]); p1 = np.array([dx * 1.3, 1.04, 1.79]); p2 = np.array([dx * 1.6, 1.07, 1.84 - ln])
+            pts = push_out(hd, np.array([p0, p1, p2]), 0.012, 10)
+            Hh.u(S.chain(list(map(tuple, pts)), [0.020, 0.016, 0.006]), 0.012, 'forelock')
+    else:
+        # tail: dock wrapped in hair, then a full rounded switch (locks spread in x AND y) tapering to a tip
+        for k in range(22):
+            a = 2 * math.pi * k / 22 + 0.3 * rng.random()
+            ca, sa = math.cos(a), math.sin(a)
+            p0 = np.array([0.026 * ca, -0.745 + 0.018 * sa, 1.275])
+            p1 = np.array([0.040 * ca, -0.84 + 0.035 * sa, 1.10])
+            p2 = np.array([0.060 * ca + 0.012 * rng.standard_normal(), -0.90 + 0.050 * sa, 0.82])
+            p3 = np.array([0.050 * ca + 0.015 * rng.standard_normal(), -0.93 + 0.040 * sa - 0.02 * rng.random(),
+                           0.42 + 0.06 * rng.random()])
+            Hh.u(S.chain([tuple(p0), tuple(p1), tuple(p2), tuple(p3)], [0.030, 0.036, 0.034, 0.012]), 0.020, 'tail')
     def grooves(P, d):
         g = 0.0016 * np.sin(P[:, 0] * 260 + P[:, 1] * 40) + 0.0012 * np.sin(P[:, 1] * 300 + P[:, 2] * 90)
         return d + g
     Hh.post(grooves)
     return Hh
 
-def hair_part():
-    Hh = hair_field()
+def hair_part(which='mane'):
+    Hh = hair_field(which)
     st = C.VOXEL['hair']
-    lo, hi = (-0.20, -1.08, 0.32), (0.22, 1.12, 1.92)
+    lo, hi = ((-0.20, 0.30, 1.0), (0.22, 1.12, 1.92)) if which == 'mane' else ((-0.14, -1.06, 0.32), (0.14, -0.66, 1.36))
     F, lo, st = Hh.grid(lo, hi, st)
     V, Q = nets(F, lo, st)
 
@@ -344,7 +349,7 @@ def hair_part():
         for b, v in wt.items():
             out[b] = out.get(b, 0) + np.where(tail, v, 0)
         return out
-    return {'name': 'hair', 'layer': 'horse_hair', 'geo': (V, Q), 'smooth': 1, 'voxel': C.VOXEL['hair'] * 0.8, 'lod_voxel': (1.0, 1.5, 2.2), 'sym': False, 'solidify': 0,
+    return {'name': which, 'layer': 'horse_hair', 'geo': (V, Q), 'smooth': 1, 'voxel': C.VOXEL['hair'] * 0.8, 'lod_voxel': (1.0, 1.5, 2.2), 'sym': False, 'solidify': 0,
             'cls': lambda Pc: np.full(len(Pc), MAT_HAIR), 'col': col, 'w': w, 'wsmooth': 2, 'hair': True}
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -977,7 +982,7 @@ def barding_1300():
 def all_parts():
     import time
     out = {}
-    for k, fn in (('body', lambda: [body_part()]), ('hair', lambda: [hair_part()]), ('eyes', lambda: [eye_part()]),
+    for k, fn in (('body', lambda: [body_part()]), ('hair', lambda: [hair_part('mane'), hair_part('tail')]), ('eyes', lambda: [eye_part()]),
                   ('tack_1800', tack_1800), ('tack_1300', tack_1300), ('barding_1300', barding_1300)):
         t = time.time(); out[k] = fn(); print('  parts %-12s %.1fs' % (k, time.time() - t), flush=True)
     for k in out:   # far set (LOD2, <= 0.6k verts horse + tack): drop the small bits
