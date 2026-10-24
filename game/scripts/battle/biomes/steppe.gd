@@ -63,7 +63,14 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	if sub == "mongol" and north: wood = 0.3                           # larch on the north slopes
 	if moist_hi: wood = 0.34
 	b["forest"] = wood
-	b["tree_cell"] = 9.0; b["tree_p"] = 0.35 + wood; b["tree_scale"] = Vector2(0.8, 1.15)
+	# forest_f only thresholds the noise (any value covers ~half the off-corridor ground), so the steppe sparseness
+	# comes from tree_p: trees survive only in the densest noise cells = scattered groves, gallery trees, slope stands
+	var tp: float = {"kazakh": 0.012, "semi": 0.004, "mongol": 0.014, "highland": 0.004, "prairie": 0.012, "pampa": 0.004, "monte": 0.004}[sub]
+	if sub == "kazakh" and lat >= 50.0: tp = 0.06
+	if sub == "mongol" and north: tp = 0.08
+	if moist_hi: tp = 0.1
+	var groves := tp >= 0.05
+	b["tree_cell"] = 9.0; b["tree_p"] = tp; b["tree_scale"] = Vector2(0.8, 1.15)
 	b["lone_n"] = int({"kazakh": 14, "semi": 4, "mongol": 8, "highland": 4, "prairie": 14, "pampa": 5, "monte": 6}[sub])
 	var dryness: float = {"kazakh": 0.5, "semi": 0.75, "mongol": 0.5, "highland": 0.7, "prairie": 0.38, "pampa": 0.2, "monte": 0.8}[sub]
 	b["dry"] = clampf(dryness + (-0.22 if spring else (0.12 if not winter else 0.18)), 0.05, 0.95)
@@ -126,7 +133,7 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 			sh = [pea, ww]
 	b["trees"] = t; b["lone"] = lone; b["shrubs"] = sh
 	b["accents"] = [{"m": "env_tor_a", "open": 0.02, "knoll": 0.18 if rocky else 0.06, "s": Vector2(0.7, 1.2)}]
-	b["far_model"] = "env_steppe_far"; b["far_dens"] = 0.12 + wood * 1.4; b["far_scale"] = Vector2(1.0, 1.5)
+	b["far_model"] = "env_steppe_far"; b["far_dens"] = 0.01 + tp * 1.2; b["far_scale"] = Vector2(1.0, 1.5)
 	b["outcrop"] = "env_tor_outcrop"; b["boulders"] = ["env_tor_a", "env_tor_b", "env_tor_a"]
 	b["cover_main"] = "env_feather_grass" if sub != "pampa" else "env_grass_dry"
 	b["cover_cell"] = {"semi": 3.6, "highland": 3.8, "monte": 3.6}.get(sub, 2.8)
@@ -150,8 +157,8 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 		gr_a = green.lerp(tawny, clampf(0.68 + k, 0.0, 1.0)); gr_b = green.lerp(tawny * 1.06, clampf(0.86 + k, 0.0, 1.0))
 	var rock := Color(0.62, 0.59, 0.54)
 	b["palette"] = {"grass_a": gr_a, "grass_b": gr_b, "dry": tawny.lerp(Color(0.82, 0.76, 0.6), 0.35), "earth": soil,
-		"floor_col": soil.lerp(gr_a, 0.5) * 0.85, "needle": soil * 0.8, "rock": rock, "scree": soil.lerp(rock, 0.6),
-		"snow_col": Color(0.9, 0.92, 0.96), "far_forest": Color(0.24, 0.29, 0.15) if not winter else Color(0.3, 0.28, 0.24),
+		"floor_col": soil.lerp(gr_a, 0.75 if groves else 0.88) * 0.92, "needle": soil * 0.8, "rock": rock, "scree": soil.lerp(rock, 0.6),
+		"snow_col": Color(0.9, 0.92, 0.96), "far_forest": gr_a.lerp(Color(0.24, 0.29, 0.15) if not winter else Color(0.3, 0.28, 0.24), 0.45 if groves else 0.12) * 0.9,   # far "canopy" mask = grass on open steppe
 		"straw": Color(0.86, 0.76, 0.5) if not spring else Color(0.64, 0.7, 0.38)}
 	var leaf := [Color(1.08, 1.1, 0.98), Color(0.03, 0.035, 0.015)]
 	if sea == "summer": leaf = [Color(1.12, 1.08, 0.92), Color(0.04, 0.035, 0.015)]
