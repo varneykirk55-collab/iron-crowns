@@ -134,7 +134,7 @@ static func _base(p: Dictionary, terr: String, seed: int) -> Dictionary:
 		"relief": relief, "forest": forest, "rocks": rocks, "dry": dry, "mtn": mtn, "snow_h": snow_h, "treeline": snow_h - 700.0,
 		"lake": bool(p.get("coastal", false)) or (seed % 3) != 0, "seed": seed, "eras": [],
 		# content (biome files override): trees [model, weight, edge_bias], lod / far models, rocks, cover, shrubs
-		"trees": [], "lod": {}, "lone": [], "far_model": "", "far_dens": 1.0, "far_scale": Vector2(1.2, 1.8),
+		"trees": [], "lod": {}, "lone": [], "lone_n": 90, "far_model": "", "far_dens": 1.0, "far_scale": Vector2(1.2, 1.8),
 		"tree_cell": 7.4, "tree_p": 0.62, "tree_scale": Vector2(0.7, 1.2),
 		"outcrop": "env_outcrop_a", "boulders": ["env_boulder_a", "env_boulder_b", "env_boulder_c"],
 		"cover_main": "env_grass_tuft", "cover_cell": 3.2, "cover_p": 0.85, "cover_in": 0.28, "accents": [],
@@ -285,7 +285,7 @@ static func plan(ctx: Dictionary) -> Dictionary:
 			trees.append([model, x, z, s, rng.randf() * TAU, tier, rng.randf()])
 			obst.append([Vector2(x, z), 1.2 * s])
 	# lone trees / small groves just outside the corridor (break up the hard forest edge)
-	for k in 90:
+	for k in int(ctx.get("lone_n", 90)):
 		var x := rng.randf_range(-FIELD / 2, FIELD / 2); var z := rng.randf_range(-FIELD / 2, FIELD / 2)
 		if not ok_obstacle.call(x, z, 3.0) or corridor_out(ctx, x, z) > 120.0 or lake_d(ctx, x, z) < 1.3:
 			continue
