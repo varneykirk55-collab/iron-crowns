@@ -22,3 +22,9 @@ Branch rob/cavalry-integration = rob/cavalry-animation-overhaul + Bill's frozen 
 - SIMHASH SWE1800 0b3153c6…, USA1914 a9beef57…, JPN1500 563be302…: identical to main.
 - BATTLERESULT SWE1300/1650/1800/USA1914 and reinforce lines are byte-identical to clean main.
 - Open: no real-mesh videos (stopped by order). Knight hem/gaskin clipping (29 hits) remains in walk/trot. Cuirassier still uses the proxy. Real-mesh LOD2 isn't wired. The rider is a proxy. Perf not re-measured.
+
+## 2026-10-23 22:33 EDT — origin/main moved to 853d091 (BJORN eras-v3); merged (bf71215), suite re-run → PASS
+- Merge was clean. Results vs clean 853d091: test_runner 220/220 (main 216/216), audio 28/28 both, test_env 0 failures both.
+- SIMHASH ×3 identical to the fingerprints. BATTLERESULT ×4 and reinforce byte-identical to main (main's are also unchanged from 41bdd75).
+- The main baseline's first test run showed 4 save-slot failures. The cause was the two concurrent runs sharing the user:// "test_slot". A solo re-run gave 216/216.
+- Merging rob/cavalry-integration into main (--no-ff, no force).
