@@ -948,8 +948,8 @@ def barding_1300():
         Q = P.copy(); Q[:, 0] = 0; Q[:, 2] = np.maximum(Q[:, 2], 1.05)
         return ctx.chain(Q, ['pelvis', 'spine01', 'spine02', 'chest'], 0.08)
     # rear / body caparison: from behind the shoulder over the back and quarters, hem just above the fetlocks
-    parts.append(cloth_part('caparison', L, '1300', 0.024, 0.005,
-                            y_back=lambda t: -0.80 - 0.06 * t, y_front=lambda t: 0.50 + 0.02 * t,
+    parts.append(cloth_part('caparison', L, '1300', 0.032, 0.005,   # pass 2: 0.032 clears the rounder croup
+                            y_back=lambda t: -0.745 - 0.11 * t,               # stops at the tail root (dock exits) y_front=lambda t: 0.50 + 0.02 * t,
                             hem=lambda y: CAP_HEM + 0 * y, res=(36, 28), band=0.06,
                             main_code=MAT_WOOL, trim_code=MAT_WOOL + V_TRIM, w=torso_w, col=cap_col,
                             edges=('hem',), zc=1.02))

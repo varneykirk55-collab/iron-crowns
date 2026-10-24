@@ -101,6 +101,16 @@ for i in (0, 1, 2):
     bpy.data.collections['LOD%d' % i].hide_render = (i != LOD)
 lod0 = {o.name.rsplit('_lod', 1)[0]: o for o in bpy.data.collections['LOD%d' % LOD].objects}
 tackmat = mk_mat('prev_tack', 'Col')
+# 1300 variant: the mane is hidden under the crinet (game side: hide part 'mane' of horse_hair, see stats parts)
+HIDE_PARTS = {'medieval': {'horse_hair': ['mane']}}
+def hide_parts(o, names):
+    import bmesh, json
+    parts = json.loads(o.get('parts', '[]'))
+    ids = {i for i, n in enumerate(parts) if n in names}
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    lay = bm.faces.layers.int.get('part_id')
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f[lay] in ids], context='FACES')
+    bm.to_mesh(o.data); bm.free()
 for v in VIEWS:
     coat, layers, loc, tgt, lens = CFG[v]
     bodymat = mk_mat('prev_body_' + v, 'coat_' + coat, coat)
@@ -109,6 +119,9 @@ for v in VIEWS:
         o.hide_render = not on
         o.data.materials.clear()
         o.data.materials.append(bodymat if name in ('horse_body', 'horse_hair', 'horse_eyes') else tackmat)
+    for name, hp in HIDE_PARTS.get(v, {}).items():
+        if name in lod0:
+            hide_parts(lod0[name], hp)
     cam.location = Vector(loc); cam.data.lens = lens
     cam.rotation_euler = (Vector(tgt) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
     sc.render.filepath = os.path.join(OUTDIR, 'horse_v3_%s%s.png' % (v, '_lod%d' % LOD if LOD else ''))
