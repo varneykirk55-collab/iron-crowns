@@ -2,12 +2,12 @@
  "lods": {
   "0": {
    "horse_body": {
-    "tris": 6384,
+    "tris": 6371,
     "verts": 3201
    },
    "horse_hair": {
-    "tris": 1498,
-    "verts": 753
+    "tris": 1896,
+    "verts": 948
    },
    "horse_eyes": {
     "tris": 128,
@@ -15,59 +15,59 @@
    },
    "tack_1800": {
     "tris": 2148,
-    "verts": 1368
+    "verts": 1372
    },
    "tack_1300": {
-    "tris": 1424,
+    "tris": 1418,
     "verts": 839
    },
    "barding_1300": {
-    "tris": 975,
-    "verts": 562
+    "tris": 977,
+    "verts": 566
    }
   },
   "1": {
    "horse_body": {
-    "tris": 1144,
+    "tris": 1140,
     "verts": 576
    },
    "horse_hair": {
-    "tris": 256,
-    "verts": 132
+    "tris": 252,
+    "verts": 126
    },
    "tack_1800": {
     "tris": 940,
-    "verts": 691
+    "verts": 685
    },
    "tack_1300": {
-    "tris": 620,
-    "verts": 393
+    "tris": 614,
+    "verts": 392
    },
    "barding_1300": {
-    "tris": 404,
-    "verts": 256
+    "tris": 408,
+    "verts": 261
    }
   },
   "2": {
    "horse_body": {
-    "tris": 410,
+    "tris": 407,
     "verts": 211
    },
    "horse_hair": {
-    "tris": 88,
-    "verts": 48
+    "tris": 84,
+    "verts": 44
    },
    "tack_1800": {
     "tris": 366,
     "verts": 271
    },
    "tack_1300": {
-    "tris": 249,
+    "tris": 244,
     "verts": 169
    },
    "barding_1300": {
     "tris": 197,
-    "verts": 142
+    "verts": 146
    }
   }
  },
@@ -75,15 +75,15 @@
   "horse_body": {
    "body": {
     "0": [
-     6384,
+     6371,
      3201
     ],
     "1": [
-     1144,
+     1140,
      576
     ],
     "2": [
-     410,
+     407,
      211
     ]
    }
@@ -91,30 +91,30 @@
   "horse_hair": {
    "mane": {
     "0": [
-     748,
-     376
+     758,
+     377
     ],
     "1": [
-     128,
-     66
+     126,
+     61
     ],
     "2": [
-     44,
-     24
+     42,
+     21
     ]
    },
    "tail": {
     "0": [
-     750,
-     377
+     1138,
+     571
     ],
     "1": [
-     128,
-     66
+     126,
+     65
     ],
     "2": [
-     44,
-     24
+     42,
+     23
     ]
    }
   },
@@ -158,11 +158,11 @@
    "valise": {
     "0": [
      168,
-     86
+     90
     ],
     "1": [
      58,
-     68
+     62
     ]
    },
    "girth": {
@@ -337,15 +337,15 @@
   "tack_1300": {
    "saddle": {
     "0": [
-     878,
+     872,
      441
     ],
     "1": [
-     278,
-     141
+     272,
+     140
     ],
     "2": [
-     97,
+     92,
      51
     ]
    },
@@ -519,16 +519,16 @@
    },
    "chanfron": {
     "0": [
-     289,
-     154
+     291,
+     158
     ],
     "1": [
-     98,
-     59
+     102,
+     64
     ],
     "2": [
      41,
-     30
+     34
     ]
    }
   }
@@ -807,7 +807,6 @@
    "humerus.R",
    "neck_01",
    "neck_02",
-   "neck_03",
    "pelvis",
    "radius.L",
    "radius.R",
@@ -839,7 +838,6 @@
    "humerus.R",
    "neck_01",
    "neck_02",
-   "neck_03",
    "pelvis",
    "rein_01.L",
    "rein_01.R",
@@ -931,6 +929,8 @@
    "tail_05"
   ],
   "tack_1800_lod1": [
+   "cannon_f.L",
+   "cannon_f.R",
    "cannon_h.L",
    "cannon_h.R",
    "chest",
@@ -969,8 +969,6 @@
   ],
   "tack_1300_lod1": [
    "chest",
-   "femur.L",
-   "femur.R",
    "head",
    "humerus.L",
    "humerus.R",
@@ -1057,6 +1055,7 @@
    "ear.L",
    "ear.R",
    "head",
+   "humerus.L",
    "humerus.R",
    "jaw",
    "neck_01",
@@ -1079,10 +1078,10 @@
    "chest",
    "femur.L",
    "femur.R",
+   "fetlock_h.R",
    "head",
    "humerus.L",
    "humerus.R",
-   "jaw",
    "neck_01",
    "neck_02",
    "neck_03",
@@ -1118,12 +1117,11 @@
    "head",
    "humerus.L",
    "humerus.R",
-   "jaw",
    "neck_01",
    "neck_02",
-   "neck_03",
    "pelvis",
    "radius.L",
+   "radius.R",
    "rein_01.L",
    "rein_01.R",
    "rein_02.L",
@@ -1143,7 +1141,8 @@
    "tail_01",
    "tail_02",
    "tail_03",
-   "tibia.L"
+   "tibia.L",
+   "tibia.R"
   ],
   "barding_1300_lod2": [
    "chest",
@@ -1167,35 +1166,35 @@
  "totals": {
   "hx_c19_hussar": {
    "0": {
-    "horse": 4022,
-    "kit": 1368,
-    "horse+kit": 5390
+    "horse": 4217,
+    "kit": 1372,
+    "horse+kit": 5589
    },
    "1": {
-    "horse": 708,
-    "kit": 691,
-    "horse+kit": 1399
+    "horse": 702,
+    "kit": 685,
+    "horse+kit": 1387
    },
    "2": {
-    "horse": 259,
+    "horse": 255,
     "kit": 271,
-    "horse+kit": 530
+    "horse+kit": 526
    }
   },
   "hx_med_knight": {
    "0": {
-    "horse": 4022,
-    "kit": 1401,
-    "horse+kit": 5423
+    "horse": 4217,
+    "kit": 1405,
+    "horse+kit": 5622
    },
    "1": {
-    "horse": 708,
-    "kit": 649,
-    "horse+kit": 1357
+    "horse": 702,
+    "kit": 653,
+    "horse+kit": 1355
    },
    "2": {
-    "horse": 259,
-    "kit": 311,
+    "horse": 255,
+    "kit": 315,
     "horse+kit": 570
    }
   }
