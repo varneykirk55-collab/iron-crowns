@@ -251,7 +251,7 @@ def horse_field():
     H.u(ellipsoid((0, 0.14, 0.99), (0.17, 0.24, 0.11)), 0.10, 'torso')                      # belly floor (lowest just behind the girth)
     for sx in (1, -1):
         H.u(ellipsoid((sx * 0.10, -0.47, 1.24), (0.17, 0.29, 0.20), rot_x(10)), 0.09, 'pelvis')     # glutes / quarters
-        H.u(ellipsoid((sx * 0.115, -0.56, 1.03), (0.12, 0.19, 0.22), rot_x(12)), 0.10, 'pelvis')     # thigh / hamstring mass (tapers into the gaskin)
+        H.u(roundcone((sx * 0.11, -0.62, 1.14), (sx * 0.13, -0.665, 0.72), 0.12, 0.045, (0.9, 1, 1)), 0.08, 'pelvis')  # hamstring: buttock -> hock in one line
     H.u(chain([(0, -0.15, 1.26), (0, -0.44, 1.335), (0, -0.68, 1.30)], [0.075, 0.085, 0.07]), 0.08, 'pelvis')  # croup line (round, high tail set)
     H.u(chain([(0, 0.48, 1.37), (0, 0.32, 1.36), (0, 0.08, 1.228), (0, -0.20, 1.26)],
               [0.06, 0.075, 0.07, 0.08]), 0.08, 'torso')                                      # withers -> back -> loin
@@ -299,9 +299,10 @@ def horse_field():
         H.u(roundcone(_m((0.12, 0.47, 0.13), sx), _m((0.12, 0.502, 0.07), sx), 0.027, 0.031), 0.015, g('f_fetlock'))  # pastern
         H.u(roundcone(_m((0.12, 0.505, 0.07), sx), _m((0.12, 0.525, 0.012), sx), 0.036, 0.049, (1.0, 1.08, 1.0)), 0.010, g('f_hoof'))
         # hind
-        H.u(roundcone(_m((0.14, -0.50, 1.10), sx), L['h_stifle'], 0.12, 0.065), 0.07, g('h_femur'))
-        H.u(roundcone(_m((0.15, -0.47, 0.86), sx), _m((0.13, -0.625, 0.53), sx), 0.08, 0.042), 0.04, g('h_tibia'))
-        H.u(ellipsoid(_m((0.14, -0.56, 0.76), sx), (0.055, 0.075, 0.13), rot_x(-30)), 0.06, g('h_tibia'))   # gaskin
+        H.u(roundcone(_m((0.14, -0.50, 1.10), sx), L['h_stifle'], 0.12, 0.055), 0.07, g('h_femur'))   # thigh front runs down/forward to the stifle
+        H.u(ellipsoid(_m((0.12, -0.31, 0.97), sx), (0.11, 0.12, 0.08), rot_x(-20)), 0.08, g('h_femur'))       # flank fold: stifle tied into the belly line
+        H.u(roundcone(_m((0.155, -0.40, 0.86), sx), _m((0.13, -0.625, 0.53), sx), 0.062, 0.040), 0.04, g('h_tibia'))   # tibia: slants down and back
+        H.u(ellipsoid(_m((0.14, -0.55, 0.74), sx), (0.05, 0.07, 0.12), rot_x(-35)), 0.05, g('h_tibia'))   # gaskin
         H.u(roundcone(_m((0.135, -0.66, 0.78), sx), _m((0.13, -0.69, 0.58), sx), 0.035, 0.03), 0.04, g('h_tibia'))   # achilles
         H.u(ellipsoid(_m((0.13, -0.635, 0.51), sx), (0.045, 0.065, 0.06)), 0.035, g('h_tibia'))         # hock joint
         H.u(sphere(_m((0.13, -0.695, 0.575), sx), 0.030), 0.02, g('h_tibia'))                             # point of hock
