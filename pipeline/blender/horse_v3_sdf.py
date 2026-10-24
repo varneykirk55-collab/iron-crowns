@@ -258,12 +258,15 @@ def horse_field():
     # --- shoulders / chest -------------------------------------------------------------------------------------------
     for sx in (1, -1):
         H.u(ellipsoid((sx * 0.13, 0.53, 1.18), (0.07, 0.15, 0.26), rot_x(40)), 0.10, 'chest')        # shoulder blade
-        H.u(ellipsoid((sx * 0.15, 0.56, 0.98), (0.09, 0.13, 0.13), rot_x(-30)), 0.06, 'f_humerus' + ('.R' if sx > 0 else '.L'))  # triceps / upper arm
-    H.u(ellipsoid((0, 0.61, 1.01), (0.15, 0.12, 0.15)), 0.06, 'chest')                      # breast
+        H.u(ellipsoid((sx * 0.15, 0.55, 0.99), (0.075, 0.11, 0.11), rot_x(-30)), 0.05, 'f_humerus' + ('.R' if sx > 0 else '.L'))  # triceps / upper arm
+    H.u(ellipsoid((0, 0.60, 1.03), (0.125, 0.10, 0.125)), 0.05, 'chest')                    # breast (shallower)
     for sx in (1, -1):
         H.u(sphere((sx * 0.125, 0.685, 1.07), 0.062), 0.035, 'chest')                     # point of shoulder
     H.s(ellipsoid((0, 0.725, 1.0), (0.035, 0.05, 0.09)), 0.04)                              # pectoral groove between the shoulder points
-    H.u(ellipsoid((0, 0.47, 0.92), (0.14, 0.15, 0.085)), 0.07, 'chest')                      # brisket / girth floor
+    H.s(ellipsoid((0, 0.62, 0.84), (0.075, 0.12, 0.08)), 0.05)                              # lifts the chest floor between the forearms
+    for sx in (1, -1):
+        H.s(ellipsoid((sx * 0.21, 0.50, 0.88), (0.035, 0.07, 0.07)), 0.04)                  # elbow pocket: forearm reads off the chest wall
+    H.u(ellipsoid((0, 0.47, 0.935), (0.12, 0.14, 0.075)), 0.07, 'chest')                      # brisket / girth floor
     # --- neck (lateral squash) ---------------------------------------------------------------------------------------
     nk = (0.62, 1.0, 1.0)
     H.u(chain([(0, 0.53, 1.22), (0, 0.70, 1.43), (0, 0.83, 1.62), (0, 0.94, 1.74)], [0.20, 0.145, 0.105, 0.075], nk),
@@ -288,7 +291,7 @@ def horse_field():
         g = lambda n: n + sd
         L = {k: _m(v, sx) for k, v in LM.items() if k.startswith(('f_', 'h_'))}
         # front
-        H.u(roundcone(L['f_shoulder'], L['f_elbow'], 0.10, 0.08), 0.06, g('f_humerus'))
+        H.u(roundcone(L['f_shoulder'], L['f_elbow'], 0.085, 0.065), 0.05, g('f_humerus'))
         H.u(roundcone(_m((0.145, 0.43, 0.86), sx), _m((0.122, 0.465, 0.50), sx), 0.075, 0.045), 0.04, g('f_forearm'))
         H.u(ellipsoid(_m((0.14, 0.445, 0.74), sx), (0.062, 0.07, 0.13), rot_x(-4)), 0.04, g('f_forearm'))   # forearm muscle
         H.u(ellipsoid(_m((0.12, 0.47, 0.455), sx), (0.047, 0.05, 0.055)), 0.03, g('f_forearm'))         # knee (carpus)
