@@ -41,3 +41,23 @@ Run on the code of d51e69e (a263833 changes the spec only). Logs are in `out/br_
 - **CPU:** HX driving costs +0.1 to +0.5 ms per frame for 400–2,400 riders. It comes from the extra per-rider work: lean/pitch, hit detection, melee strike timing and the tilted transform.
 - **Vertices:** the proxy HX bakes have 2.7–3.1× the legacy vertex count (knight LOD0 1,548 vs 583, LOD1 905 vs 468; hussar 1,412 vs 452, 856 vs 317). On llvmpipe, vertex work is CPU work, so with 6 knight regiments close to the camera the frame trends +50% (both repeats were the slowest). On a real GPU this is ≈ 3.7 M VAT vertices per frame at LOD0 for 2,400 riders. That is expected to be small but **not measured here**, and it should be measured on hardware before release. Bill's final mesh will be larger (spec section 6 budget). LOD1/LOD2 (spec v1.2) and the LOD distance are the levers.
 - `--no-cav-v2` (legacy horse) is within noise of main, as expected (same code path).
+
+## 3. Videos (normal speed, 30 fps, 1280x720, `tools/cav/rec_cav.sh`)
+
+The demo scene is `game/tests/anim_demo.tscn --scene=cav`. The sim never makes cavalry walk or trot (it advances at def speed, then ×1.8), so the gait clips use the demo-only `--prof`, which sets the attacker speed over time. Battle code is not touched.
+
+| File | What it shows |
+|---|---|
+| `knight_gaits_side.mp4` / `hussar_gaits_side.mp4` | Side tracking cam on a front-rank horse: stand → walk (≈4–13 s) → trot (≈15–24 s) → canter (≈26–31 s) → gallop (≈33–38 s) → decelerate to stand (≈39–48 s) |
+| `knight_walk.mp4`, `knight_trot.mp4`, `knight_gallop.mp4` (and `hussar_*`) | Clips cut from the gaits_side videos |
+| `knight_turn_stop.mp4` / `hussar_turn_stop.mp4` | The formation wheels at a trot, then halts at about 24 s |
+| `knight_combat.mp4` / `hussar_combat.mp4` | Charge into infantry, melee, horse and rider deaths |
+| `knight_multi.mp4` / `hussar_multi.mp4` | 4 cavalry regiments vs 3 infantry regiments |
+
+## 4. Known issues
+
+- The horse is still Rob's **proxy mesh**, flat-shaded. These wait on Bill's mesh (see `HORSE_SKELETON_SPEC.md`): the real bake through `horse_anim.py`, `.vatn` normals plus `hx_vat.gdshader`, the LOD2 far set, the JSON layer ranges, and re-measured perf.
+- Perf was measured on shared llvmpipe (load 12–17), so frame times are noisy. The GPU cost has not been measured on real hardware. The HX vertex count is about 2.7–3.1× the legacy count.
+- The legacy (`--no-cav-v2`) hv cavalry never returns to the stand clip (threshold −0.05). This is **out of scope and not fixed**; it is only noted here.
+- Demo HUD text ("Battle of Moscow", Russia vs Canada) is a demo placeholder.
+- In the multi videos the battle ends at about 27 s, so the last seconds show the post-battle state.
