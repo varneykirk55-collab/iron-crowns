@@ -316,7 +316,7 @@ def horse_field():
     H.u(chain([(0, -0.70, 1.315), (0, -0.78, 1.275), (0, -0.85, 1.17)], [0.045, 0.04, 0.032]), 0.09, 'tail')   # dock, flush with the croup (no lump)
     # --- carving -----------------------------------------------------------------------------------------------------
     for sx in (1, -1):
-        H.s(ellipsoid((sx * 0.040, 1.386, 1.405), (0.013, 0.018, 0.026), rot_x(-40)), 0.014)   # nostrils (carved, soft rim)
+        H.s(ellipsoid((sx * 0.040, 1.384, 1.407), (0.015, 0.02, 0.028), rot_x(-40)), 0.022)   # nostrils (carved, soft rim)
         H.s(ellipsoid((sx * 0.058, 1.372, 1.43), (0.008, 0.03, 0.014), rot_x(-55)), 0.016)     # false-nostril crease behind the nostril
         H.s(ellipsoid((sx * 0.066, 1.036, 1.895), (0.016, 0.03, 0.055), rot_x(8)), 0.008)       # ear hollow (front face)
         H.s(ellipsoid((sx * 0.10, 1.125, 1.676), (0.017, 0.029, 0.017), rot_x(-10)), 0.012)  # almond eye opening (rim = lids)

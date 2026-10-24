@@ -861,7 +861,7 @@ def tack_1800():
     wool = code_col({MAT_WOOL: (TEAM, 1), MAT_BRASS + V_TRIM: (GOLD, 0), MAT_BRASS: (GOLD, 0)})
     sb_w = lambda P, ctx: weights_saddle_blend(P, ctx, 0.25, 0.60)
     # shabraque with Vandyke (pointed) rear corner and gold lace border
-    parts.append(cloth_part('shabraque', L, '1800', 0.009, 0.005,
+    parts.append(cloth_part('shabraque', L, '1800', 0.016, 0.005,   # pass 3: 0.009 -> 0.016 (coat spots at the croup)
                             y_back=lambda t: -0.50 - 0.30 * t ** 1.5, y_front=lambda t: 0.44 + 0.03 * t,
                             hem=lambda y: 0.985 - 0.06 * _sstep(-0.1, -0.75, y), res=(34, 26), band=0.032,
                             main_code=MAT_WOOL, trim_code=MAT_BRASS + V_TRIM, w=sb_w, col=wool))
@@ -972,7 +972,7 @@ def barding_1300():
             zs = top - (top - CAP_HEM) * rows
             O = np.stack([np.zeros(len(zs)), np.full(len(zs), 0.30), zs], 1)
             Dd = np.tile([math.sin(a), math.cos(a), 0.0], (len(zs), 1))
-            P, ok = PM.raycast(df, O, Dd, 0.026, rmax=0.8, steps=160)
+            P, ok = PM.raycast(df, O, Dd, 0.034, rmax=0.8, steps=160)   # pass 3: clears the point of shoulder
             G[:, i] = P
         rr = 0.5 * (rows[:-1] + rows[1:])
         hemrow = (1 - rr) * 1.0 < band / 0.9 + 1e-6
