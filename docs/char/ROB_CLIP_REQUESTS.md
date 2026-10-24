@@ -30,6 +30,14 @@ close round the shaft. Needed (only if Rob wants them):
 - rider hand bones so the lance hand can grip the shaft and the shield arm can hold the reins behind the shield
 - shield is rigid on forearm.L (point down in the rein pose); a shield-raise clip for melee would read better
 
+## c20_rifle (v3_c20_rifle): bolt-action rifle with a fixed sword bayonet
+Plays the musket clips (prop-local barrel along +y, butt at y -0.35, bayonet point / weapon_tip at y 1.31). Idle, walk,
+run and the bayonet charge read fine. Needed (only if Rob wants them):
+- `fire` row: shoulder, aim, fire, then work the bolt (right hand up to the bolt knob, back, forward, down) between
+  shots instead of the musket prime / ram
+- reload: charger clip pushed down into the magazine from above with the right thumb (the rifle canted)
+- a prone or kneeling fire variant would suit 1914+ (optional)
+
 ## Coming with later kits (filled in as each kit lands)
 - pike (1300 pikeman, 1500 pikeman): port, charge (level at shoulder and at hip), brace against cavalry (butt to the foot)
   - v3_med_pike (kit 4) currently plays the musket clips: idle / walk shoulder the pike fine and melee (charge thrust)

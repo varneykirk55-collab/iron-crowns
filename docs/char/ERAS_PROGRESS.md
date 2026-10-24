@@ -45,7 +45,13 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
   - [x] 7b musketeer   kid v3_em_musket  (kit_em_musket.py): team slashed doublet (stacked puffs, spiral forearms, chest
         chevrons), gathered shirt + frill, paned upper hose, saffron lower hose, latchet shoes, broad felt hat + feather,
         powder flask / ball bag / slow match / Bauernwehr, matchlock arquebus. Rebuilt with the neck fix. tris 11288 / 1998 / 689
-- [ ] 8 WWI infantry (1914)       unit c20_rifle (nation helmets)
+- [x] 8 WWI infantry (1914)       kid v3_c20_rifle  unit c20_rifle (kit_c20_rifle.py): team wool service tunic (fly
+      front, pleated chest pockets, skirt with bellows hip pockets, stand-and-fall collar) + trousers, spiral puttees,
+      ankle boots, webbing (belt, pouches, Y-braces, small pack + groundsheet roll, haversack, entrenching tool, water
+      bottle, bayonet scabbard), steel helmet, bolt-action rifle with sword bayonet (weapon_tip = bayonet point; musket
+      clips, bolt-action clips requested). Nation helmets: V3_HELMET=brodie (default, built and wired) / stahlhelm /
+      adrian build as v3_c20_rifle_<helmet>; NOT wired: battle_visuals swaps one model per unit id, so per-nation
+      helmets need a render-side nation lookup (follow-up). tris 11253 / 1991 / 681
 - [ ] push + report
 - [ ] 9 modern infantry (1980)    unit mod_rifle
 - [ ] push + report; remove /tmp worktrees
