@@ -256,14 +256,14 @@ def hat(hi=False):
         u = m / 8; a = math.radians(205 + 40 * u)
         r = lerp(rb[int(nu * 205 / 360)] + 0.006, rb[int(nu * 205 / 360)] + 0.20, u)
         pth.append((u, L(r, a, 0.02 + 0.07 * math.sin(math.pi * u * 0.7) - 0.05 * ss(0.7, 1.0, u))))
-    ns = 32 if hi else 6
+    ns = 32 if hi else 9
     prof = []
     for m in range(ns + 1):
         u = m / ns
         w = 0.004 + 0.013 * math.sin(math.pi * min(1.0, u * 1.08)) ** 0.8
         if hi: w *= 1.0 + 0.18 * abs(math.sin(u * 70.0))
-        prof.append((u, w, 0.0025, 0.0025))
-    out.append(limb('lmhat.plume', pth, prof, ns, 6 if hi else 4, fwd=HAT_R @ V(0, 0, 1), slot='plume', e=2.6))
+        prof.append((u, w, 0.0045, 0.0045))
+    out.append(limb('lmhat.plume', pth, prof, ns, 8 if hi else 6, fwd=HAT_R @ V(0, 0, 1), slot='plume', e=2.6))
     return out
 
 # ------------------------------------------------------------------ matchlock arquebus (prop frame: barrel along +y)

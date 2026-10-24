@@ -243,7 +243,7 @@ def hood(hi=False):
     op = [i for i, row in enumerate(dirs) if (row[0] - row[-1]).length > 0.02]   # rows with a face opening only
     edge = [HC + dirs[i][0] * (R[i, 0] + 0.006) for i in op] + [HC + dirs[i][-1] * (R[i, -1] + 0.006) for i in reversed(op)]
     path = [(k / (len(edge) - 1), p) for k, p in enumerate(edge)]
-    out.append(limb('arhood.roll', path, [(0, 0.0055, 0.0055, 0.0055)], len(edge) - 1 if hi else 8, 6 if hi else 3, fwd=V(0, 1, 0),
+    out.append(limb('arhood.roll', path, [(0, 0.0055 if hi else 0.0068, 0.0055 if hi else 0.0068, 0.0055 if hi else 0.0068)], len(edge) - 1, 6 if hi else 4, fwd=V(0, 1, 0),
                     slot='felt', cap0=True, cap1=True))
     # liripipe: long tail from the crown hanging down the back
     p0 = HC + V(0, -0.86, 0.50).normalized() * 0.112
@@ -297,6 +297,8 @@ def cape(hi=False):
         for j in cs:
             a = 2 * math.pi * j / CAPE_NA
             r = R[i, j]
+            if not hi:   # lo: padded local max of the hi fit (shoulders / hood bib between samples stay inside, no bake bleed)
+                r = float(R[max(0, i - 3):i + 4, [(j + k) % CAPE_NA for k in range(-3, 4)]].max()) + 0.003 + 0.006 * ss(0.4, 1.0, t)
             if hi: r += 0.010 * ss(0.4, 1.0, t) * math.sin(a * 11.0 + 0.8) + 0.010 * math.exp(-((t - 1.0) / 0.03) ** 2)
             z = _cape_z(a, t)
             outer.append(V(math.cos(a) * r, cy + math.sin(a) * r, z))

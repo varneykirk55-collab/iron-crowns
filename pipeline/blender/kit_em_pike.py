@@ -163,10 +163,10 @@ def _bp_pt(R, Z, i, j, off=0.0):
 
 def breastplate(tree, hi=False):
     R, Z = _FIT['bp']
-    js = list(range(0, BP_NA + 1, 1 if hi else 8)); is_ = list(range(0, BP_NZ + 1, 1 if hi else 8))
+    js = list(range(0, BP_NA + 1, 1 if hi else 4)); is_ = list(range(0, BP_NZ + 1, 1 if hi else 5))
     secs = []
     for j in js:
-        outer = [_bp_pt(R, Z, i, j) for i in is_]
+        outer = [_bp_pt(R, Z, i, j, 0.0 if hi else 0.0015) for i in is_]
         inner = [_bp_pt(R, Z, i, j, -0.0035) for i in is_]
         if hi:   # flared bottom lip
             outer[0] = outer[0] + V(math.sin(lerp(-BP_A, BP_A, j / BP_NA)), math.cos(lerp(-BP_A, BP_A, j / BP_NA)), 0) * 0.004
@@ -303,14 +303,14 @@ def beret(hi=False):
             r = lerp(0.05, BER_RB + 0.03, u ** 0.8)
             h = 0.058 + 0.05 * math.sin(math.pi * u * 0.8) - 0.09 * ss(0.7, 1.0, u) + 0.006 * k
             pth.append((u, L(r, a, h)))
-        ns = 40 if hi else 7
+        ns = 40 if hi else 10
         prof_ = []
         for m in range(ns + 1):
             u = m / ns
             w = (0.010 + 0.028 * math.sin(math.pi * min(1.0, u * 1.15)) ** 0.7) * sc
             if hi: w *= 1.0 + 0.22 * abs(math.sin(u * 55.0))   # fluffy barbs
-            prof_.append((u, w, 0.0035, 0.0035))
-        out.append(limb('lpplume', pth, prof_, ns, 8 if hi else 4, fwd=BER_R @ V(0, 0, 1), slot=slot, e=2.6))
+            prof_.append((u, w, 0.0055, 0.0055))
+        out.append(limb('lpplume', pth, prof_, ns, 8 if hi else 6, fwd=BER_R @ V(0, 0, 1), slot=slot, e=2.6))
     return out
 
 # ------------------------------------------------------------------ pike
