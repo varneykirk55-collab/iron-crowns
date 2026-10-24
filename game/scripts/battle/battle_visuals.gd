@@ -36,7 +36,7 @@ const QUALITY := [
 ]
 static var _quality := 1          # medium until apply_quality() is called
 static var _bv_ref: WeakRef = null # last BattleView passed to apply(); weak so a freed battle is simply skipped
-static var proto_v2 := false       # PROTO v2 (--vx-proto=1): c19_line draws the sculpted c19v2_line bake (docs/char/PROTO_V2.md)
+static var proto_v2 := false       # forces the v3 soldier set on (tests / debug node); the default is ON anyway, see proto_on()
 static var char_sr := true         # character refinement: semi-realistic c19 soldiers (c19sr_*); --vx-char=0 = previous blocky models
 static var polish := true          # polish pass (terrain-aware light, snow ground, grenadier / gun-crew models); false = v0.2.1 look
 static var terrain_preview := ""   # PREVIEW-ONLY (--vx-terrain=<t>, bench logger): light / ground as if b.terrain were <t>
@@ -395,6 +395,7 @@ static func _swap_char(bv: Node) -> void:
 	var vat = bv.get("vat"); var mms = bv.get("mms")
 	if not (vat is Dictionary) or not (mms is Dictionary):
 		return
+	var chosen: PackedStringArray = []
 	for orig in _swap_ids():
 		if not vat.has(orig) or vat[orig].has("sr"):
 			continue
@@ -407,22 +408,44 @@ static func _swap_char(bv: Node) -> void:
 		if not ok:
 			continue
 		vat[orig] = d
+		chosen.append("%s->%s" % [orig, d["sr"]])
 		for key in mms.keys():
 			var parts := str(key).split("|")
 			if parts.size() == 3 and parts[0] == orig:
 				(mms[key]["mm"] as MultiMesh).mesh = d["mesh"][int(parts[2])]
+	if not bv.has_meta("_vx_soldier_set_logged"):   # one line per battle: which soldier set + which kits were swapped in
+		bv.set_meta("_vx_soldier_set_logged", true)
+		print("[visuals] soldier set: %s era=%s swapped=[%s]" % ["v3" if proto_on() else "legacy", str(bv.get("era_id")), ", ".join(chosen)])
 
-## Proto v2: only c19_line is swapped (to c19v2_line, if baked); everything else keeps its c19sr_* model.
-## The flag is read from the command line directly too, so it also works without the debug node (normal play).
+## Soldier set (render only, no sim effect): "v3" = BJORN's newest kits (c19_line -> c19v2_line, the eras-v3 kits in
+## V3_MODEL) is the DEFAULT; "legacy" = the previous models (c19sr_* for c19, the visual-pass models for other eras).
+## Ids without a baked v3 kit always fall back to the legacy model.
+## Precedence: command-line arg > env var > project setting (override.cfg next to the exe) > ON.
+##   legacy: --legacy-soldiers, --vx-proto=0|off|false|no   v3: --vx-proto, --vx-proto=1|on|true|yes
+##   env IRONCROWNS_SOLDIERS=legacy|v3 (also 0/1/off/on)   setting iron_crowns/battle/soldiers_v3=false|true
+const SOLDIERS_ENV := "IRONCROWNS_SOLDIERS"
+const SOLDIERS_SETTING := "iron_crowns/battle/soldiers_v3"
 static var _proto_cmd := -1
+static func resolve_v3(args: PackedStringArray, env: String, setting: Variant) -> bool:
+	var res := true
+	if setting is bool:
+		res = setting
+	var e := env.strip_edges().to_lower()
+	if e in ["legacy", "0", "off", "false", "no"]: res = false
+	elif e in ["v3", "1", "on", "true", "yes"]: res = true
+	for a in args:
+		if a == "--legacy-soldiers": res = false
+		elif a == "--vx-proto": res = true
+		elif a.begins_with("--vx-proto="):
+			res = not (a.substr(11).to_lower() in ["0", "off", "false", "no"])
+	return res
 static func proto_on() -> bool:
 	if _proto_cmd < 0:
-		_proto_cmd = 0
-		for a in OS.get_cmdline_user_args() + OS.get_cmdline_args():
-			if a == "--vx-proto" or (a.begins_with("--vx-proto=") and a.substr(11) != "0"): _proto_cmd = 1
+		var st: Variant = ProjectSettings.get_setting(SOLDIERS_SETTING) if ProjectSettings.has_setting(SOLDIERS_SETTING) else null
+		_proto_cmd = 1 if resolve_v3(OS.get_cmdline_user_args() + OS.get_cmdline_args(), OS.get_environment(SOLDIERS_ENV), st) else 0
 	return proto_v2 or _proto_cmd == 1
 
-## Eras v3 (docs/char/ERAS_PROGRESS.md, --vx-proto only): v3 kits swapped in under the existing unit ids (render only).
+## Eras v3 (docs/char/ERAS_PROGRESS.md, default; legacy via --legacy-soldiers): v3 kits swapped in under the existing unit ids (render only).
 const V3_MODEL := {"c19_grenadier": "v3_c19_grenadier", "c19_artillery": "v3_c19_artillery", "c19_hussar": "v3_c19_hussar", "med_spear": "v3_med_pike",
 	"med_archer": "v3_med_archer", "em_musket": "v3_em_musket", "em_pike": "v3_em_pike", "c20_rifle": "v3_c20_rifle",
 	"mod_rifle": "v3_mod_rifle", "med_knight": "v3_med_knight"}
@@ -434,7 +457,7 @@ static func _char_model(orig: String) -> String:
 		return V3_MODEL[orig]
 	return CHAR_MODEL.get(orig, "")
 
-## ids _swap_char may replace: the c19sr set always, the v3 ids only with --vx-proto
+## ids _swap_char may replace: the c19sr set always, the v3 ids unless the legacy set is chosen
 static func _swap_ids() -> Array:
 	var r: Array = CHAR_MODEL.keys()
 	if proto_on():
@@ -795,7 +818,7 @@ func _ready() -> void:
 	# --vx-terrain=tundra|mountains = PREVIEW-ONLY winter ground + light on the demo battle (see PREVIEW_TERRAIN)
 	polish = args.get("vx-polish", "1") != "0"
 	char_sr = args.get("vx-char", "1") != "0"
-	proto_v2 = args.get("vx-proto", "0") != "0"
+	proto_v2 = false   # soldier set is resolved by proto_on() (default v3; --vx-proto=0 / --legacy-soldiers = legacy)
 	char_lite_override = [args.get("vx-charlite0", ""), args.get("vx-charlite1", "")]
 	xfade_on = args.get("vx-xfade", "1") != "0"
 	lod_override = float(args.get("vx-lod", "-1"))
