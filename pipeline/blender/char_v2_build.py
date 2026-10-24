@@ -239,6 +239,9 @@ def build_meshes():
     sl = np.zeros(len(H.data.polygons), np.int32); H.data.attributes['slot'].data.foreach_get('value', sl)
     mk = H.data.attributes.new('matk', 'FLOAT', 'FACE')
     mk.data.foreach_set('value', [float(C.M[C.SLOT_MAT.get(B.SLOT_NAMES[x], 'wool')]) for x in sl])
+    if getattr(C, 'CAMO_SLOTS', None):   # printed camo (detail luminance) on these slots (kit 9)
+        ca = H.data.attributes.new('camo', 'FLOAT', 'FACE')
+        ca.data.foreach_set('value', [1.0 if B.SLOT_NAMES[x] in C.CAMO_SLOTS else 0.0 for x in sl])
     L = C.join([lo] + kit_lo, KID + '_lod0')
     for o in (H, L): o.data.validate()
     for p in L.data.polygons: p.use_smooth = True
@@ -497,8 +500,23 @@ def detail_nodes(nt, df):
     wm = add(lea, metal)
     d2 = add(math('MULTIPLY', skin, det2), math('MULTIPLY', wm, wear),
              math('MULTIPLY', math('SUBTRACT', 1.0, add(skin, wm)), C.NEUTRAL))
+    if getattr(C, 'CAMO_SLOTS', None):
+        lum = add(lum, math('MULTIPLY', attr('camo'), camo_nodes(N, L, tc, math, add)))
     cmb = N('ShaderNodeCombineXYZ'); L(lum, cmb.inputs[0]); L(d2, cmb.inputs[1])
     return cmb.outputs[0]
+
+def camo_nodes(N, L, tc, math, add):
+    """4-tone woodland print as a luminance offset on the team-dyed base: large dark + light blotches, small black
+    'branch' marks (object-space noise thresholds; hard printed edges, ~10-25 cm blotches)."""
+    def blot(scale, w, thr, sign):
+        n = N('ShaderNodeTexNoise'); n.noise_dimensions = '4D'; n.inputs['W'].default_value = w
+        n.inputs['Scale'].default_value = scale; n.inputs['Detail'].default_value = 3.0; n.inputs['Distortion'].default_value = 0.6
+        L(tc.outputs['Object'], n.inputs['Vector'])
+        return math('GREATER_THAN' if sign > 0 else 'LESS_THAN', n.outputs['Fac'], thr)
+    dark = blot(4.5, 1.7, 0.55, 1); light = blot(5.5, 7.3, 0.42, -1); black = blot(9.0, 13.1, 0.63, 1)
+    nd = math('SUBTRACT', 1.0, dark); nb = math('SUBTRACT', 1.0, black)
+    return add(math('MULTIPLY', math('MULTIPLY', dark, nb), -0.30), math('MULTIPLY', math('MULTIPLY', math('MULTIPLY', light, nd), nb), 0.20),
+               math('MULTIPLY', black, -0.45))
 
 NRM_FRAME = getattr(C, 'NRM_FRAME', os.environ.get('NRM_FRAME', 'shader'))   # 'mikk' = old tangent-space bake (shards on uv seams)
 

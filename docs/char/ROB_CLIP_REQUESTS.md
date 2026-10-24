@@ -38,6 +38,17 @@ run and the bayonet charge read fine. Needed (only if Rob wants them):
 - reload: charger clip pushed down into the magazine from above with the right thumb (the rifle canted)
 - a prone or kneeling fire variant would suit 1914+ (optional)
 
+## mod_rifle (v3_mod_rifle): 5.56 mm assault rifle with optic
+Plays the musket clips for now (prop-local barrel along +y, butt at y -0.30, pistol grip at y ~-0.02, handguard
+y 0.15..0.40, muzzle / weapon_tip at y 0.635). The rifle is ~0.94 m, so the musket poses hold it too far forward and the
+fire row (prime / ram) is wrong. Needed (carbine clips):
+- `carbine_idle` (low ready, muzzle down ~30deg), `carbine_walk`, `carbine_run` (rifle across the chest)
+- `carbine_fire`: shoulder, aim through the optic (cheek on the stock), 2-3 shot bursts with small recoil
+- `carbine_reload`: magazine out with the left hand, new magazine from the front plate carrier pouches, slap the bolt
+  release
+- `carbine_melee`: butt stroke (optional)
+- gloved hands: the glove meshes are the MakeHuman hands re-slotted (same weights), so the existing fist poses apply
+
 ## Coming with later kits (filled in as each kit lands)
 - pike (1300 pikeman, 1500 pikeman): port, charge (level at shoulder and at hip), brace against cavalry (butt to the foot)
   - v3_med_pike (kit 4) currently plays the musket clips: idle / walk shoulder the pike fine and melee (charge thrust)

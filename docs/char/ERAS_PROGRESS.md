@@ -52,9 +52,17 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
       clips, bolt-action clips requested). Nation helmets: V3_HELMET=brodie (default, built and wired) / stahlhelm /
       adrian build as v3_c20_rifle_<helmet>; NOT wired: battle_visuals swaps one model per unit id, so per-nation
       helmets need a render-side nation lookup (follow-up). tris 11253 / 1991 / 681
-- [ ] push + report
-- [ ] 9 modern infantry (1980)    unit mod_rifle
-- [ ] push + report; remove /tmp worktrees
+- [x] push + report (kits 7-8): d743dc3 (musketeer), 33e9d71 (pikeman), 13316e7 (1914); tests 163/163, outcome hash + 3 sim hashes = main
+- [x] 9 modern infantry (1980)    kid v3_mod_rifle  unit mod_rifle (kit_mod_rifle.py): head with painted stubble; leather
+      gloves (the MakeHuman hands re-slotted, same weights); team camo jacket + trousers with a printed 4-tone woodland
+      pattern (luminance print baked into the detail map via C.CAMO_SLOTS, shared hook in char_v2_build.py, off for all
+      other kits), stand collar, thigh cargo + sleeve pockets; trousers bloused into black laced combat boots; knee pads;
+      plate carrier (front + back plates, shoulder straps, cummerbund) with 3 magazine pouches + radio pouch / antenna;
+      assault pack; rigger's belt; kevlar helmet (PASGT shape) with camo cover (team), band, NVG mount, chin strap;
+      5.56 assault rifle with optic + sling (weapon_tip = muzzle; musket clips, carbine clips requested). nylon -> canvas.
+      tris 10905 / 1992 / 681
+- [x] push + report; remove /tmp worktrees (removed; /tmp/ic_before's uncommitted proto_shots.gd diff + tools/hand_pos.py
+      saved to /workspace/scratch/ic_before_backup/)
 
 ## Log
 - 16:59 EDT grenadier done: bearskin (brass plate w/ grenade relief, cords, plume, red top patch + cross), long-tailed habit w/ red
