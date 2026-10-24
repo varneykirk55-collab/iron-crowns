@@ -28,7 +28,12 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
 - [~] 6a v3 horse (18:52 decision): smooth semi-realistic horse (muscle forms, head, hooves, mane, tail) on the EXISTING  ** DROPPED here: handed off to another bot (Kirk 19:11) **
       horse bones/anim, shared by hussar + knight; barding is a separate kit layer; rebuild hussar on it
 - [ ] 5 archer (1300)             unit med_archer
-- [~] 6 medieval cavalry (1300)   unit med_knight  ** HANDED OFF TO ANOTHER BOT (Kirk 19:11); no 1300 cavalry work exists **
+- [x] 6 medieval cavalry rider (1300) kid v3_med_knight  unit med_knight (kit_med_knight.py; rider only per Kirk 21:01):
+      mail hauberk + chausses + coif (ring-row relief), aketon implied, team surcoat with cream chevron and riding slits,
+      great helm (slits, breaths, brass cross), heater shield on the left forearm, sword at the left hip, poleyns, prick
+      spurs, couched lance + swallowtail pennon (weapon_tip at the lance point), war saddle + team saddle cloth. Seated on
+      the existing cavalry rig via v3_rider.py (variant med_knight lance clips, no rig/clip changes). Horse body/mane/tail
+      and generic tack = the shared kit-3 horse code unchanged (horses are Bill's; no barding). tris 9399 / 1989 / 686
 - [ ] push + report
 - [ ] 7 musketeer + pikeman (1500) units em_musket / em_pike
 - [ ] 8 WWI infantry (1914)       unit c20_rifle (nation helmets)

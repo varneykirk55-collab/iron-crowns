@@ -22,6 +22,14 @@ so hands ride rigidly on the forearm bones and legs on the body bone. Needed (on
 - rider hand bones (or a hand pose per clip) so the bridle hand can close on the reins and the sabre hand can turn the blade
 - a rider-arm rest pose with less elbow bend (the current ~140deg bend pinches the dolman sleeve under LBS)
 
+## med_knight (v3_med_knight): rider on the existing cavalry rig (lance variant)
+Rider skinned to the existing cavalry rig like the hussar (bones / clips untouched, no rider hand bones). The lance is
+rigid on the right forearm along the arm (wrist straight), so the existing lance poses level it; the fist does not
+close round the shaft. Needed (only if Rob wants them):
+- a proper lance couch: upper arm clamped to the side, lance under the armpit, tip ~1.2-1.5 m high at the charge
+- rider hand bones so the lance hand can grip the shaft and the shield arm can hold the reins behind the shield
+- shield is rigid on forearm.L (point down in the rein pose); a shield-raise clip for melee would read better
+
 ## Coming with later kits (filled in as each kit lands)
 - pike (1300 pikeman, 1500 pikeman): port, charge (level at shoulder and at hip), brace against cavalry (butt to the foot)
   - v3_med_pike (kit 4) currently plays the musket clips: idle / walk shoulder the pike fine and melee (charge thrust)
