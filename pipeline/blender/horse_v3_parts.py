@@ -333,8 +333,8 @@ def hair_field(which='mane'):
             Hh.u(S.chain(list(map(tuple, pts)), [0.020, 0.016, 0.006]), 0.012, 'forelock')
     else:
         # tail: one tapered volume (full at the middle, narrower from behind) + a few loose locks for a ragged tip
-        spine = [(0, -0.745, 1.325), (0, -0.82, 1.18), (0, -0.885, 0.95), (0, -0.925, 0.70), (0, -0.945, 0.50)]
-        Hh.u(S.chain(spine, [0.050, 0.058, 0.072, 0.066, 0.030], (0.78, 1.0, 1.0)), 0.03, 'tail')
+        spine = [(0, -0.725, 1.325), (0, -0.82, 1.18), (0, -0.885, 0.95), (0, -0.925, 0.70), (0, -0.945, 0.50)]
+        Hh.u(S.chain(spine, [0.046, 0.058, 0.072, 0.066, 0.030], (0.78, 1.0, 1.0)), 0.03, 'tail')
         for k in range(6):
             a = 2 * math.pi * k / 6 + 0.4
             dx, dy = 0.035 * math.cos(a), 0.03 * math.sin(a)

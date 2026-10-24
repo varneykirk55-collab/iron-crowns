@@ -264,8 +264,6 @@ def horse_field():
         H.u(sphere((sx * 0.125, 0.685, 1.07), 0.062), 0.035, 'chest')                     # point of shoulder
     H.s(ellipsoid((0, 0.725, 1.0), (0.035, 0.05, 0.09)), 0.04)                              # pectoral groove between the shoulder points
     H.s(ellipsoid((0, 0.62, 0.84), (0.075, 0.12, 0.08)), 0.05)                              # lifts the chest floor between the forearms
-    for sx in (1, -1):
-        H.s(ellipsoid((sx * 0.21, 0.50, 0.88), (0.035, 0.07, 0.07)), 0.04)                  # elbow pocket: forearm reads off the chest wall
     H.u(ellipsoid((0, 0.47, 0.935), (0.12, 0.14, 0.075)), 0.07, 'chest')                      # brisket / girth floor
     # --- neck (lateral squash) ---------------------------------------------------------------------------------------
     nk = (0.62, 1.0, 1.0)
@@ -315,7 +313,7 @@ def horse_field():
         H.u(roundcone(_m((0.125, -0.615, 0.13), sx), _m((0.125, -0.582, 0.07), sx), 0.026, 0.030), 0.015, g('h_fetlock'))
         H.u(roundcone(_m((0.125, -0.58, 0.07), sx), _m((0.125, -0.562, 0.012), sx), 0.034, 0.047, (1.0, 1.08, 1.0)), 0.010, g('h_hoof'))
     # tail dock
-    H.u(chain([(0, -0.71, 1.32), (0, -0.785, 1.28), (0, -0.85, 1.17)], [0.05, 0.044, 0.034]), 0.06, 'tail')   # dock, flush with the croup (no lump)
+    H.u(chain([(0, -0.70, 1.315), (0, -0.78, 1.275), (0, -0.85, 1.17)], [0.045, 0.04, 0.032]), 0.09, 'tail')   # dock, flush with the croup (no lump)
     # --- carving -----------------------------------------------------------------------------------------------------
     for sx in (1, -1):
         H.s(ellipsoid((sx * 0.040, 1.386, 1.405), (0.013, 0.018, 0.026), rot_x(-40)), 0.014)   # nostrils (carved, soft rim)
