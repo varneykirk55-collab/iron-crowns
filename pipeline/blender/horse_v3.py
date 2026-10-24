@@ -235,8 +235,7 @@ def part_data(part, lod, target, ctx):
     coats = {}
     if part.get('coat'):
         for cn in C.COATS:
-            c = HP.coat_rgb(Pcorner, cn)
-            c[cm == HP.MAT_LEATHER] = C.HOOF_RGB
+            c = HP.hoof_blend(Pcorner, HP.coat_rgb(Pcorner, cn))
             coats[cn] = c
         u = HP.points_mask(Pcorner)
         u[cm != HP.MAT_HIDE] = 0

@@ -233,6 +233,11 @@ def coat_rgb(P, coat_name):
 def hoof_face(Pc):
     return Pc[:, 2] < 0.064
 
+def hoof_blend(P, rgb):
+    """Per-corner smooth blend coat -> hoof horn by height (no per-face colour streaks at the coronet)."""
+    t = _sstep(0.050, 0.068, P[:, 2])[:, None]
+    return rgb * t + np.asarray(C.HOOF_RGB, float)[None, :] * (1 - t)
+
 # ---------------------------------------------------------------------------------------------------------------------
 def body_part():
     st = C.VOXEL['body']
@@ -244,8 +249,7 @@ def body_part():
         return np.where(hoof_face(Pc), MAT_LEATHER, MAT_HIDE)
 
     def col(P, mat):
-        rgb = coat_rgb(P, 'bay')
-        rgb[mat == MAT_LEATHER] = C.HOOF_RGB
+        rgb = hoof_blend(P, coat_rgb(P, 'bay'))
         return rgb, np.zeros(len(P))
 
     def w(P, ctx):
