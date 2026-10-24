@@ -24,7 +24,7 @@ BOW_G, BOW_L = -0.31, 0.89              # grip at the left-hand hold of shoulder
 C.TIP_LOCAL = (0.0, BOW_G + BOW_L, 0.05)   # upper nock (weapon_tip on the prop)
 C.SLOT_MAT.update({'stock': 'canvas', 'felt': 'wool', 'roll': 'canvas', 'cartbox': 'worn_leather', 'shoe': 'worn_leather',
                    'breeches': 'wool', 'scabbard': 'wood', 'sash': 'canvas', 'piping': 'canvas', 'epaulette': 'hide'})
-C.BODY_TRIS = 4600
+C.BODY_TRIS = 4150
 HM.FIST['.L'] = 0.007
 C.KIT_PAL = {'stock': '#d9d0bb', 'felt': '#58622f', 'roll': '#c9bb98', 'cartbox': '#4f3722', 'shoe': '#4a3424',
              'breeches': '#6b6352', 'metal': '#b8913a', 'steel': '#a5abb1', 'wood': '#8a5a32', 'scabbard': '#c2a070',
@@ -238,7 +238,7 @@ def hood(hi=False):
         outer = [HC + d * (R[i, j] + 0.0085) for j, d in enumerate(row)]
         inner = [HC + d * (R[i, j] + 0.0035) for j, d in enumerate(row)]
         secs.append(outer + inner[::-1])
-    out = [grid_sweep('arhood', secs, closed_u=True, cap0=False, cap1=True, slot='felt')]
+    out = [V3P.orient_out(grid_sweep('arhood', secs, closed_u=True, cap0=False, cap1=True, slot='felt'))]
     # turned-back face edge (rolled hem round the face opening)
     op = [i for i, row in enumerate(dirs) if (row[0] - row[-1]).length > 0.02]   # rows with a face opening only
     edge = [HC + dirs[i][0] * (R[i, 0] + 0.006) for i in op] + [HC + dirs[i][-1] * (R[i, -1] + 0.006) for i in reversed(op)]
@@ -289,7 +289,7 @@ def _fit_cape(trees):
 
 def cape(hi=False):
     R, cy = _FIT['cape']
-    rs = range(0, CAPE_NR + 1, 1 if hi else 6); cs = range(0, CAPE_NA, 1 if hi else 6)
+    rs = range(0, CAPE_NR + 1, 1 if hi else 5); cs = range(0, CAPE_NA, 1 if hi else 3)
     secs = []
     for i in rs:
         t = i / CAPE_NR
@@ -298,8 +298,8 @@ def cape(hi=False):
             a = 2 * math.pi * j / CAPE_NA
             r = R[i, j]
             if not hi:   # lo: padded local max of the hi fit (shoulders / hood bib between samples stay inside, no bake bleed)
-                r = float(R[max(0, i - 3):i + 4, [(j + k) % CAPE_NA for k in range(-3, 4)]].max()) + 0.006 + 0.010 * abs(math.cos(a)) * ss(0.25, 0.75, t) + 0.006 * ss(0.4, 1.0, t)
-            if hi: r += 0.010 * ss(0.4, 1.0, t) * math.sin(a * 11.0 + 0.8) + 0.010 * math.exp(-((t - 1.0) / 0.03) ** 2)
+                r = float(R[max(0, i - 2):i + 3, [(j + k) % CAPE_NA for k in range(-1, 2)]].max()) + 0.002
+            if hi: r += 0.004 * ss(0.4, 1.0, t) * math.sin(a * 11.0 + 0.8) + 0.004 * math.exp(-((t - 1.0) / 0.03) ** 2)
             z = _cape_z(a, t)
             outer.append(V(math.cos(a) * r, cy + math.sin(a) * r, z))
             inner.append(V(math.cos(a) * (r - 0.005), cy + math.sin(a) * (r - 0.005), z))
@@ -311,7 +311,7 @@ def cape(hi=False):
 def fit(htree, body_tree):
     _FIT['hood_hi'] = _fit_hood(htree, 40, 72)
     dirs, D = _FIT['hood_hi']   # lo hood: subsample of the hi fit, padded by the local max (ears / hair between samples stay inside)
-    ri = list(range(0, 41, 5)); cj = list(range(0, 73, 6))
+    ri = list(range(0, 41, 5)); cj = list(range(0, 73, 4))
     Dl = np.array([[D[max(0, i - 3):i + 4, max(0, j - 4):j + 5].max() + 0.0055 for j in cj] for i in ri])
     _FIT['hood_lo'] = ([[dirs[i][j] for j in cj] for i in ri], Dl)
     _FIT['cape'] = _fit_cape([body_tree, htree])
