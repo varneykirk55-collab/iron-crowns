@@ -20,7 +20,7 @@ CFG = {
     'front34':    ('chestnut', ['horse_body', 'horse_hair', 'horse_eyes'], (2.7, 3.6, 1.55), (0, 0.15, 1.0), 50),
     'rear34':     ('grey',     ['horse_body', 'horse_hair', 'horse_eyes'], (2.6, -3.6, 1.65), (0, -0.15, 0.95), 50),
     'head':       ('dark_bay', ['horse_body', 'horse_hair', 'horse_eyes'], (1.10, 2.15, 1.95), (0, 1.20, 1.66), 70),
-    'medieval':   ('grey',     ['horse_body', 'horse_eyes', 'tack_1300', 'barding_1300'], (3.6, 2.9, 1.65), (0, 0.10, 1.0), 50),
+    'medieval':   ('grey',     ['horse_body', 'horse_hair', 'horse_eyes', 'tack_1300', 'barding_1300'], (3.6, 2.9, 1.65), (0, 0.10, 1.0), 50),
     'napoleonic': ('bay',      ['horse_body', 'horse_hair', 'horse_eyes', 'tack_1800'], (3.7, 2.6, 1.6), (0, 0.10, 1.0), 50),
 }
 
