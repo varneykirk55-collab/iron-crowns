@@ -38,6 +38,21 @@ def nets(F, lo, step, keep=None):
     if keep is not None and len(Q):
         m = keep(V[Q].mean(1))
         Q = Q[m]
+    if len(Q):   # drop tiny disconnected islands (stray specks from thin SDF features)
+        lab = np.arange(len(V))
+        for _ in range(400):
+            m = lab[Q].min(1)
+            new = lab.copy()
+            for c in range(Q.shape[1]):
+                np.minimum.at(new, Q[:, c], m)
+            new = new[new]
+            if np.array_equal(new, lab):
+                break
+            lab = new
+        fl = lab[Q[:, 0]]
+        u, cnt = np.unique(fl, return_counts=True)
+        big = set(u[cnt >= max(40, int(0.002 * len(Q)))].tolist())
+        Q = Q[np.array([f in big for f in fl])]
     used = np.unique(Q)
     remap = -np.ones(len(V), int); remap[used] = np.arange(len(used))
     return V[used], remap[Q]

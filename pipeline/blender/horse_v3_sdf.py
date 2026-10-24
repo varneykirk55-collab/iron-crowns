@@ -276,6 +276,7 @@ def horse_field():
     for sx in (1, -1):
         H.u(ellipsoid((sx * 0.074, 1.13, 1.695), (0.022, 0.03, 0.016)), 0.025, 'head')      # brow over the eye
         H.u(ellipsoid((sx * 0.072, 1.17, 1.60), (0.02, 0.07, 0.02), rot_x(-45)), 0.04, 'head')    # facial crest
+        H.u(ellipsoid((sx * 0.047, 1.377, 1.418), (0.014, 0.022, 0.024), rot_x(-40)), 0.012, 'head')   # nostril flare (alar)
     # ears: flattened round cones, inner hollow
     for sx, sd in ((1, '.R'), (-1, '.L')):
         a = (sx * 0.05, 0.995, 1.81); b = (sx * 0.072, 1.01, 1.955)
@@ -311,10 +312,13 @@ def horse_field():
     H.u(chain([(0, -0.71, 1.285), (0, -0.78, 1.25), (0, -0.84, 1.16)], [0.048, 0.042, 0.034]), 0.06, 'tail')   # dock, flush with the croup (no lump)
     # --- carving -----------------------------------------------------------------------------------------------------
     for sx in (1, -1):
-        H.s(sphere((sx * 0.034, 1.392, 1.395), 0.016), 0.012)                                 # nostrils
+        H.s(ellipsoid((sx * 0.037, 1.388, 1.402), (0.011, 0.015, 0.021), rot_x(-40)), 0.008)   # nostrils (comma-shaped)
         H.s(ellipsoid((sx * 0.066, 1.036, 1.895), (0.016, 0.03, 0.055), rot_x(8)), 0.008)       # ear hollow (front face)
-        H.s(sphere((sx * 0.094, 1.125, 1.675), 0.017), 0.008)                                  # eye socket
-    H.s(ellipsoid((0, 1.34, 1.32), (0.07, 0.04, 0.008), rot_x(-40)), 0.006)                  # mouth line
+        H.s(sphere((sx * 0.094, 1.125, 1.675), 0.018), 0.014)                                  # eye socket
+    H.s(ellipsoid((0, 1.34, 1.32), (0.066, 0.04, 0.011), rot_x(-40)), 0.012)                 # mouth line (soft: no notches)
+    for sx in (1, -1):   # eyelids (after the socket carve) half-cover the eyeball -> no stuck-on disc
+        H.u(ellipsoid((sx * 0.099, 1.125, 1.692), (0.013, 0.027, 0.009), rot_x(-8)), 0.006, 'head')    # upper lid
+        H.u(ellipsoid((sx * 0.097, 1.122, 1.660), (0.011, 0.023, 0.006), rot_x(-8)), 0.006, 'head')    # lower lid
     H.post(lambda P, d: np.maximum(d, -(P[:, 2] - 0.002)))                                      # flat hoof soles
     return H
 
