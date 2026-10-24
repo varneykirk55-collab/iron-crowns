@@ -1,7 +1,7 @@
 """Cycles previews of horse_v3.blend (LOD0).  blender -b --python pipeline/blender/horse_v3_preview.py -- [outdir] [views]
-views: side front34 rear34 head medieval napoleonic distance (distance = both variants at ~30 m, RTS-style)"""
+views: side front34 rear34 head medieval napoleonic"""
 import bpy, math, os, sys
-from mathutils import Vector, Matrix
+from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
@@ -111,34 +111,7 @@ def hide_parts(o, names):
     lay = bm.faces.layers.int.get('part_id')
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if f[lay] in ids], context='FACES')
     bm.to_mesh(o.data); bm.free()
-def render_distance():
-    """medieval 1300 (grey) and napoleonic 1800 (bay) side by side, camera ~30 m out and ~45 deg up (RTS view)."""
-    for ob in sc.objects:
-        if ob.name.startswith('Plane'):
-            ob.scale = (6, 6, 1)
-    grey = mk_mat('prev_body_dist_grey', 'coat_grey', 'grey'); bay = mk_mat('prev_body_dist_bay', 'coat_bay')
-    horse = ('horse_body', 'horse_hair', 'horse_eyes')
-    for name, o in lod0.items():
-        o.hide_render = name not in horse + ('tack_1300', 'barding_1300')
-    for name in horse + ('tack_1800',):
-        o = lod0[name]
-        c = o.copy(); c.data = o.data.copy(); sc.collection.objects.link(c)
-        c.parent = None; c.matrix_world = Matrix.Translation((2.1, -1.85, 0)) @ o.matrix_world
-        c.hide_render = False
-        c.data.materials.clear(); c.data.materials.append(bay if name in horse else tackmat)
-    for name, o in lod0.items():
-        o.data.materials.clear(); o.data.materials.append(grey if name in horse else tackmat)
-    hide_parts(lod0['horse_hair'], ['mane'])
-    tgt = Vector((1.05, -0.75, 0.8)); loc = tgt + Vector((15.0, 17.0, 20.0))   # ~30 m
-    cam.location = loc; cam.data.lens = 50
-    cam.rotation_euler = (tgt - loc).to_track_quat('-Z', 'Y').to_euler()
-    sc.render.filepath = os.path.join(OUTDIR, 'horse_v3_distance%s.png' % ('_lod%d' % LOD if LOD else ''))
-    bpy.ops.render.render(write_still=True)
-    print('rendered', sc.render.filepath, flush=True)
-
 for v in VIEWS:
-    if v == 'distance':
-        render_distance(); continue
     coat, layers, loc, tgt, lens = CFG[v]
     bodymat = mk_mat('prev_body_' + v, 'coat_' + coat, coat)
     for name, o in lod0.items():
