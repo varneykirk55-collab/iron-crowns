@@ -1,0 +1,1202 @@
+{
+ "lods": {
+  "0": {
+   "horse_body": {
+    "tris": 6371,
+    "verts": 3201
+   },
+   "horse_hair": {
+    "tris": 1896,
+    "verts": 948
+   },
+   "horse_eyes": {
+    "tris": 128,
+    "verts": 68
+   },
+   "tack_1800": {
+    "tris": 2148,
+    "verts": 1372
+   },
+   "tack_1300": {
+    "tris": 1418,
+    "verts": 839
+   },
+   "barding_1300": {
+    "tris": 977,
+    "verts": 566
+   }
+  },
+  "1": {
+   "horse_body": {
+    "tris": 1140,
+    "verts": 576
+   },
+   "horse_hair": {
+    "tris": 252,
+    "verts": 126
+   },
+   "tack_1800": {
+    "tris": 940,
+    "verts": 685
+   },
+   "tack_1300": {
+    "tris": 614,
+    "verts": 392
+   },
+   "barding_1300": {
+    "tris": 408,
+    "verts": 261
+   }
+  },
+  "2": {
+   "horse_body": {
+    "tris": 407,
+    "verts": 211
+   },
+   "horse_hair": {
+    "tris": 84,
+    "verts": 44
+   },
+   "tack_1800": {
+    "tris": 366,
+    "verts": 271
+   },
+   "tack_1300": {
+    "tris": 244,
+    "verts": 169
+   },
+   "barding_1300": {
+    "tris": 197,
+    "verts": 146
+   }
+  }
+ },
+ "parts": {
+  "horse_body": {
+   "body": {
+    "0": [
+     6371,
+     3201
+    ],
+    "1": [
+     1140,
+     576
+    ],
+    "2": [
+     407,
+     211
+    ]
+   }
+  },
+  "horse_hair": {
+   "mane": {
+    "0": [
+     758,
+     377
+    ],
+    "1": [
+     126,
+     61
+    ],
+    "2": [
+     42,
+     21
+    ]
+   },
+   "tail": {
+    "0": [
+     1138,
+     571
+    ],
+    "1": [
+     126,
+     65
+    ],
+    "2": [
+     42,
+     23
+    ]
+   }
+  },
+  "horse_eyes": {
+   "eyes": {
+    "0": [
+     128,
+     68
+    ]
+   }
+  },
+  "tack_1800": {
+   "shabraque": {
+    "0": [
+     442,
+     252
+    ],
+    "1": [
+     160,
+     99
+    ],
+    "2": [
+     84,
+     56
+    ]
+   },
+   "sheepskin": {
+    "0": [
+     378,
+     220
+    ],
+    "1": [
+     156,
+     98
+    ],
+    "2": [
+     96,
+     63
+    ]
+   },
+   "valise": {
+    "0": [
+     168,
+     90
+    ],
+    "1": [
+     58,
+     62
+    ]
+   },
+   "girth": {
+    "0": [
+     36,
+     38
+    ],
+    "1": [
+     20,
+     22
+    ],
+    "2": [
+     14,
+     16
+    ]
+   },
+   "breastplate": {
+    "0": [
+     46,
+     48
+    ],
+    "1": [
+     26,
+     28
+    ],
+    "2": [
+     16,
+     18
+    ]
+   },
+   "martingale": {
+    "0": [
+     22,
+     24
+    ],
+    "1": [
+     12,
+     14
+    ]
+   },
+   "heart": {
+    "0": [
+     100,
+     52
+    ],
+    "1": [
+     36,
+     20
+    ]
+   },
+   "crupper": {
+    "0": [
+     22,
+     24
+    ],
+    "1": [
+     12,
+     14
+    ],
+    "2": [
+     8,
+     10
+    ]
+   },
+   "crupper_dock": {
+    "0": [
+     16,
+     16
+    ],
+    "1": [
+     12,
+     12
+    ]
+   },
+   "bridle_cheek": {
+    "0": [
+     56,
+     58
+    ],
+    "1": [
+     30,
+     32
+    ],
+    "2": [
+     18,
+     20
+    ]
+   },
+   "bridle_brow": {
+    "0": [
+     56,
+     58
+    ],
+    "1": [
+     30,
+     32
+    ]
+   },
+   "bridle_throat": {
+    "0": [
+     56,
+     58
+    ],
+    "1": [
+     30,
+     32
+    ]
+   },
+   "bridle_nose": {
+    "0": [
+     38,
+     38
+    ],
+    "1": [
+     22,
+     22
+    ],
+    "2": [
+     14,
+     14
+    ]
+   },
+   "rosettes": {
+    "0": [
+     72,
+     40
+    ],
+    "1": [
+     40,
+     24
+    ]
+   },
+   "bit": {
+    "0": [
+     136,
+     74
+    ],
+    "1": [
+     108,
+     60
+    ]
+   },
+   "reins": {
+    "0": [
+     352,
+     184
+    ],
+    "1": [
+     84,
+     46
+    ],
+    "2": [
+     60,
+     34
+    ]
+   },
+   "stirrups": {
+    "0": [
+     152,
+     98
+    ],
+    "1": [
+     104,
+     68
+    ],
+    "2": [
+     56,
+     40
+    ]
+   }
+  },
+  "tack_1300": {
+   "saddle": {
+    "0": [
+     872,
+     441
+    ],
+    "1": [
+     272,
+     140
+    ],
+    "2": [
+     92,
+     51
+    ]
+   },
+   "girth": {
+    "0": [
+     22,
+     24
+    ],
+    "1": [
+     14,
+     16
+    ],
+    "2": [
+     14,
+     16
+    ]
+   },
+   "peytral": {
+    "0": [
+     28,
+     30
+    ],
+    "1": [
+     14,
+     16
+    ],
+    "2": [
+     6,
+     8
+    ]
+   },
+   "crupper": {
+    "0": [
+     14,
+     16
+    ],
+    "1": [
+     6,
+     8
+    ],
+    "2": [
+     6,
+     8
+    ]
+   },
+   "crupper_dock": {
+    "0": [
+     12,
+     12
+    ],
+    "1": [
+     12,
+     12
+    ]
+   },
+   "bridle_cheek": {
+    "0": [
+     34,
+     36
+    ],
+    "1": [
+     16,
+     18
+    ],
+    "2": [
+     10,
+     12
+    ]
+   },
+   "bridle_brow": {
+    "0": [
+     34,
+     36
+    ],
+    "1": [
+     16,
+     18
+    ]
+   },
+   "bridle_throat": {
+    "0": [
+     34,
+     36
+    ],
+    "1": [
+     16,
+     18
+    ]
+   },
+   "bit": {
+    "0": [
+     112,
+     58
+    ],
+    "1": [
+     84,
+     44
+    ]
+   },
+   "reins": {
+    "0": [
+     112,
+     60
+    ],
+    "1": [
+     60,
+     34
+    ],
+    "2": [
+     60,
+     34
+    ]
+   },
+   "stirrups": {
+    "0": [
+     144,
+     90
+    ],
+    "1": [
+     104,
+     68
+    ],
+    "2": [
+     56,
+     40
+    ]
+   }
+  },
+  "barding_1300": {
+   "caparison": {
+    "0": [
+     416,
+     238
+    ],
+    "1": [
+     198,
+     120
+    ],
+    "2": [
+     60,
+     42
+    ]
+   },
+   "caparison_front": {
+    "0": [
+     162,
+     100
+    ],
+    "1": [
+     72,
+     49
+    ],
+    "2": [
+     60,
+     42
+    ]
+   },
+   "crinet": {
+    "0": [
+     108,
+     70
+    ],
+    "1": [
+     36,
+     28
+    ],
+    "2": [
+     36,
+     28
+    ]
+   },
+   "chanfron": {
+    "0": [
+     291,
+     158
+    ],
+    "1": [
+     102,
+     64
+    ],
+    "2": [
+     41,
+     34
+    ]
+   }
+  }
+ },
+ "res": {
+  "horse_body": {
+   "0": 1.0,
+   "1": 1.0,
+   "2": 1.0
+  },
+  "horse_hair": {
+   "0": 1.0,
+   "1": 1.0,
+   "2": 1.0
+  },
+  "horse_eyes": {
+   "0": 1.0
+  },
+  "tack_1800": {
+   "0": 0.48,
+   "1": 0.55,
+   "2": 0.62
+  },
+  "tack_1300": {
+   "0": 0.3,
+   "1": 0.3,
+   "2": 0.2
+  },
+  "barding_1300": {
+   "0": 0.42,
+   "1": 0.55,
+   "2": 0.42
+  }
+ },
+ "sockets": {
+  "saddle": {
+   "head": [
+    0,
+    0.12,
+    1.42
+   ],
+   "tail": [
+    0,
+    0.32,
+    1.42
+   ],
+   "parent": "spine_02"
+  },
+  "rider_seat": {
+   "head": [
+    0,
+    0.1,
+    1.488
+   ],
+   "tail": [
+    0,
+    0.1,
+    1.6
+   ],
+   "parent": "saddle"
+  },
+  "stirrup.L": {
+   "head": [
+    -0.2,
+    0.16,
+    1.38
+   ],
+   "tail": [
+    -0.27,
+    0.16,
+    0.86
+   ],
+   "parent": "saddle"
+  },
+  "stirrup.R": {
+   "head": [
+    0.2,
+    0.16,
+    1.38
+   ],
+   "tail": [
+    0.27,
+    0.16,
+    0.86
+   ],
+   "parent": "saddle"
+  },
+  "rein_bit": {
+   "head": [
+    0,
+    1.3,
+    1.44
+   ],
+   "tail": [
+    0,
+    1.3,
+    1.52
+   ],
+   "parent": "head"
+  },
+  "bridle": {
+   "head": [
+    0,
+    1.06,
+    1.82
+   ],
+   "tail": [
+    0,
+    1.12,
+    1.87
+   ],
+   "parent": "head"
+  },
+  "rein_hand.L": {
+   "head": [
+    -0.09,
+    0.4,
+    1.66
+   ],
+   "tail": [
+    -0.09,
+    0.5,
+    1.66
+   ],
+   "parent": "saddle"
+  },
+  "rein_hand.R": {
+   "head": [
+    0.09,
+    0.4,
+    1.66
+   ],
+   "tail": [
+    0.09,
+    0.5,
+    1.66
+   ],
+   "parent": "saddle"
+  },
+  "lance": {
+   "head": [
+    0.12,
+    0.3,
+    1.6
+   ],
+   "tail": [
+    0.12,
+    3.3,
+    1.7
+   ],
+   "parent": "saddle"
+  }
+ },
+ "bones": [
+  "root",
+  "body",
+  "pelvis",
+  "spine_01",
+  "spine_02",
+  "chest",
+  "neck_01",
+  "neck_02",
+  "neck_03",
+  "head",
+  "jaw",
+  "ear.L",
+  "ear.R",
+  "tail_01",
+  "tail_02",
+  "tail_03",
+  "tail_04",
+  "tail_05",
+  "scapula.R",
+  "humerus.R",
+  "radius.R",
+  "cannon_f.R",
+  "fetlock_f.R",
+  "hoof_f.R",
+  "femur.R",
+  "tibia.R",
+  "cannon_h.R",
+  "fetlock_h.R",
+  "hoof_h.R",
+  "scapula.L",
+  "humerus.L",
+  "radius.L",
+  "cannon_f.L",
+  "fetlock_f.L",
+  "hoof_f.L",
+  "femur.L",
+  "tibia.L",
+  "cannon_h.L",
+  "fetlock_h.L",
+  "hoof_h.L",
+  "saddle",
+  "rider_seat",
+  "stirrup.L",
+  "stirrup.R",
+  "rein_bit",
+  "bridle",
+  "rein_hand.L",
+  "rein_hand.R",
+  "lance",
+  "rein_01.L",
+  "rein_02.L",
+  "rein_03.L",
+  "rein_04.L",
+  "rein_01.R",
+  "rein_02.R",
+  "rein_03.R",
+  "rein_04.R"
+ ],
+ "vertex_groups": {
+  "horse_body_lod0": [
+   "cannon_f.L",
+   "cannon_f.R",
+   "cannon_h.L",
+   "cannon_h.R",
+   "chest",
+   "ear.L",
+   "ear.R",
+   "femur.L",
+   "femur.R",
+   "fetlock_f.L",
+   "fetlock_f.R",
+   "fetlock_h.L",
+   "fetlock_h.R",
+   "head",
+   "hoof_f.L",
+   "hoof_f.R",
+   "hoof_h.L",
+   "hoof_h.R",
+   "humerus.L",
+   "humerus.R",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "spine_01",
+   "spine_02",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tibia.L",
+   "tibia.R"
+  ],
+  "horse_hair_lod0": [
+   "chest",
+   "ear.L",
+   "ear.R",
+   "head",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "spine_01",
+   "spine_02",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tail_04",
+   "tail_05"
+  ],
+  "horse_eyes_lod0": [
+   "head"
+  ],
+  "tack_1800_lod0": [
+   "chest",
+   "femur.L",
+   "femur.R",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "neck_01",
+   "neck_02",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "rein_01.L",
+   "rein_01.R",
+   "rein_02.L",
+   "rein_02.R",
+   "rein_03.L",
+   "rein_03.R",
+   "rein_04.L",
+   "rein_04.R",
+   "rein_bit",
+   "rein_hand.L",
+   "rein_hand.R",
+   "saddle",
+   "spine_01",
+   "spine_02",
+   "stirrup.L",
+   "stirrup.R",
+   "tail_01",
+   "tail_02",
+   "tibia.L",
+   "tibia.R"
+  ],
+  "tack_1300_lod0": [
+   "chest",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "neck_01",
+   "neck_02",
+   "pelvis",
+   "rein_01.L",
+   "rein_01.R",
+   "rein_02.L",
+   "rein_02.R",
+   "rein_03.L",
+   "rein_03.R",
+   "rein_04.L",
+   "rein_04.R",
+   "rein_bit",
+   "rein_hand.L",
+   "rein_hand.R",
+   "saddle",
+   "spine_01",
+   "spine_02",
+   "stirrup.L",
+   "stirrup.R",
+   "tail_01",
+   "tail_02"
+  ],
+  "barding_1300_lod0": [
+   "chest",
+   "ear.L",
+   "ear.R",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "spine_01",
+   "spine_02"
+  ],
+  "horse_body_lod1": [
+   "cannon_f.L",
+   "cannon_f.R",
+   "cannon_h.L",
+   "cannon_h.R",
+   "chest",
+   "ear.L",
+   "ear.R",
+   "femur.L",
+   "femur.R",
+   "fetlock_f.L",
+   "fetlock_f.R",
+   "fetlock_h.L",
+   "fetlock_h.R",
+   "head",
+   "hoof_f.L",
+   "hoof_f.R",
+   "hoof_h.L",
+   "hoof_h.R",
+   "humerus.L",
+   "humerus.R",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "spine_01",
+   "spine_02",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tibia.L",
+   "tibia.R"
+  ],
+  "horse_hair_lod1": [
+   "chest",
+   "ear.L",
+   "ear.R",
+   "head",
+   "humerus.R",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "spine_01",
+   "spine_02",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tail_04",
+   "tail_05"
+  ],
+  "tack_1800_lod1": [
+   "cannon_f.L",
+   "cannon_f.R",
+   "cannon_h.L",
+   "cannon_h.R",
+   "chest",
+   "femur.L",
+   "femur.R",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "rein_01.L",
+   "rein_01.R",
+   "rein_02.L",
+   "rein_02.R",
+   "rein_03.L",
+   "rein_03.R",
+   "rein_04.L",
+   "rein_04.R",
+   "rein_bit",
+   "rein_hand.L",
+   "rein_hand.R",
+   "saddle",
+   "spine_01",
+   "spine_02",
+   "stirrup.L",
+   "stirrup.R",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tibia.L",
+   "tibia.R"
+  ],
+  "tack_1300_lod1": [
+   "chest",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "neck_01",
+   "neck_02",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "rein_01.L",
+   "rein_01.R",
+   "rein_02.L",
+   "rein_02.R",
+   "rein_03.L",
+   "rein_03.R",
+   "rein_04.L",
+   "rein_04.R",
+   "rein_bit",
+   "rein_hand.L",
+   "rein_hand.R",
+   "saddle",
+   "spine_01",
+   "spine_02",
+   "stirrup.L",
+   "stirrup.R",
+   "tail_01",
+   "tail_02",
+   "tail_03"
+  ],
+  "barding_1300_lod1": [
+   "chest",
+   "ear.L",
+   "ear.R",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "spine_01",
+   "spine_02"
+  ],
+  "horse_body_lod2": [
+   "cannon_f.L",
+   "cannon_f.R",
+   "cannon_h.L",
+   "cannon_h.R",
+   "chest",
+   "ear.L",
+   "ear.R",
+   "femur.L",
+   "femur.R",
+   "fetlock_f.L",
+   "fetlock_f.R",
+   "fetlock_h.L",
+   "fetlock_h.R",
+   "head",
+   "hoof_f.L",
+   "hoof_f.R",
+   "hoof_h.L",
+   "hoof_h.R",
+   "humerus.L",
+   "humerus.R",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "spine_01",
+   "spine_02",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tibia.L",
+   "tibia.R"
+  ],
+  "horse_hair_lod2": [
+   "chest",
+   "ear.L",
+   "ear.R",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "spine_01",
+   "spine_02",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tail_04",
+   "tail_05"
+  ],
+  "tack_1800_lod2": [
+   "cannon_f.L",
+   "cannon_f.R",
+   "cannon_h.L",
+   "cannon_h.R",
+   "chest",
+   "femur.L",
+   "femur.R",
+   "fetlock_h.R",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "rein_01.L",
+   "rein_01.R",
+   "rein_02.L",
+   "rein_02.R",
+   "rein_03.L",
+   "rein_03.R",
+   "rein_04.L",
+   "rein_04.R",
+   "rein_bit",
+   "rein_hand.L",
+   "rein_hand.R",
+   "saddle",
+   "spine_01",
+   "spine_02",
+   "stirrup.L",
+   "stirrup.R",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tibia.L",
+   "tibia.R"
+  ],
+  "tack_1300_lod2": [
+   "chest",
+   "femur.L",
+   "femur.R",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "neck_01",
+   "neck_02",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "rein_01.L",
+   "rein_01.R",
+   "rein_02.L",
+   "rein_02.R",
+   "rein_03.L",
+   "rein_03.R",
+   "rein_04.L",
+   "rein_04.R",
+   "rein_bit",
+   "rein_hand.L",
+   "rein_hand.R",
+   "saddle",
+   "spine_01",
+   "spine_02",
+   "stirrup.L",
+   "stirrup.R",
+   "tail_01",
+   "tail_02",
+   "tail_03",
+   "tibia.L",
+   "tibia.R"
+  ],
+  "barding_1300_lod2": [
+   "chest",
+   "ear.L",
+   "ear.R",
+   "head",
+   "humerus.L",
+   "humerus.R",
+   "jaw",
+   "neck_01",
+   "neck_02",
+   "neck_03",
+   "pelvis",
+   "radius.L",
+   "radius.R",
+   "spine_01",
+   "spine_02"
+  ]
+ },
+ "unknown_groups": [],
+ "totals": {
+  "hx_c19_hussar": {
+   "0": {
+    "horse": 4217,
+    "kit": 1372,
+    "horse+kit": 5589
+   },
+   "1": {
+    "horse": 702,
+    "kit": 685,
+    "horse+kit": 1387
+   },
+   "2": {
+    "horse": 255,
+    "kit": 271,
+    "horse+kit": 526
+   }
+  },
+  "hx_med_knight": {
+   "0": {
+    "horse": 4217,
+    "kit": 1405,
+    "horse+kit": 5622
+   },
+   "1": {
+    "horse": 702,
+    "kit": 653,
+    "horse+kit": 1355
+   },
+   "2": {
+    "horse": 255,
+    "kit": 315,
+    "horse+kit": 570
+   }
+  }
+ }
+}

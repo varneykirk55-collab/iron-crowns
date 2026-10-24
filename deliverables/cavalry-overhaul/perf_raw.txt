@@ -1,0 +1,19 @@
+ANIMPERF tag=main_k6_1 frames=147 median_ms=853.68 p95_ms=1248.11 units_us_median=2774 units_us_p95=8889
+ANIMPERF tag=hx_k6_1 frames=148 median_ms=1061.86 p95_ms=1415.59 units_us_median=3200 units_us_p95=11437
+ANIMPERF tag=legacy_k6_1 frames=147 median_ms=549.89 p95_ms=706.87 units_us_median=2887 units_us_p95=6983
+ANIMPERF tag=main_h6_1 frames=181 median_ms=200.45 p95_ms=430.82 units_us_median=2437 units_us_p95=6462
+ANIMPERF tag=hx_h6_1 frames=182 median_ms=205.36 p95_ms=281.04 units_us_median=2582 units_us_p95=3273
+ANIMPERF tag=legacy_h6_1 frames=166 median_ms=235.44 p95_ms=395.88 units_us_median=2449 units_us_p95=4825
+ANIMPERF tag=main_k1_1 frames=176 median_ms=224.80 p95_ms=334.30 units_us_median=647 units_us_p95=784
+ANIMPERF tag=hx_k1_1 frames=179 median_ms=220.03 p95_ms=318.81 units_us_median=708 units_us_p95=890
+ANIMPERF tag=legacy_k1_1 frames=156 median_ms=266.97 p95_ms=408.89 units_us_median=649 units_us_p95=828
+ANIMPERF tag=main_k6_2 frames=148 median_ms=368.99 p95_ms=565.91 units_us_median=2590 units_us_p95=6000
+ANIMPERF tag=hx_k6_2 frames=147 median_ms=807.32 p95_ms=1064.09 units_us_median=3117 units_us_p95=7375
+ANIMPERF tag=legacy_k6_2 frames=147 median_ms=710.26 p95_ms=982.72 units_us_median=2947 units_us_p95=8547
+ANIMPERF tag=main_h6_2 frames=147 median_ms=462.56 p95_ms=642.22 units_us_median=2393 units_us_p95=6715
+ANIMPERF tag=hx_h6_2 frames=147 median_ms=550.77 p95_ms=803.78 units_us_median=2622 units_us_p95=6787
+ANIMPERF tag=legacy_h6_2 frames=153 median_ms=412.68 p95_ms=574.28 units_us_median=2419 units_us_p95=6338
+ANIMPERF tag=main_k1_2 frames=172 median_ms=232.94 p95_ms=452.84 units_us_median=639 units_us_p95=800
+ANIMPERF tag=hx_k1_2 frames=160 median_ms=262.18 p95_ms=333.38 units_us_median=753 units_us_p95=1441
+ANIMPERF tag=legacy_k1_2 frames=196 median_ms=201.72 p95_ms=254.28 units_us_median=652 units_us_p95=789
+DONE

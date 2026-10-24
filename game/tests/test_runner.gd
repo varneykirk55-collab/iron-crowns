@@ -42,6 +42,7 @@ func _run() -> void:
 	if only == "" or only == "camera" or only == "visuals":
 		test_visuals_hook()
 		test_anim_default()
+		test_cav_v2()
 		test_polish()
 	if only == "" or only == "controls":
 		await test_controls()
@@ -987,6 +988,46 @@ func test_anim_default() -> void:
 		AC.on == AC.resolve_from_runtime())
 	remove_child(bv)
 	bv.free()
+
+# ---------------------------------------------------------------- cavalry animation overhaul switch (Rob, cav v2)
+func test_cav_v2() -> void:
+	print("== Cavalry animation overhaul (cav v2) ==")
+	var CV = BattleView.CavV2
+	var none := PackedStringArray()
+	check("cav-v2: ON by default (no args, no env var, no setting)", CV.resolve_on(none, "", null) == true)
+	var offs := []
+	for x in ["--no-cav-v2", "--cav-v2=off", "--cav-v2=0", "--cav-v2=false"]:
+		offs.append(CV.resolve_on(PackedStringArray([x]), "", null))
+	var ev := [CV.resolve_on(none, "0", null), CV.resolve_on(none, "off", null), CV.resolve_on(none, "", false),
+		CV.resolve_on(none, "1", false), CV.resolve_on(PackedStringArray(["--cav-v2"]), "0", false)]
+	check("cav-v2: --no-cav-v2 / --cav-v2=off|0|false, %s=0 and the setting disable it; command line wins %s %s" % [CV.ENV_VAR, str(offs), str(ev)],
+		offs == [false, false, false, false] and ev == [false, false, false, true, true], str(offs) + str(ev))
+	var on0: bool = CV.on
+	var fs := []
+	for m in CV.MODELS:
+		CV.on = true; fs.append(CV.files_for(m, true)[1])
+		CV.on = false; fs.append(CV.files_for(m, true)[1])
+		CV.on = true; fs.append(CV.files_for(m, false)[1])   # needs combat animation v1
+	CV.on = on0
+	check("cav-v2: HX bakes for all three cavalry models when on; legacy VATs when off or without anim v1 %s" % str(fs),
+		fs == ["hx_med_knight", "med_knight", "med_knight", "hx_em_cuirassier", "em_cuirassier", "em_cuirassier",
+			"hx_c19_hussar", "c19_hussar", "c19_hussar"] and CV.files_for("c19_line", true) == ["soldier_c19_line", "c19_line"], str(fs))
+	var need := ["hz_stand", "hz_walk", "hz_trot", "hz_canter", "hz_gallop", "hz_charge", "hz_idle_walk", "hz_walk_idle", "hz_walk_trot",
+		"hz_trot_walk", "hz_trot_canter", "hz_canter_trot", "hz_canter_gallop", "hz_gallop_canter", "hz_gallop_charge", "hz_charge_gallop",
+		"hz_melee_ready", "hz_draw", "hz_ready_idle", "hz_strike_a", "hz_strike_b", "hz_hit", "cv_die_a", "cv_die_b", "cv_die_c", "die"]
+	var miss := []
+	for m in CV.MODELS:
+		for lod in 2:
+			var j = JSON.parse_string(FileAccess.get_file_as_string("res://assets/vat/hx_%s_lod%d.json" % [m, lod]))
+			if not (j is Dictionary):
+				miss.append("%s_lod%d" % [m, lod]); continue
+			for c in need:
+				if not j["clips"].has(c): miss.append("%s:%s" % [m, c])
+			for c in ["hz_walk", "hz_trot", "hz_canter", "hz_gallop", "hz_charge"]:
+				if j["clips"].has(c) and not j["clips"][c].has("v_nom"): miss.append("%s:%s.v_nom" % [m, c])
+			if FileAccess.get_file_as_bytes("res://assets/vat/hx_%s_lod%d.vat" % [m, lod]).size() != int(j["vertices"]) * int(j["frames"]) * 12:
+				miss.append("%s_lod%d.vat size" % [m, lod])
+	check("cav-v2: HX bakes present with every driven clip (+ v_nom) and matching .vat sizes", miss.is_empty() and CV.has_assets("med_knight"), str(miss))
 
 # ---------------------------------------------------------------- graphics pass integration (BJORN's battle_visuals.gd)
 func _bv_look(bv: BattleView) -> Array:

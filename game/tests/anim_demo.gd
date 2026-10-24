@@ -26,7 +26,11 @@ func _ready() -> void:
 	scene = a.get("scene", "spear"); out = a.get("out", "/tmp/anim_demo"); tag = a.get("tag", scene)
 	dur = float(a.get("dur", "60"))
 	DirAccess.make_dir_recursive_absolute(out)
+	# cav: --cav=knights|cuirassiers|hussars (default knights), --regs=N cavalry regiments (cavalry overhaul, Rob)
+	var cav_t: String = a.get("cav", "knights")
 	var year := 1300 if scene in ["spear", "cav", "cavdie"] else 1800
+	if scene == "cav":
+		year = {"knights": 1300, "cuirassiers": 1500, "hussars": 1800}.get(cav_t, 1300)
 	Sim.new_game("FRA" if Sim.nations.has("FRA") else "SWE", year, 7)
 	Sim.set_speed(0)
 	var codes: Array = ["FRA", "ENG"] if (Sim.nations.has("FRA") and Sim.nations.has("ENG")) else Sim.nations.keys().slice(0, 2)
@@ -39,7 +43,14 @@ func _ready() -> void:
 		sides = [[{"army_id": -1, "unit_index": 0, "type": "knights", "men": float(a.get("men", "120"))}, {"army_id": -1, "unit_index": 1, "type": "levy_spear", "men": 1000.0}],
 			[{"army_id": -2, "unit_index": 0, "type": "levy_spear", "men": 1600.0}, {"army_id": -2, "unit_index": 1, "type": "levy_spear", "men": 1000.0}]]
 	elif scene == "cav":   # mounted knights ride at a spear block: stand -> walk -> trot -> canter -> gallop charge -> melee
-		sides = [[{"army_id": -1, "unit_index": 0, "type": "knights", "men": 400.0}], [{"army_id": -2, "unit_index": 0, "type": "levy_spear", "men": 600.0}]]
+		var foe: String = {1300: "levy_spear", 1500: "pike", 1800: "line_inf"}[year]
+		var cs := []
+		for q in int(a.get("regs", "1")):
+			cs.append({"army_id": -1, "unit_index": q, "type": cav_t, "men": float(a.get("men", "400"))})
+		var fs := []
+		for q in maxi(1, int(a.get("regs", "1")) - 1):
+			fs.append({"army_id": -2, "unit_index": q, "type": foe, "men": float(a.get("foe", "600"))})
+		sides = [cs, fs]
 	else:
 		sides = [[{"army_id": -1, "unit_index": 0, "type": ut, "men": 1200.0}], [{"army_id": -2, "unit_index": 0, "type": ut, "men": 1200.0}]]
 	var orders := [{"objective": "assault", "formation": "line"}, {"objective": "hold", "formation": "line"}]
@@ -79,6 +90,7 @@ func _cam() -> void:
 		var v: Dictionary = bv.rv[0]; var pv: PackedVector2Array = v["pos"]
 		var f: Vector2 = v.get("ac_face", bv.sim.regs[0]["facing"])
 		var sd := Vector2(-f.y, f.x)   # camera side
+		if a.has("sideflip"): sd = -sd   # demo only: film the other (sun-lit) flank
 		var c0: Vector2 = bv.sim.regs[0]["pos"]
 		if side_k < 0:
 			var best := -1e9
@@ -96,7 +108,7 @@ func _cam() -> void:
 		if cam_c == Vector2.ZERO: cam_c = c3
 		cam_c = cam_c.lerp(c3, 0.05)
 		bv.cam_target = Vector3(cam_c.x, 0, cam_c.y)
-		bv.cam_dist = 26.0; bv.cam_pitch = -0.2; bv.cam_yaw = 1.75
+		bv.cam_dist = float(a.get("cdist", "26")); bv.cam_pitch = float(a.get("cpitch", "-0.2")); bv.cam_yaw = float(a.get("cyaw", "1.75"))
 	elif scene == "cavdie":   # fixed camera on the spot where the squadron breaks (same framing with and without --anim-v1)
 		var tg: PackedStringArray = str(a.get("tgt", "17.7,-60")).split(",")
 		bv.cam_target = Vector3(float(tg[0]), 0, float(tg[1]))
@@ -124,6 +136,25 @@ func _cam() -> void:
 		bv.cam_dist = float(cv[0]); bv.cam_pitch = float(cv[1]); bv.cam_yaw = float(cv[2])
 		if cv.size() > 3: bv.cam_target += Vector3(float(cv[3]), 0, float(cv[4]))
 
+func _prof() -> void:
+	var ks: PackedStringArray = str(a["prof"]).split(",")
+	var tt := bv.sim.t
+	var v := float(ks[ks.size() - 1].split(":")[1])
+	for q in ks.size():
+		var p: PackedStringArray = ks[q].split(":")
+		if tt < float(p[0]):
+			if q == 0:
+				v = float(p[1])
+			else:
+				var p0: PackedStringArray = ks[q - 1].split(":")
+				v = lerpf(float(p0[1]), float(p[1]), (tt - float(p0[0])) / maxf(float(p[0]) - float(p0[0]), 0.001))
+			break
+	for r in bv.sim.regs:
+		if int(r["side"]) == 0:
+			if not r.has("_demo_def"):
+				r["def"] = (r["def"] as Dictionary).duplicate(); r["_demo_def"] = true
+			r["def"]["speed"] = v
+
 func _speed_log(delta: float) -> void:
 	if not a.has("focus") or delta <= 0.0:
 		return
@@ -149,6 +180,16 @@ func _process(delta: float) -> void:
 	if bv == null:
 		return
 	t += delta
+	if a.has("shift") and not a.has("_shifted"):   # demo only: sidestep the defenders at sim time T by DX m (the cavalry wheel)
+		var sp2: PackedStringArray = str(a["shift"]).split(":")
+		if bv.sim.t >= float(sp2[0]):
+			a["_shifted"] = "1"
+			for r in bv.sim.regs:
+				if int(r["side"]) == 1:
+					var fc: Vector2 = r["facing"]
+					r["pos"] += Vector2(-fc.y, fc.x) * float(sp2[1])
+	if a.has("prof"):   # demo only: scripted attacker speed "t:v,t:v,..." (sim time s : m/s, linear) to show every gait
+		_prof()
 	_cam()
 	var now := Time.get_ticks_usec()
 	if t > 1.0:
