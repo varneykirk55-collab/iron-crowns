@@ -1,15 +1,15 @@
 {
- "vertices": 905,
+ "vertices": 1572,
  "fps": 24,
  "frames": 697,
  "aabb": [
   [
-   -2.4267163276672363,
-   -0.12522439658641815,
+   -2.423295259475708,
+   -0.13214735686779022,
    -3.372194528579712
   ],
   [
-   2.2559092044830322,
+   2.2587172985076904,
    4.63912296295166,
    2.0916781425476074
   ]
@@ -190,10 +190,14 @@
  },
  "rig": "hx (HORSE_SKELETON_SPEC v1.1)",
  "layers": [
-  "barding",
-  "body",
+  "barding_1300",
+  "horse_body",
+  "horse_hair",
   "rider",
-  "tack",
+  "tack_1300",
   "weapon"
- ]
+ ],
+ "mesh": "horse_v3 ab70c61",
+ "normals": "vatn",
+ "coat_pushed_verts": 141
 }

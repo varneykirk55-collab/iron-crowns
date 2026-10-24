@@ -45,3 +45,16 @@ static func files_for(name: String, anim_v1: bool) -> Array:
 			return ["cavalry_hx_" + name, "hx_" + name]
 		return ["cavalry_" + name, name]
 	return ["soldier_" + name, name]
+
+## Horse v3 bakes (cavalry integration): "<vat>_lod<l>.vatn" RGBA8 per-frame normals when the json says "normals": "vatn".
+## Returns null for every other VAT (legacy / proxy -> vat.gdshader with rest normals, unchanged).
+static func nrm_tex(vat_name: String, lod: int, j: Dictionary) -> Texture2D:
+	if str(j.get("normals", "")) != "vatn":
+		return null
+	var path := "res://assets/vat/%s_lod%d.vatn" % [vat_name, lod]
+	if not FileAccess.file_exists(path):
+		return null
+	var b := FileAccess.get_file_as_bytes(path)
+	if b.size() != int(j["vertices"]) * int(j["frames"]) * 4:
+		return null
+	return ImageTexture.create_from_image(Image.create_from_data(int(j["vertices"]), int(j["frames"]), false, Image.FORMAT_RGBA8, b))

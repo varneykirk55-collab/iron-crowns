@@ -929,10 +929,26 @@ def weights_arrays(g, bones):
             idx[i, k] = bi[b]; wt[i, k] = x / s
     return idx, wt
 
-def bake_variant(variant, lod, outdir, prevdir=None, only=None):
+def rest_normals(g):
+    import numpy as np
+    P = np.array([[p.x, p.y, p.z] for p in g.v], np.float64); N = np.zeros_like(P)
+    for f in g.f:
+        for k in range(1, len(f) - 1):
+            a, b, c = f[0], f[k], f[k + 1]
+            n = np.cross(P[b] - P[a], P[c] - P[a])
+            N[a] += n; N[b] += n; N[c] += n
+    l = np.linalg.norm(N, axis=1, keepdims=True); l[l < 1e-12] = 1.0
+    return N / l
+
+def bake_variant(variant, lod, outdir, prevdir=None, only=None, mesh='proxy'):
     import numpy as np
     import horse_proxy as HP
-    g = HP.build(variant, lod)
+    if mesh == 'v3':
+        import horse_v3_bake as V3
+        mesh = 'v3' if V3.supported(variant) else 'proxy'
+    g = V3.build(variant, lod) if mesh == 'v3' else HP.build(variant, lod)
+    nrest = rest_normals(g) if mesh == 'v3' else None
+    nframes = []
     bones = list(H.NAMES) + ['r:' + b for b in CR.REST]
     used = set(b for w in g.w for b in w)
     missing = used - set(bones)
@@ -958,6 +974,12 @@ def bake_variant(variant, lod, outdir, prevdir=None, only=None):
                 Mk = M[idx[:, k]]
                 P += wt[:, k:k + 1] * np.einsum('vij,vj->vi', Mk, vh)[:, :3]
             frames.append(P.astype(np.float32))
+            if nrest is not None:   # LBS normals: blended 3x3 of the bone matrices, renormalised
+                Nn = np.zeros((len(vh), 3))
+                for k in range(4):
+                    Nn += wt[:, k:k + 1] * np.einsum('vij,vj->vi', M[idx[:, k]][:, :3, :3], nrest)
+                Nn /= np.maximum(np.linalg.norm(Nn, axis=1, keepdims=True), 1e-9)
+                nframes.append(Nn.astype(np.float32))
             row += 1
         meta[name] = {'start': start, 'count': len(rows), 'loop': bool(loop)}
         if vnom:
@@ -973,6 +995,12 @@ def bake_variant(variant, lod, outdir, prevdir=None, only=None):
     open(base + '.vat', 'wb').write(godot.tobytes())
     js = {'vertices': len(g.v), 'fps': FPS, 'frames': int(arr.shape[0]), 'aabb': [lo.tolist(), hi.tolist()], 'clips': meta,
           'rig': 'hx (HORSE_SKELETON_SPEC v1.1)', 'layers': sorted(set(g.layer))}
+    if nrest is not None:   # horse v3 mesh: per-frame normals (RGBA8, godot coords, n*0.5+0.5) for hx_vat.gdshader
+        nn = np.stack(nframes); ng = np.stack([nn[..., 0], nn[..., 2], -nn[..., 1]], -1)
+        q = np.clip(np.round((ng * 0.5 + 0.5) * 255.0), 0, 255).astype(np.uint8)
+        q = np.concatenate([q, np.full(q.shape[:-1] + (1,), 255, np.uint8)], -1)
+        open(base + '.vatn', 'wb').write(q.tobytes())
+        js['mesh'] = g.v3_info['mesh']; js['normals'] = 'vatn'; js['coat_pushed_verts'] = g.v3_info['pushed']
     json.dump(js, open(base + '.json', 'w'), indent=1)
     if prevdir:
         os.makedirs(prevdir, exist_ok=True)
@@ -1001,12 +1029,16 @@ def to_blender(g, name, with_groups=False):
     me.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER')
     u0 = [0.0] * (2 * nl); u1 = [0.0] * (2 * nl); c0 = [1.0] * (4 * nl)
     for poly in me.polygons:
-        col = g.fc[keep[poly.index]]; mat = g.fm[keep[poly.index]]
-        for li in range(poly.loop_start, poly.loop_start + poly.loop_total):
-            u0[2 * li] = 0.0; u0[2 * li + 1] = mat / 16.0
-            u1[2 * li] = (lvi[li] + 0.5) / n; u1[2 * li + 1] = col[3]
-            c0[4 * li:4 * li + 4] = [col[0], col[1], col[2], col[3]]
-        poly.use_smooth = False
+        fi = keep[poly.index]
+        col = g.fc[fi]; mat = g.fm[fi]
+        cc = g.fcc[fi] if getattr(g, 'fcc', None) else None     # horse v3: Bill's per-corner colour + team mask
+        fu = g.fu[fi] if getattr(g, 'fu', None) else None      # horse v3: coat points mask -> UV.x
+        for k, li in enumerate(range(poly.loop_start, poly.loop_start + poly.loop_total)):
+            c = cc[k] if cc else col
+            u0[2 * li] = fu[k] if fu else 0.0; u0[2 * li + 1] = mat / 16.0
+            u1[2 * li] = (lvi[li] + 0.5) / n; u1[2 * li + 1] = c[3]
+            c0[4 * li:4 * li + 4] = [c[0], c[1], c[2], c[3]]
+        poly.use_smooth = bool(g.fs[fi]) if getattr(g, 'fs', None) else False
     me.uv_layers['UVMap'].data.foreach_set('uv', u0)
     me.uv_layers['VID'].data.foreach_set('uv', u1)
     me.color_attributes['Col'].data.foreach_set('color', c0)
@@ -1026,18 +1058,19 @@ def main(argv):
     import bpy, common
     variants = [a for a in argv if a in ('med_knight', 'c19_hussar', 'em_cuirassier')] or ['med_knight', 'c19_hussar', 'em_cuirassier']
     no_export = '--no-export' in argv
+    mesh = 'v3' if '--mesh=v3' in argv else 'proxy'
     prev = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'out', 'hx_prev'))
     report = {}
     for vr in variants:
         for lod in (0, 1):
             common.reset_scene()
-            g, js, stats = bake_variant(vr, lod, common.VAT if not no_export else prev, prevdir=prev)
+            g, js, stats = bake_variant(vr, lod, common.VAT if not no_export else prev, prevdir=prev, mesh=mesh)
             report['%s_lod%d' % (vr, lod)] = {'verts': g.counts()[0], 'tris': g.counts()[1], 'frames': js['frames'], 'reach': stats,
                                               'layers': {l: sum(1 for x in g.fl if x == l) for l in sorted(set(g.fl))}}
             if not no_export:
                 o = to_blender(g, 'hx_%s_lod%d' % (vr, lod))
                 common.export_glb([o], os.path.join(common.MODELS, 'cavalry_hx_%s_lod%d.glb' % (vr, lod)))
-                if lod == 0:   # rigged handoff for Bill: hx armature + skinned proxy (rest pose)
+                if lod == 0 and mesh == 'proxy':   # rigged handoff for Bill: hx armature + skinned proxy (rest pose)
                     _rest = {k: m.copy() for k, m in H.REST.items()}
                     rig = H.build_armature('hx_rig')
                     H.REST.clear(); H.REST.update(_rest)   # the bake keeps its own rest frames

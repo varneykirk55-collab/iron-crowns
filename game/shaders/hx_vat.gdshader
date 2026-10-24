@@ -1,0 +1,154 @@
+// hx_vat.gdshader (Rob, cavalry integration): vat.gdshader + baked per-frame normals (.vatn, RGBA8, n*0.5+0.5, godot
+// coords; used when has_nrm = 1) + horse v3 coats: UV.x = Bill's coat 'points' mask, coat / points / hair colours per
+// instance from horse_v3_config.COATS (bay, chestnut, dark bay, black, grey), shading detail from his baked bay COLOR.
+// Only used for HX bakes whose json carries "normals": "vatn" (horse v3 mesh); everything else keeps vat.gdshader.
+// Vertex Animation Texture crowd shader. One texel row per frame, one column per original vertex.
+// INSTANCE_CUSTOM = (clip_start_frame, signed clip_count (negative = play once), clip_start_time, playback speed)
+// Visual pass (vis_pass = 1, set by scripts/battle/battle_visuals.gd for c19 battles): per-part material classes
+// from UV.v (pipeline common.MAT_*: mat = (1 - UV.y) * 16), deeper team dye, cheap height-based contact darkening,
+// per-instance horse coats; classes 12-15 (mail / canvas / camo / polymer) added for the other eras.
+// vis_pass = 0 (default) is the exact legacy look for every other era / asset.
+shader_type spatial;
+render_mode cull_disabled;
+uniform sampler2D vat_tex : filter_nearest, repeat_disable;
+uniform int vat_verts = 1;
+uniform float vat_fps = 24.0;
+uniform float battle_time = 0.0;
+uniform vec4 team_color : source_color = vec4(0.8, 0.2, 0.2, 1.0);
+uniform float brightness = 1.0;
+uniform float vis_pass = 0.0;
+uniform sampler2D vat_nrm : filter_nearest, repeat_disable;
+uniform float has_nrm = 0.0;
+varying float pts;
+uniform float contact_dark = 0.3;    // albedo darkening at the feet (0 = off); readability pass: was 0.45
+uniform float contact_height = 0.35; // metres over which it fades out (feet / gaiters only; was 0.75 = whole trouser leg)
+uniform float dye_sat = 1.0;         // team dye saturation for ordinary (non-pastel) colours
+uniform float dye_gain = 1.24;       // team dye brightness gain (legacy 1.2)
+varying float team_amt;
+varying float shade_var;
+varying float mat_id;
+varying float rest_h;
+varying float inst_k;
+varying vec3 rest_p;
+
+void vertex() {
+	rest_h = VERTEX.y;
+	rest_p = VERTEX;
+	int vid = clamp(int(UV2.x * float(vat_verts)), 0, vat_verts - 1);
+	float start = INSTANCE_CUSTOM.x;
+	float cnt = abs(INSTANCE_CUSTOM.y);
+	bool loop_clip = INSTANCE_CUSTOM.y > 0.0;
+	float f = max(battle_time - INSTANCE_CUSTOM.z, 0.0) * INSTANCE_CUSTOM.w * vat_fps;
+	float fr;
+	if (loop_clip) { fr = mod(f, cnt); } else { fr = clamp(f, 0.0, cnt - 1.0); }
+	int f0 = int(floor(fr));
+	int f1 = loop_clip ? int(mod(float(f0 + 1), cnt)) : min(f0 + 1, int(cnt) - 1);
+	vec3 p0 = texelFetch(vat_tex, ivec2(vid, int(start) + f0), 0).xyz;
+	vec3 p1 = texelFetch(vat_tex, ivec2(vid, int(start) + f1), 0).xyz;
+	VERTEX = mix(p0, p1, fract(fr));
+	if (has_nrm > 0.5) {
+		vec3 n0 = texelFetch(vat_nrm, ivec2(vid, int(start) + f0), 0).xyz * 2.0 - 1.0;
+		vec3 n1 = texelFetch(vat_nrm, ivec2(vid, int(start) + f1), 0).xyz * 2.0 - 1.0;
+		NORMAL = normalize(mix(n0, n1, fract(fr)));
+	}
+	pts = clamp(UV.x, 0.0, 1.0);
+	team_amt = 1.0 - UV2.y;
+	shade_var = 0.88 + 0.24 * fract(sin(float(INSTANCE_ID) * 12.9898) * 43758.5453);
+	inst_k = fract(sin(float(INSTANCE_ID) * 78.233 + 1.7) * 43758.5453);
+	mat_id = (1.0 - UV.y) * 16.0;
+}
+
+float vnoise(vec3 p) {  // cheap value noise for the camo class
+	vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	float n = i.x + i.y * 57.0 + i.z * 113.0;
+	float a = mix(mix(fract(sin(n) * 43758.5), fract(sin(n + 1.0) * 43758.5), f.x), mix(fract(sin(n + 57.0) * 43758.5), fract(sin(n + 58.0) * 43758.5), f.x), f.y);
+	float b = mix(mix(fract(sin(n + 113.0) * 43758.5), fract(sin(n + 114.0) * 43758.5), f.x), mix(fract(sin(n + 170.0) * 43758.5), fract(sin(n + 171.0) * 43758.5), f.x), f.y);
+	return mix(a, b, f.z);
+}
+
+vec3 camo(vec3 base, vec3 p, float k) {  // 3-tone disruptive pattern on the rest pose (moves with the cloth)
+	float n = vnoise(p * 7.0 + vec3(k * 31.0)) * 0.65 + vnoise(p * 15.0) * 0.35;
+	vec3 c = base;
+	if (n < 0.38) { c = base * vec3(0.62, 0.6, 0.55); }
+	else if (n > 0.62) { c = base * vec3(1.18, 1.1, 0.92); }
+	return c;
+}
+
+// horse v3 coats (Bill's horse_v3_config.COATS), same per-instance buckets as horse_coat()
+vec3 v3_coat(float k) {
+	if (k < 0.34) return vec3(0.36, 0.20, 0.11);
+	if (k < 0.55) return vec3(0.50, 0.27, 0.13);
+	if (k < 0.80) return vec3(0.17, 0.10, 0.06);
+	if (k < 0.92) return vec3(0.06, 0.055, 0.05);
+	return vec3(0.62, 0.61, 0.58);
+}
+vec3 v3_points(float k) {
+	if (k < 0.34) return vec3(0.06, 0.05, 0.045);
+	if (k < 0.55) return vec3(0.50, 0.27, 0.13);
+	if (k < 0.80) return vec3(0.05, 0.04, 0.035);
+	if (k < 0.92) return vec3(0.06, 0.055, 0.05);
+	return vec3(0.30, 0.29, 0.28);
+}
+vec3 v3_hair(float k) {
+	if (k < 0.34) return vec3(0.05, 0.04, 0.035);
+	if (k < 0.55) return vec3(0.55, 0.33, 0.16);
+	if (k < 0.80) return vec3(0.04, 0.035, 0.03);
+	if (k < 0.92) return vec3(0.035, 0.032, 0.03);
+	return vec3(0.70, 0.69, 0.66);
+}
+
+vec3 horse_coat(float k) {
+	if (k < 0.34) return vec3(0.36, 0.22, 0.13);   // bay
+	if (k < 0.55) return vec3(0.47, 0.27, 0.14);   // chestnut
+	if (k < 0.80) return vec3(0.21, 0.14, 0.09);   // dark bay
+	if (k < 0.92) return vec3(0.085, 0.078, 0.072); // black
+	return vec3(0.56, 0.54, 0.51);                 // grey
+}
+
+void fragment() {
+	// rest-pose normals (flat derivative normals were unreliable on GL Compatibility)
+	vec3 base = COLOR.rgb;
+	float ta = clamp(team_amt, 0.0, 1.0);
+	if (vis_pass < 0.5) {
+		ALBEDO = mix(base, base * team_color.rgb * 1.2, ta) * brightness * shade_var;
+		ROUGHNESS = 0.85;
+	} else {
+		int m = int(mat_id + 0.5);
+		// deeper, slightly richer team dye; pastel team colours are pulled down so white belts / facings read
+		vec3 tc = team_color.rgb;
+		float tl = dot(tc, vec3(0.299, 0.587, 0.114));
+		vec3 tdeep = clamp(mix(vec3(tl), tc, mix(dye_sat, 2.4, smoothstep(0.45, 0.75, tl))), vec3(0.0), vec3(1.0)) * mix(1.0, 0.76, smoothstep(0.45, 0.8, tl));
+		vec3 alb = mix(base, base * tdeep * dye_gain, ta);
+		float sv = mix(1.0, shade_var, 0.7);
+		float rough = 0.85; float metal = 0.0; float spec = 0.4;
+		if (m == 1) { rough = 0.92; spec = 0.25; alb *= sv; }                       // wool
+		else if (m == 2) { rough = 0.42; spec = 0.6; }                             // leather (black / brown)
+		else if (m == 3) { rough = 0.3; metal = 0.85; spec = 0.6; }                // steel
+		else if (m == 4) { rough = 0.38; metal = 0.8; spec = 0.6; }                // brass / gilt lace
+		else if (m == 5) { rough = 0.62; spec = 0.35; alb *= mix(0.86, 1.08, inst_k); } // skin
+		else if (m == 6) { rough = 0.55; spec = 0.4; alb *= sv; }                 // wood
+		else if (m == 7) { rough = 0.7; spec = 0.35; alb = min(alb * 1.08, vec3(1.0)); } // pipeclay: kept bright
+		else if (m == 8) { rough = 0.6; spec = 0.4;                                // horse hide
+			float iv = mix(0.9, 1.1, (shade_var - 0.88) / 0.24);
+			if (has_nrm > 0.5) {   // v3: bay COLOR -> detail ratio, coat / points from the instance's coat
+				float det = mix(clamp(dot(base, vec3(0.299, 0.587, 0.114)) / 0.2376, 0.6, 1.4), 1.0, pts);
+				alb = mix(v3_coat(inst_k), v3_points(inst_k), pts) * det * iv;
+			} else { alb = horse_coat(inst_k) * iv; } }
+		else if (m == 9) { rough = 1.0; spec = 0.1; }                              // fur / sheepskin / plume
+		else if (m == 10) { rough = 0.5; metal = 0.6; spec = 0.5; }                // blackened iron
+		else if (m == 11) { rough = 0.7; spec = 0.3; if (has_nrm > 0.5) { alb = v3_hair(inst_k) * clamp(dot(base, vec3(0.299, 0.587, 0.114)) / 0.0424, 0.6, 1.5); } else if (inst_k > 0.92) { alb = vec3(0.62, 0.6, 0.57); } } // hair / mane
+		else if (m == 12) { rough = 0.5; metal = 0.55; spec = 0.5; alb *= 0.94 + 0.1 * step(0.5, fract(rest_p.y * 40.0)); } // mail (riveted rings, faint banding)
+		else if (m == 13) { rough = 0.9; spec = 0.2; alb = min(alb * 1.05, vec3(1.0)); }  // canvas / webbing / linen: light accent, kept bright
+		else if (m == 14) { rough = 0.9; spec = 0.22; alb = camo(alb, rest_p, 0.0); }  // camo cloth (team tint survives in the mid tone)
+		else if (m == 15) { rough = 0.68; spec = 0.3; }                           // polymer / kevlar / rubber
+		else { alb *= shade_var; }
+		// contact darkening: cheap ground-proximity occlusion on the rest-pose height
+		float ao = mix(1.0 - contact_dark, 1.0, smoothstep(0.0, contact_height, rest_h));
+		if (m == 7 || m == 13) { ao = 1.0; }  // never darken the white belts / slings / light webbing
+		ALBEDO = alb * brightness * mix(1.0, ao, 0.65);
+		AO = ao;
+		ROUGHNESS = rough;
+		METALLIC = metal;
+		SPECULAR = spec;
+	}
+}

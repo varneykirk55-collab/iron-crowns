@@ -320,6 +320,7 @@ func _vat_model(name: String) -> Dictionary:
 		var img := Image.create_from_data(int(j["vertices"]), int(j["frames"]), false, Image.FORMAT_RGBF, bytes)
 		d["tex"].append(ImageTexture.create_from_image(img))
 		d["json"].append(j)
+		d["nrm"] = d.get("nrm", []) + [CavV2.nrm_tex(fs[1], lod, j)]   # horse v3 bakes: per-frame normals (else null)
 	vat[name] = d
 	return d
 
@@ -345,7 +346,11 @@ func _mm(key: String, mesh: Mesh, mat: Material, cap: int, custom: bool) -> Dict
 func _vat_mat(name: String, lod: int, side: int, bright: float = 1.0) -> ShaderMaterial:
 	var d := _vat_model(name)
 	var m := ShaderMaterial.new()
-	m.shader = load("res://shaders/vat.gdshader")
+	var nt = d["nrm"][lod] if d.has("nrm") else null
+	m.shader = load("res://shaders/hx_vat.gdshader" if nt != null else "res://shaders/vat.gdshader")
+	if nt != null:
+		m.set_shader_parameter("vat_nrm", nt)
+		m.set_shader_parameter("has_nrm", 1.0)
 	m.set_shader_parameter("vat_tex", d["tex"][lod])
 	m.set_shader_parameter("vat_verts", int(d["json"][lod]["vertices"]))
 	m.set_shader_parameter("vat_fps", float(d["json"][lod]["fps"]))
