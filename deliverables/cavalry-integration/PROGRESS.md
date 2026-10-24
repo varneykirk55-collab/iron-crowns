@@ -16,3 +16,9 @@ Branch rob/cavalry-integration = rob/cavalry-animation-overhaul + Bill's frozen 
 - Real-mesh render check (Godot, knight side cam): mesh, smooth normals, rider seat and gait OK. Team cloth was dark before the team-base fix.
 - Kirk's order: all video and screenshot work stopped. The real-mesh demo videos were NOT recorded.
 - Running: full suite (test_runner, audio, test_env, 3 SIMHASH, BATTLERESULT ×4, reinforce) on this branch vs clean origin/main 41bdd75 (already contained in this branch).
+
+## 2026-10-23 22:15 EDT — suite PASS vs clean origin/main 41bdd75 → merging to main
+- test_runner 220/220 (main 216/216 + 4 new cavalry checks), audio 28/28, test_env 0 failures (same as main).
+- SIMHASH SWE1800 0b3153c6…, USA1914 a9beef57…, JPN1500 563be302…: identical to main.
+- BATTLERESULT SWE1300/1650/1800/USA1914 and reinforce lines are byte-identical to clean main.
+- Open: no real-mesh videos (stopped by order). Knight hem/gaskin clipping (29 hits) remains in walk/trot. Cuirassier still uses the proxy. Real-mesh LOD2 isn't wired. The rider is a proxy. Perf not re-measured.
