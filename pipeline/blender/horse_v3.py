@@ -205,6 +205,10 @@ def process(part, lod, target):
                 for mm in mods:
                     mm.use_symmetry = False
                 m.ratio = r1
+    if part.get('post_smooth'):
+        # relaxes the needle triangles collapse-decimation leaves in concave creases (dark shading slivers)
+        m = ob.modifiers.new('ps', 'LAPLACIANSMOOTH'); m.lambda_factor = part['post_smooth']; m.iterations = 2
+        m.use_volume_preserve = True; m.use_normalized = True
     if part.get('sharp'):
         # spec v1.2: normals are recomputed per frame in the bake -> hard edges must be real splits
         m = ob.modifiers.new('es', 'EDGE_SPLIT'); m.split_angle = math.radians(part['sharp'])

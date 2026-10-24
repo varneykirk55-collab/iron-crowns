@@ -267,7 +267,7 @@ def body_part():
                 out[n] = out.get(n, 0) + W[:, i]
         return out
 
-    return {'name': 'body', 'layer': 'horse_body', 'geo': (V, Q), 'smooth': 3, 'sym': True, 'solidify': 0, 'voxel': C.VOXEL['body'] * 0.9, 'lod_voxel': (1.0, 1.5, 2.2),
+    return {'name': 'body', 'layer': 'horse_body', 'geo': (V, Q), 'smooth': 3, 'post_smooth': 0.25, 'sym': True, 'solidify': 0, 'voxel': C.VOXEL['body'] * 0.9, 'lod_voxel': (1.0, 1.5, 2.2),
             'cls': cls, 'col': col, 'w': w, 'wsmooth': 4, 'coat': True}
 
 def eye_part():
