@@ -10,3 +10,9 @@ Branch rob/cavalry-integration = rob/cavalry-animation-overhaul + Bill's frozen 
   - Coat specks: covered hide verts pushed in (1300: 2.2 cm, front curtain 4.5 cm; 1800: 1.4 cm). tools/cav/hx_clip.py (coat outside cloth, all clips, LOD0): knight 68 → 29 vert-clip hits (rest are hind gaskin vs caparison hem in walk/trot), hussar 26 → 0.
   - .vatn per-frame normals + game/shaders/hx_vat.gdshader (new): v3 coats per instance from Bill's COATS (points mask = UVMap.u), smooth shading. Proxy/legacy VATs keep vat.gdshader.
 - 4713c8d: merged the lit gait videos from the proxy branch.
+
+## 2026-10-23 22:05 EDT — fixes, visuals stopped, suite running
+- 834f1ad: white team base on Bill's team-masked cloth (he paints a preview red, horse_v3_config.TEAM_RGB; runtime dyes base × team colour). Disabled Godot's Blender importer in project.godot: horse_v3.blend in game/ aborted the whole headless import. .import/.uid files added.
+- Real-mesh render check (Godot, knight side cam): mesh, smooth normals, rider seat and gait OK. Team cloth was dark before the team-base fix.
+- Kirk's order: all video and screenshot work stopped. The real-mesh demo videos were NOT recorded.
+- Running: full suite (test_runner, audio, test_env, 3 SIMHASH, BATTLERESULT ×4, reinforce) on this branch vs clean origin/main 41bdd75 (already contained in this branch).
