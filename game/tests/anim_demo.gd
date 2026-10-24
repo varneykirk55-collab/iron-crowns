@@ -135,6 +135,25 @@ func _cam() -> void:
 		bv.cam_dist = float(cv[0]); bv.cam_pitch = float(cv[1]); bv.cam_yaw = float(cv[2])
 		if cv.size() > 3: bv.cam_target += Vector3(float(cv[3]), 0, float(cv[4]))
 
+func _prof() -> void:
+	var ks: PackedStringArray = str(a["prof"]).split(",")
+	var tt := bv.sim.t
+	var v := float(ks[ks.size() - 1].split(":")[1])
+	for q in ks.size():
+		var p: PackedStringArray = ks[q].split(":")
+		if tt < float(p[0]):
+			if q == 0:
+				v = float(p[1])
+			else:
+				var p0: PackedStringArray = ks[q - 1].split(":")
+				v = lerpf(float(p0[1]), float(p[1]), (tt - float(p0[0])) / maxf(float(p[0]) - float(p0[0]), 0.001))
+			break
+	for r in bv.sim.regs:
+		if int(r["side"]) == 0:
+			if not r.has("_demo_def"):
+				r["def"] = (r["def"] as Dictionary).duplicate(); r["_demo_def"] = true
+			r["def"]["speed"] = v
+
 func _speed_log(delta: float) -> void:
 	if not a.has("focus") or delta <= 0.0:
 		return
@@ -168,6 +187,8 @@ func _process(delta: float) -> void:
 				if int(r["side"]) == 1:
 					var fc: Vector2 = r["facing"]
 					r["pos"] += Vector2(-fc.y, fc.x) * float(sp2[1])
+	if a.has("prof"):   # demo only: scripted attacker speed "t:v,t:v,..." (sim time s : m/s, linear) to show every gait
+		_prof()
 	_cam()
 	var now := Time.get_ticks_usec()
 	if t > 1.0:
