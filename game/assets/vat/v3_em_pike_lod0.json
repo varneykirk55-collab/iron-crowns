@@ -1,5 +1,5 @@
 {
- "vertices": 7426,
+ "vertices": 7427,
  "fps": 24,
  "clips": {
   "idle": {
@@ -1383,8 +1383,8 @@
  "near_verts": 5882,
  "mid_verts": 6998,
  "tris_mid": 1992,
- "tris_far": 691,
- "tris_stored": 14103,
+ "tris_far": 693,
+ "tris_stored": 14105,
  "maps": {
   "nrm": "v3_em_pike_nrm.vtex",
   "id": "v3_em_pike_id.vtex",

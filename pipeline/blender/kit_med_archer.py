@@ -24,7 +24,7 @@ BOW_G, BOW_L = -0.31, 0.89              # grip at the left-hand hold of shoulder
 C.TIP_LOCAL = (0.0, BOW_G + BOW_L, 0.05)   # upper nock (weapon_tip on the prop)
 C.SLOT_MAT.update({'stock': 'canvas', 'felt': 'wool', 'roll': 'canvas', 'cartbox': 'worn_leather', 'shoe': 'worn_leather',
                    'breeches': 'wool', 'scabbard': 'wood', 'sash': 'canvas', 'piping': 'canvas', 'epaulette': 'hide'})
-C.BODY_TRIS = 4150
+C.BODY_TRIS = 4120
 HM.FIST['.L'] = 0.007
 C.KIT_PAL = {'stock': '#d9d0bb', 'felt': '#58622f', 'roll': '#c9bb98', 'cartbox': '#4f3722', 'shoe': '#4a3424',
              'breeches': '#6b6352', 'metal': '#b8913a', 'steel': '#a5abb1', 'wood': '#8a5a32', 'scabbard': '#c2a070',
