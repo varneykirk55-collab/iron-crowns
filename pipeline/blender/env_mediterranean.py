@@ -27,7 +27,7 @@ def _limb(b, p0, p1, r0, r1, col, segs=5):
     rot_y = math.degrees(math.atan2(Vector((d.x, d.y, 0)).length, d.z)); rot_z = math.degrees(math.atan2(d.y, d.x))
     b.cyl(r0, r1, d.length, tuple((p0 + p1) * 0.5), col, 'body', rot=(0, rot_y, rot_z), segs=segs)
 
-PINE = [hexc('33421f', 1.0), hexc('3b4a24', 1.0), hexc('2e3c1c', 1.0)]
+PINE = [hexc('3c4c24', 1.0), hexc('44542a', 1.0), hexc('364620', 1.0)]
 PINE_HI = hexc('5a6a34', 1.0)
 
 def stone_pine(name='env_stone_pine', seed=301, height=13.0):
@@ -92,7 +92,7 @@ def holm_oak(name='env_holm_oak', seed=331, height=10.0, width=10.0):
     b = MeshBuilder(name, G)
     bark = hexc('4a4038'); bark2 = hexc('40372f')
     b.cyl(0.38, 0.28, height * 0.4, (0, 0, height * 0.2), bark, 'body', segs=6)
-    cols = [hexc('34401e', 1.0), hexc('3c4824', 1.0), hexc('2f3a1c', 1.0), hexc('424e28', 1.0)]; hi = hexc('66703e', 1.0)
+    cols = [hexc('3e4c24', 1.0), hexc('46542a', 1.0), hexc('384620', 1.0), hexc('4c5a2e', 1.0)]; hi = hexc('76804a', 1.0)
     for k in range(9):
         a = rnd.uniform(0, math.tau); d = rnd.uniform(0.1, 1.0) * width * 0.34
         c = Vector((math.cos(a) * d, math.sin(a) * d, height * rnd.uniform(0.5, 0.82)))
@@ -141,7 +141,7 @@ def eucalypt(name='env_eucalypt', seed=361, height=18.0):
     crown of vertically elongated clumps."""
     rnd = random.Random(seed)
     b = MeshBuilder(name, G)
-    bark = hexc('b0a898'); bark2 = hexc('948c7e')
+    bark = hexc('9a9282'); bark2 = hexc('847c6e')
     fork = Vector((0.3, 0.0, height * 0.42))
     _limb(b, Vector((0, 0, -0.2)), fork, 0.42, 0.3, bark, segs=6)
     b.cyl(0.5, 0.42, 0.8, (0, 0, 0.2), hexc('7a6e5e'), 'body', segs=6)
@@ -162,7 +162,7 @@ def maquis(name='env_maquis', seed=371):
     clump ~1.6 m tall, several overlapping lobes."""
     rnd = random.Random(seed)
     b = MeshBuilder(name, G)
-    cols = [hexc('3a4622', 1.0), hexc('424e26', 1.0), hexc('34401e', 1.0)]; hi = hexc('6a7440', 1.0)
+    cols = [hexc('44502a', 1.0), hexc('4c582e', 1.0), hexc('3e4a26', 1.0)]; hi = hexc('76804a', 1.0)
     for k in range(4):
         a = rnd.uniform(0, math.tau); d = rnd.uniform(0.1, 0.7)
         c = Vector((math.cos(a) * d, math.sin(a) * d, rnd.uniform(0.5, 0.9)))
@@ -228,7 +228,7 @@ def med_far(name='env_med_far'):
     rnd = random.Random(7)
     b = MeshBuilder(name, G)
     b.cyl(0.3, 0.22, 4.0, (0, 0, 2.0), hexc('4a4038'), 'body', segs=4)
-    _clump(b, Vector((0, 0, 5.6)), 3.2, (1.25, 1.25, 0.8), [hexc('3a4622', 1.0)], hexc('5e6a36', 1.0), rnd, 3, 0, rough=0.2, sub=1)
+    _clump(b, Vector((0, 0, 5.6)), 3.2, (1.25, 1.25, 0.8), [hexc('4c5a2e', 1.0)], hexc('76824a', 1.0), rnd, 3, 0, rough=0.2, sub=1)
     return finish(b, name, smooth=True)
 
 BUILDERS = {

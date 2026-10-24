@@ -109,31 +109,31 @@ static func make(p: Dictionary, terr: String, b: Dictionary) -> Dictionary:
 	if sub == "interior": green = Color(0.27, 0.39, 0.15)
 	var straw := Color(0.74, 0.63, 0.38)
 	var dryk := 0.0 if sub == "interior" else (0.12 if dry_sub > 0.0 else 0.0)
-	var gr_a := green.lerp(straw * 0.88, (0.25 if wet else 0.72) + dryk)
-	var gr_b := green.lerp(straw, (0.4 if wet else 0.86) + dryk)
+	var gr_a := green.lerp(straw * 0.88, (0.4 if wet else 0.74) + dryk)
+	var gr_b := green.lerp(straw, (0.55 if wet else 0.88) + dryk)
 	var rock := Color(0.7, 0.67, 0.6) if sub in ["coast", "interior", "anatolia"] else Color(0.6, 0.55, 0.49)
 	b["palette"] = {"grass_a": gr_a, "grass_b": gr_b, "dry": straw.lerp(Color(0.84, 0.76, 0.54), 0.4), "earth": soil,
 		"floor_col": soil.lerp(gr_a, 0.45) * 0.86, "needle": soil * 0.8, "rock": rock, "scree": soil.lerp(rock, 0.55),
 		"snow_col": Color(0.9, 0.92, 0.95), "far_forest": Color(0.22, 0.26, 0.13) if wet else Color(0.27, 0.28, 0.15),
 		"straw": Color(0.88, 0.76, 0.46) if not wet else Color(0.6, 0.66, 0.34)}
-	var leaf := [Color(0.92, 0.95, 0.86), Color(0.03, 0.03, 0.01)] if wet else [Color(0.98, 0.94, 0.8), Color(0.05, 0.04, 0.01)]
-	var olive := [Color(0.98, 1.0, 0.96), Color(0.04, 0.04, 0.03)]
-	var grass := [Color(0.66, 0.84, 0.5), Color(0.06, 0.08, 0.02)] if wet else [Color(1.08, 0.98, 0.84), Color(0.12, 0.1, 0.04)]
+	var leaf := [Color(1.1, 1.1, 0.98), Color(0.035, 0.035, 0.015)] if wet else [Color(1.14, 1.08, 0.92), Color(0.05, 0.045, 0.02)]
+	var olive := [Color(1.22, 1.24, 1.18), Color(0.05, 0.05, 0.04)]
+	var grass := [Color(0.7, 0.8, 0.52), Color(0.06, 0.07, 0.02)] if wet else [Color(1.08, 0.98, 0.84), Color(0.12, 0.1, 0.04)]
 	var lime := [Color(1.0, 0.99, 0.97), Color(0.04, 0.04, 0.03)]
 	if not (sub in ["coast", "interior", "anatolia"]): lime = [Color(0.92, 0.84, 0.76), Color(0.03, 0.01, 0.0)]  # granite / sandstone
 	var scrub := leaf
-	if sub == "australia": scrub = [Color(0.92, 0.98, 1.0), Color(0.04, 0.04, 0.04)]   # grey-blue mallee / saltbush
+	if sub == "australia": scrub = [Color(1.15, 1.2, 1.22), Color(0.05, 0.05, 0.05)]   # grey-blue mallee / saltbush
 	b["tints"] = {"env_stone_pine": leaf, "env_cypress": leaf, "env_olive_a": olive, "env_olive_b": olive, "env_holm_oak": leaf,
-		"env_oak_dec": leaf, "env_aleppo_pine": leaf if sub != "interior" else [Color(0.78, 0.84, 0.8), Color(0.0, 0.0, 0.0)],
-		"env_eucalypt": [Color(0.96, 1.0, 1.02), Color(0.04, 0.04, 0.04)], "env_juniper": leaf,
+		"env_oak_dec": leaf, "env_aleppo_pine": leaf if sub != "interior" else [Color(0.98, 1.04, 0.98), Color(0.01, 0.01, 0.01)],
+		"env_eucalypt": [Color(1.2, 1.24, 1.26), Color(0.05, 0.05, 0.05)], "env_juniper": leaf,
 		"env_maquis": scrub, "env_garrigue": scrub, "env_med_grass": grass,
 		"env_karst": lime, "env_limestone_a": lime, "env_limestone_b": lime,
-		"env_reeds": [Color(0.85, 0.9, 0.62), Color(0.12, 0.1, 0.05)], "env_med_far": [Color(0.95, 0.95, 0.88), Color(0.1, 0.1, 0.06)]}
+		"env_reeds": [Color(0.85, 0.9, 0.62), Color(0.12, 0.1, 0.05)], "env_med_far": [Color(1.15, 1.15, 1.04), Color(0.1, 0.1, 0.06)]}
 	# --- light: clear, deep blue sky and hard sun; summer = high sun, warm dust haze; winter-spring = lower, crisper
 	var haze := Color(0.82, 0.8, 0.74) if not wet else Color(0.76, 0.82, 0.88)
 	b["look"] = {"sky_top": Color(0.26, 0.47, 0.8) if wet else Color(0.3, 0.5, 0.78), "sky_horizon": Color(0.8, 0.86, 0.92) if wet else Color(0.88, 0.86, 0.8),
 		"ground_horizon": Color(0.7, 0.64, 0.52), "ground_bottom": Color(0.32, 0.27, 0.2),
-		"ambient": 0.86, "exposure": 0.98, "contrast": 1.06, "saturation": 0.97 if wet else 0.93,
+		"ambient": 0.86, "exposure": 0.98, "contrast": 1.06, "saturation": 0.93 if wet else 0.92,
 		"fog_begin": 320.0, "fog_end": 5600.0 if wet else 4600.0, "fog_density": 0.46 if wet else 0.58, "fog_color": haze, "fog_scatter": 0.3, "fog_sky": 0.34,
 		"sun_rot": Vector3(-44.0 if wet else -60.0, 200.0, 0.0), "sun_color": Color(1.0, 0.95, 0.86) if wet else Color(1.0, 0.94, 0.8),
 		"sun_energy": 1.5 if wet else 1.7, "shadow_opacity": 0.84}
