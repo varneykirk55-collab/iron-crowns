@@ -32,6 +32,7 @@ COVER = {'med_knight': {'barding_1300': {0, 1, 2}}, 'c19_hussar': {'tack_1800': 
 # the swinging shoulder, so the coat under it goes deeper.
 PUSH = {'med_knight': {'*': 0.022, ('barding_1300', 1): 0.045}, 'c19_hussar': {'*': 0.014}}
 RAY = 0.09
+TEAM_BASE = (1.0, 1.0, 1.0, 1.0)
 if os.environ.get('HX_V3_PUSH'):   # diagnostics only (clipping before/after): override the push distance
     PUSH = {k: {'*': float(os.environ['HX_V3_PUSH'])} for k in PUSH}
 _cache = {}
@@ -109,7 +110,9 @@ def add_layer(g, layer, lod, hide=(), push=None, cover=None):
         remap[i] = g.vert(pos[i], _norm_w(d['w'][i]))
     for f in faces:
         idx = tuple(remap[i] for i in f['v'])
-        cc = f['cc']
+        # team-masked corners: Bill paints a preview red (horse_v3_config.TEAM_RGB); the runtime dyes base * team colour,
+        # so those corners get the white team base the other VATs use.
+        cc = [TEAM_BASE if t > 0.5 else c for c, t in zip(f['cc'], f['team'])]
         avg = tuple(sum(c[k] for c in cc) / len(cc) for k in range(3)) + (sum(f['team']) / len(cc),)
         g.f.append(idx); g.fc.append(avg); g.fm.append(f['mat']); g.fl.append(layer)
         g.fcc.append([tuple(c[:3]) + (t,) for c, t in zip(cc, f['team'])]); g.fs.append(f['smooth']); g.fu.append(list(f['pts']))
