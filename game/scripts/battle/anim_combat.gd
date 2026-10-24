@@ -76,7 +76,8 @@ static func kind_of(bv, v: Dictionary) -> int:
 		elif c.has("mk_aim") and c.has("mk_reload"):
 			k = 2
 	elif v["kind"] == "cav":
-		if clips_of(bv, v["model"]).has("hv_walk"):
+		var cc := clips_of(bv, v["model"])
+		if cc.has("hv_walk") or cc.has("hz_walk"):   # hz_* = cavalry overhaul (CavV2 HX bake), hv_* = v1 cavalry
 			k = 3
 	v["ac_kind"] = k
 	return k
@@ -423,7 +424,7 @@ static func _flush_shots(bv, v: Dictionary, r: Dictionary, vt: float) -> void:
 
 # ---------------- cavalry (kind 3): gaits from pipeline/blender/cavalry_anim_combat.py ----------------
 ## Gait ladder; hv_<a>_<b> transition clips join phase 0 of one gait to phase 0 of the next.
-const GAITS := ["stand", "walk", "trot", "canter", "gallop"]
+const GAITS := ["stand", "walk", "trot", "canter", "gallop", "charge"]   # "charge" (5): hz_* only, while the sim charges
 const GAIT_UP := [0.25, 1.35, 2.8, 5.6]   # m/s: switch up above, down below (minus GAIT_HYST); 5.6 so a knight charge (cap ~6.1) reaches the gallop
 const GAIT_HYST := 0.3
 const GAIT_DWELL := 0.4
@@ -439,8 +440,69 @@ static func _gait_want(cur: int, s: float) -> int:
 		g -= 1
 	return g
 
-static func _tr_name(a: int, b: int) -> String:
-	return "hv_%s_%s" % ["idle" if a == 0 else GAITS[a], "idle" if b == 0 else GAITS[b]]
+static func _tr_name(a: int, b: int, pre: String = "hv_") -> String:
+	return pre + "%s_%s" % ["idle" if a == 0 else GAITS[a], "idle" if b == 0 else GAITS[b]]
+
+# ---- cavalry overhaul (hz_*, CavV2): extra presentation constants
+const HZ_STOP := 0.2          # m/s: hz horses come back to the stand below this (via hz_walk_idle)
+const HZ_LEAN := 0.8          # turn lean = HZ_LEAN * atan(v * yaw_rate / g), about the hooves
+const HZ_LEAN_MAX := 0.2      # rad
+const HZ_PITCH := 0.012       # rad per m/s^2 of fore-aft acceleration (sits back on a stop, nose down on a push)
+
+## the hz gait wanted at speed s (adds the stand by speed, and the charge while the sim charges)
+static func _gait_want_hz(cur: int, s: float, charging: bool) -> int:
+	var w := _gait_want(mini(cur, 4), s)
+	if w == 1 and s < HZ_STOP and cur <= 1:
+		w = 0
+	if w == 4 and charging:
+		w = 5
+	return w
+
+## _put with a turn lean (roll about the model's forward axis) and an accel pitch, both about the ground point o
+static func _put_tilt(m: Dictionary, a: float, o: Vector3, roll: float, pitch: float, custom: Vector4) -> void:
+	var k: int = m["n"]
+	if k >= m["cap"]:
+		return
+	var st: int = m["stride"]
+	var buf: PackedFloat32Array = m["buf"]
+	var bs := Basis(Vector3.UP, a) * Basis(Vector3(0, 0, 1), roll) * Basis(Vector3(1, 0, 0), pitch)
+	var i := k * st
+	buf[i] = bs.x.x; buf[i + 1] = bs.y.x; buf[i + 2] = bs.z.x; buf[i + 3] = o.x
+	buf[i + 4] = bs.x.y; buf[i + 5] = bs.y.y; buf[i + 6] = bs.z.y; buf[i + 7] = o.y
+	buf[i + 8] = bs.x.z; buf[i + 9] = bs.y.z; buf[i + 10] = bs.z.z; buf[i + 11] = o.z
+	buf[i + 12] = 1.0; buf[i + 13] = 1.0; buf[i + 14] = 1.0; buf[i + 15] = 1.0
+	if st == 20:
+		buf[i + 16] = custom.x; buf[i + 17] = custom.y; buf[i + 18] = custom.z; buf[i + 19] = custom.w
+	m["buf"] = buf
+	m["n"] = k + 1
+
+static func _cdur(cl: Dictionary, name: String) -> float:
+	return (float(cl[name]["count"]) - 1.0) / 24.0
+
+## mounted melee for one stopped hz rider (render only, deterministic hashes, no rng): draw once on contact, then the
+## ready loop with per-rider strikes (strike_a / strike_b by hash), a hit flinch when a neighbour falls
+static func _hz_melee(bv, model: String, cl: Dictionary, k: int, files: int, fi: float, vt: float, phase: float,
+		mt: PackedFloat32Array, hit_t: float) -> Vector4:
+	if mt[k] < 0.0:
+		mt[k] = vt
+	var t0 := mt[k]
+	var c: Vector2
+	var dd := _cdur(cl, "hz_draw")
+	if vt - t0 < dd:
+		c = _clip(bv, model, "hz_draw"); return Vector4(c.x, c.y, t0, 1.0)
+	if hit_t <= vt and vt - hit_t < _cdur(cl, "hz_hit"):
+		c = _clip(bv, model, "hz_hit"); return Vector4(c.x, c.y, hit_t, 1.0)
+	if k / files < 2:   # the two front ranks fight; the rest sit at the ready
+		var per := 2.0 + h(float(k), fi + 211.0) * 1.8
+		var lt := vt - t0 - dd - h(float(k), fi + 213.0) * per
+		if lt >= 0.0:
+			var nn := floorf(lt / per)
+			var loc := lt - nn * per
+			var sn := "hz_strike_a" if h(float(k) + nn * 7.0, fi + 217.0) < 0.55 else "hz_strike_b"
+			if loc < _cdur(cl, sn):
+				c = _clip(bv, model, sn); return Vector4(c.x, c.y, vt - loc, 1.0)
+	c = _clip(bv, model, "hz_melee_ready")
+	return Vector4(c.x, c.y, -phase * 3.0, 1.0)
 
 static func _init_cav(v: Dictionary, r: Dictionary) -> void:
 	if v.has("ac_g"):
@@ -453,6 +515,10 @@ static func _init_cav(v: Dictionary, r: Dictionary) -> void:
 	v["ac_vel"] = vel; v["ac_g"] = g; v["ac_tr"] = tr
 	v["ac_ph"] = f.duplicate(); v["ac_trt"] = f.duplicate(); v["ac_trs"] = f.duplicate(); v["ac_dw"] = f.duplicate(); v["ac_sf"] = f.duplicate()
 	v["ac_rout_t"] = -1.0; v["ac_cv"] = Vector2.ZERO; v["ac_pc"] = r["pos"]; v["ac_pct"] = 0.0
+	var neg := f.duplicate(); neg.fill(-100.0)
+	v["ac_mt"] = neg.duplicate(); v["ac_mt"].fill(-1.0); v["ac_rel"] = neg.duplicate(); v["ac_hit"] = neg.duplicate()
+	v["ac_seen"] = neg.duplicate(); v["ac_seen"].fill(-1.0)
+	v["ac_roll"] = f.duplicate(); v["ac_pitch"] = f.duplicate(); v["ac_py"] = f.duplicate(); v["ac_psp"] = f.duplicate()
 	var yaw: PackedFloat32Array = v["yaw"]
 	var fc: Vector2 = r["facing"]
 	for k in n:
@@ -465,10 +531,13 @@ static func _update_cav(bv, i: int, v: Dictionary, r: Dictionary, dt: float, vt:
 	_init_cav(v, r)
 	var n: int = v["n"]; var files: int = v["files"]; var model: String = v["model"]
 	var cl := clips_of(bv, model)
+	var hz := cl.has("hz_walk")          # cavalry overhaul clips (CavV2 HX bake)
+	var pre := "hz_" if hz else "hv_"
 	var facing: Vector2 = r["facing"]
 	var center: Vector2 = r["pos"]
 	var st: String = r["state"]
 	var routing := st == "rout" or st == "fled"
+	var charging: bool = hz and bool(r["running"]) and st != "melee" and not routing and cl.has("hz_charge")
 	if not routing:
 		v["ac_face"] = facing
 	elif v.has("ac_face"):
@@ -515,11 +584,25 @@ static func _update_cav(bv, i: int, v: Dictionary, r: Dictionary, dt: float, vt:
 	var side: int = r["side"]
 	var fi := float(i)
 	var vmax := maxf(spd_base, 1.0) * 1.35
+	var mt: PackedFloat32Array = v["ac_mt"]; var rel: PackedFloat32Array = v["ac_rel"]; var hit_t: PackedFloat32Array = v["ac_hit"]
+	var seen: PackedFloat32Array = v["ac_seen"]
+	var roll: PackedFloat32Array = v["ac_roll"]; var pitch: PackedFloat32Array = v["ac_pitch"]
+	var pyaw: PackedFloat32Array = v["ac_py"]; var psp: PackedFloat32Array = v["ac_psp"]
+	if hz:
+		# hit reaction: a rider whose file / rank neighbour just fell flinches (same rule as the infantry kinds)
+		for k in n:
+			if dead[k] >= 0.0 and seen[k] < 0.0:
+				seen[k] = dead[k]
+				for nb in [k - 1, k + 1, k - files, k + files]:
+					if nb >= 0 and nb < n and dead[nb] < 0.0 and (nb / files == k / files or nb % files == k % files):
+						if h(float(nb), dead[k]) < 0.6 and vt - hit_t[nb] > 1.0:
+							hit_t[nb] = dead[k] + 0.05
 	for k in n:
 		var p: Vector2 = pos[k]
 		var dk := dead[k]
-		var c := Vector2.ZERO; var ct := 0.0; var spd := 1.0
+		var c := Vector2.ZERO; var ct := 0.0; var spd := 1.0; var dying := false
 		if dk < 0.0 and die_t0 >= 0.0 and vt >= die_t0 + h(float(k), fi + 131.0) * 1.5:
+			dying = true
 			# dying / dead horse + rider: play the collapse once from its own start time, then hold the body
 			var dtk := die_t0 + h(float(k), fi + 131.0) * 1.5
 			var hv := h(float(k), fi + 137.0)
@@ -564,46 +647,55 @@ static func _update_cav(bv, i: int, v: Dictionary, r: Dictionary, dt: float, vt:
 			yaw[k] = rotate_toward(yaw[k], atan2(-face.x, -face.y), CAV_TURN * dt)
 			# ---- gait state machine (phase-continuous, transitions at the cycle wrap)
 			var s := sf[k]
-			if st == "melee" and s < 1.5 and tr[k] < 0:
+			var in_melee := st == "melee" and tr[k] < 0 and (s < 0.4 or (not hz and s < 1.5) or (hz and g[k] == 0 and s < 1.5))
+			if hz and not in_melee and mt[k] >= 0.0:
+				mt[k] = -1.0; rel[k] = vt   # out of contact: the sword goes back (hz_ready_idle) if still standing
+			if in_melee and hz:
+				g[k] = 0
+				var mc := _hz_melee(bv, model, cl, k, files, fi, vt, phase[k], mt, hit_t[k])
+				c = Vector2(mc.x, mc.y); ct = mc.z; spd = mc.w
+			elif in_melee:
 				g[k] = 0
 				c = _clip(bv, model, "hv_melee"); ct = -phase[k] * 3.0
 			else:
-				var want := _gait_want(g[k], s)
+				var want := _gait_want_hz(g[k], s, charging) if hz else _gait_want(g[k], s)
 				dw[k] = (dw[k] + dt) if want != g[k] else 0.0
 				if tr[k] >= 0:
-					var tn := _tr_name(g[k], tr[k])
+					var tn := _tr_name(g[k], tr[k], pre)
 					var dur := (float(cl[tn]["count"]) - 1.0) / 24.0 / trs[k]
 					if vt - trt[k] >= dur:
 						var over := vt - trt[k] - dur
 						g[k] = tr[k]; tr[k] = -1
 						ph[k] = 0.0
 						if g[k] > 0:
-							var cg: Dictionary = cl["hv_" + GAITS[g[k]]]
+							var cg: Dictionary = cl[pre + GAITS[g[k]]]
 							ph[k] = fposmod(over * trs[k] * 24.0 / float(cg["count"]), 1.0)
 					else:
 						c = _clip(bv, model, tn); ct = trt[k]; spd = trs[k]
 				if tr[k] < 0:
 					if g[k] == 0:
-						c = _clip(bv, model, "hv_stand"); ct = -phase[k] * 4.0
-						if want > 0 and dw[k] > 0.15:
+						c = _clip(bv, model, pre + "stand"); ct = -phase[k] * 4.0
+						if hz and vt - rel[k] < _cdur(cl, "hz_ready_idle"):
+							c = _clip(bv, model, "hz_ready_idle"); ct = rel[k]
+						elif want > 0 and dw[k] > 0.15:
 							tr[k] = 1; trt[k] = vt; trs[k] = 1.0; dw[k] = 0.0
-							c = _clip(bv, model, _tr_name(0, 1)); ct = vt
+							c = _clip(bv, model, _tr_name(0, 1, pre)); ct = vt
 					else:
-						var cg: Dictionary = cl["hv_" + GAITS[g[k]]]
+						var cg: Dictionary = cl[pre + GAITS[g[k]]]
 						var cnt := float(cg["count"])
-						spd = clampf(s / float(cg["v_nom"]), 0.7, 1.6 if g[k] == 4 else 1.45)
+						spd = clampf(s / float(cg["v_nom"]), 0.7, 1.6 if g[k] >= 4 else 1.45)
 						var nph := ph[k] + dt * spd * 24.0 / cnt
 						if nph >= 1.0 and want != g[k] and dw[k] >= GAIT_DWELL:
 							var to := g[k] + (1 if want > g[k] else -1)
 							tr[k] = to; trt[k] = vt; dw[k] = 0.0
 							var s2 := 1.0
 							if to > 0:
-								s2 = clampf(s / float(cl["hv_" + GAITS[to]]["v_nom"]), 0.7, 1.6 if to == 4 else 1.45)
+								s2 = clampf(s / float(cl[pre + GAITS[to]]["v_nom"]), 0.7, 1.6 if to >= 4 else 1.45)
 							trs[k] = (spd + s2) * 0.5 if to > 0 else spd
-							c = _clip(bv, model, _tr_name(g[k], to)); ct = vt; spd = trs[k]
+							c = _clip(bv, model, _tr_name(g[k], to, pre)); ct = vt; spd = trs[k]
 						else:
 							ph[k] = fposmod(nph, 1.0)
-							c = _clip(bv, model, "hv_" + GAITS[g[k]])
+							c = _clip(bv, model, pre + GAITS[g[k]])
 							ct = vt - ph[k] * cnt / (24.0 * spd)
 		if hidden and dk < 0.0 and die_t0 < 0.0:
 			continue
@@ -611,13 +703,32 @@ static func _update_cav(bv, i: int, v: Dictionary, r: Dictionary, dt: float, vt:
 		var d2 := cpos.distance_to(Vector3(p.x, y, p.y))
 		var lod := 1 if d2 > bv.LOD_DIST else 0
 		if dk >= 0.0:
-			c = _clip(bv, model, "die"); ct = dk; spd = 1.0
+			if hz:   # killed in action: one of the three falls (rider thrown / horse collapses), by hash
+				var hd := h(float(k), fi + 141.0)
+				c = _clip(bv, model, "cv_die_a" if hd < 0.34 else ("cv_die_b" if hd < 0.67 else "cv_die_c"))
+			else:
+				c = _clip(bv, model, "die")
+			ct = dk; spd = 1.0
 		var mmk := "%s|%d|%d" % [model, side, lod]
 		if i == 0 and k == dbg_k:
 			dbg = {"key": mmk, "slot": int(bv.mms[mmk]["n"]), "start": c.x, "cnt": c.y, "ct": ct, "spd": spd, "g": g[k], "tr": tr[k], "s": sf[k], "pos": p}
-		bv._put(bv.mms[mmk], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd), Color(1, 1, 1, 1))
+		if hz:
+			# turn lean + accel pitch (presentation; smoothed, zero for the dead / dying)
+			var lr := 0.0; var lp := 0.0
+			var sp2 := vel[k].length()
+			if dk < 0.0 and not dying and dt > 0.0:
+				var om := angle_difference(pyaw[k], yaw[k]) / dt
+				lr = clampf(HZ_LEAN * atan(sp2 * om / 9.8), -HZ_LEAN_MAX, HZ_LEAN_MAX)
+				lp = clampf(-(sp2 - psp[k]) / dt * HZ_PITCH, -0.05, 0.07)
+			pyaw[k] = yaw[k]; psp[k] = sp2
+			roll[k] = lerpf(roll[k], lr, minf(dt * 4.0, 1.0)); pitch[k] = lerpf(pitch[k], lp, minf(dt * 3.0, 1.0))
+			_put_tilt(bv.mms[mmk], yaw[k], Vector3(p.x, y, p.y), roll[k], pitch[k], Vector4(c.x, c.y, ct, spd))
+		else:
+			bv._put(bv.mms[mmk], yaw[k], Vector3(p.x, y, p.y), 1.0, Vector4(c.x, c.y, ct, spd), Color(1, 1, 1, 1))
 		# dust under fast cavalry: the legacy draw, same condition and order
 		if dk < 0.0 and not hidden and r["moving"] and bv.rng.randf() < dt * 0.6:
 			bv.puff("mix", Vector3(p.x, y + 0.4, p.y), Vector3(0, 0.6, 0), 2.5, 1.0, 3.5, Color(0.55, 0.47, 0.36, 0.45))
 	v["pos"] = pos; v["yaw"] = yaw; v["ac_vel"] = vel; v["ac_g"] = g; v["ac_tr"] = tr
 	v["ac_ph"] = ph; v["ac_trt"] = trt; v["ac_trs"] = trs; v["ac_dw"] = dw; v["ac_sf"] = sf
+	v["ac_mt"] = mt; v["ac_rel"] = rel; v["ac_hit"] = hit_t; v["ac_seen"] = seen
+	v["ac_roll"] = roll; v["ac_pitch"] = pitch; v["ac_py"] = pyaw; v["ac_psp"] = psp

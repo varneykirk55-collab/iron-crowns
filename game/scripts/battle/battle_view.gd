@@ -25,6 +25,7 @@ var biome := {}          # data-driven battlefield biome (BattleEnvironment.biom
 var env := {}            # BattleEnvironment layout / plan / nodes (render only: no collision, sim never reads it)
 var _scatter_dry := false
 const AC := preload("res://scripts/battle/anim_combat.gd")   # combat animation v1 (Rob), ON by default; --no-anim-v1 disables (AC.resolve_on)
+const CavV2 := preload("res://scripts/battle/cavalry_v2.gd")   # cavalry animation overhaul (Rob), ON by default; --no-cav-v2 -> legacy cavalry VATs
 const CREW_MODEL := {"medieval": "med_archer", "early_modern": "em_gunner", "c19": "c19_artillery", "c20": "c20_rifle", "modern": "mod_rifle"}
 const POWDER := {"medieval": 0.0, "early_modern": 1.0, "c19": 1.0, "c20": 0.35, "modern": 0.2}
 
@@ -78,6 +79,7 @@ var player_side := 0
 # ======================================================================== setup
 func setup(battle_id: int) -> void:
 	AC.on = AC.resolve_from_runtime()   # default ON; --no-anim-v1 / --anim-v1=off / IRONCROWNS_ANIM_V1=0 turn it off
+	CavV2.on = CavV2.resolve_from_runtime()   # default ON (needs anim v1); --no-cav-v2 / IRONCROWNS_CAV_V2=0 -> legacy cavalry
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--lod-dist="): LOD_DIST = float(a.substr(11)); _lod_forced = true; _lod_forced_dist = LOD_DIST
 	add_to_group("battle_view")
@@ -309,12 +311,12 @@ func _build_scenery() -> void:
 func _vat_model(name: String) -> Dictionary:
 	if vat.has(name):
 		return vat[name]
-	var prefix := "cavalry_" if name in ["med_knight", "em_cuirassier", "c19_hussar"] else "soldier_"
-	var d := {"mesh": [], "tex": [], "json": []}
+	var fs: Array = CavV2.files_for(name, AC.on)   # cavalry: HX bake (cav v2) or the legacy cavalry_<name>; others soldier_<name>
+	var d := {"mesh": [], "tex": [], "json": [], "files": fs}
 	for lod in 2:
-		d["mesh"].append(_mesh_of("res://assets/models/%s%s_lod%d.glb" % [prefix, name, lod]))
-		var j: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/vat/%s_lod%d.json" % [name, lod]))
-		var bytes := FileAccess.get_file_as_bytes("res://assets/vat/%s_lod%d.vat" % [name, lod])
+		d["mesh"].append(_mesh_of("res://assets/models/%s_lod%d.glb" % [fs[0], lod]))
+		var j: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/vat/%s_lod%d.json" % [fs[1], lod]))
+		var bytes := FileAccess.get_file_as_bytes("res://assets/vat/%s_lod%d.vat" % [fs[1], lod])
 		var img := Image.create_from_data(int(j["vertices"]), int(j["frames"]), false, Image.FORMAT_RGBF, bytes)
 		d["tex"].append(ImageTexture.create_from_image(img))
 		d["json"].append(j)
