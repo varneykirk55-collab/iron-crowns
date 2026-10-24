@@ -332,17 +332,19 @@ def hair_field(which='mane'):
             pts = push_out(hd, np.array([p0, p1, p2]), 0.012, 10)
             Hh.u(S.chain(list(map(tuple, pts)), [0.020, 0.016, 0.006]), 0.012, 'forelock')
     else:
-        # tail: dock wrapped in hair, then a full rounded switch (locks spread in x AND y) tapering to a tip
-        for k in range(22):
-            a = 2 * math.pi * k / 22 + 0.3 * rng.random()
-            ca, sa = math.cos(a), math.sin(a)
-            p0 = np.array([0.026 * ca, -0.745 + 0.018 * sa, 1.275])
-            p1 = np.array([0.040 * ca, -0.84 + 0.035 * sa, 1.10])
-            p2 = np.array([0.060 * ca + 0.012 * rng.standard_normal(), -0.90 + 0.050 * sa, 0.82])
-            p3 = np.array([0.050 * ca + 0.015 * rng.standard_normal(), -0.93 + 0.040 * sa - 0.02 * rng.random(),
-                           0.42 + 0.06 * rng.random()])
-            Hh.u(S.chain([tuple(p0), tuple(p1), tuple(p2), tuple(p3)], [0.030, 0.036, 0.034, 0.012]), 0.020, 'tail')
+        # tail: one tapered volume (full at the middle, narrower from behind) + a few loose locks for a ragged tip
+        spine = [(0, -0.745, 1.325), (0, -0.82, 1.18), (0, -0.885, 0.95), (0, -0.925, 0.70), (0, -0.945, 0.50)]
+        Hh.u(S.chain(spine, [0.050, 0.058, 0.072, 0.066, 0.030], (0.78, 1.0, 1.0)), 0.03, 'tail')
+        for k in range(6):
+            a = 2 * math.pi * k / 6 + 0.4
+            dx, dy = 0.035 * math.cos(a), 0.03 * math.sin(a)
+            p0 = (dx, -0.92 + dy, 0.72); p1 = (dx * 1.2, -0.935 + dy, 0.55)
+            p2 = (dx * 0.9 + 0.01 * rng.standard_normal(), -0.945 + dy, 0.40 + 0.06 * rng.random())
+            Hh.u(S.chain([p0, p1, p2], [0.030, 0.024, 0.008]), 0.03, 'tail')
     def grooves(P, d):
+        if which == 'tail':   # lock grooves running down the tail (8 around), a little twist with height
+            ang = np.arctan2(P[:, 0] / 0.78, P[:, 1] + 0.90 + 0.04 * (1.3 - P[:, 2]))
+            return d + 0.0065 * np.sin(8 * ang + 3.0 * P[:, 2]) * np.clip((1.25 - P[:, 2]) / 0.15, 0, 1)
         g = 0.0016 * np.sin(P[:, 0] * 260 + P[:, 1] * 40) + 0.0012 * np.sin(P[:, 1] * 300 + P[:, 2] * 90)
         return d + g
     Hh.post(grooves)
@@ -351,7 +353,7 @@ def hair_field(which='mane'):
 def hair_part(which='mane'):
     Hh = hair_field(which)
     st = C.VOXEL['hair']
-    lo, hi = ((-0.20, 0.30, 1.0), (0.22, 1.12, 1.92)) if which == 'mane' else ((-0.14, -1.06, 0.32), (0.14, -0.66, 1.36))
+    lo, hi = ((-0.20, 0.30, 1.0), (0.22, 1.12, 1.92)) if which == 'mane' else ((-0.14, -1.06, 0.32), (0.14, -0.66, 1.40))
     F, lo, st = Hh.grid(lo, hi, st)
     V, Q = nets(F, lo, st)
 
@@ -368,7 +370,7 @@ def hair_part(which='mane'):
         for b, v in wt.items():
             out[b] = out.get(b, 0) + np.where(tail, v, 0)
         return out
-    return {'name': which, 'layer': 'horse_hair', 'geo': (V, Q), 'smooth': 1, 'voxel': C.VOXEL['hair'] * 0.8, 'lod_voxel': (1.0, 1.5, 2.2), 'sym': False, 'solidify': 0,
+    return {'name': which, 'layer': 'horse_hair', 'geo': (V, Q), 'budget': {'mane': (760, 128, 44), 'tail': (1140, 128, 44)}[which], 'smooth': 1, 'voxel': C.VOXEL['hair'] * 0.8, 'lod_voxel': (1.0, 1.5, 2.2), 'sym': False, 'solidify': 0,
             'cls': lambda Pc: np.full(len(Pc), MAT_HAIR), 'col': col, 'w': w, 'wsmooth': 2, 'hair': True}
 
 # ---------------------------------------------------------------------------------------------------------------------

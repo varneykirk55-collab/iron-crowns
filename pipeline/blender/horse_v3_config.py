@@ -232,7 +232,7 @@ LOD = {   # triangle targets for the SDF (voxel) layers; parametric layers are s
 # variant; LOD1 horse + tack <= 1.5k; LOD2 horse + tack <= 0.6k.  (Rider + weapon budgets are separate.)
 VBUDGET = {
     'horse_body':   (3500, 640, 240),
-    'horse_hair':   (820, 150, 55),
+    'horse_hair':   (1000, 150, 55),   # pass 2: tail takes ~180 verts of the LOD0 headroom
     'horse_eyes':   (70, 0, 0),
     'tack_1800':    (1480, 690, 290),   # glb export adds ~10 % (UV / colour splits): 1.7k exported cap
     'tack_1300':    (880, 400, 160),
