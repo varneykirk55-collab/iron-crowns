@@ -194,7 +194,7 @@ def breastplate(tree, hi=False):
             ang = lerp(0.0, math.pi * 0.92, u)   # sweep over the shoulder, front -> back
             c = V(s * 0.105, 0.0, 1.30)
             o = c + V(0, math.cos(ang), math.sin(ang)) * 0.5
-            h = V3P.surf(tree, o, c - o, 0.0035)
+            h = V3P.surf(tree, o, c - o, 0.0105)   # clears the sleeve / doublet puffs
             if h: pn.append(h)
         pn = [(p0, (p0 - V(0, 0, p0.z)).normalized())] + [q for q in pn if q[0].y < p0.y - 0.01]
         out.append(V3P.ribbon('lpstrap', pn, 0.024, hi, th=0.003, slot='cartbox'))
@@ -295,7 +295,7 @@ def beret(hi=False):
         return 'felt'
     out = [V3P.orient_out(grid_sweep('lpberet', rings_, closed_u=True, cap0=True, cap1=True, slot=sl))]
     # two curling ostrich plumes laid over the brim from the front-left, drooping behind
-    for k, (slot, a0, sc) in enumerate((('plume', 2.15, 1.0), ('coat', 2.45, 0.86))):
+    for k, (slot, a0, sc) in enumerate((('plume', 2.15, 1.0), ('sash', 2.45, 0.86))):
         pth = []
         for m in range(9):
             u = m / 8
@@ -308,7 +308,7 @@ def beret(hi=False):
         for m in range(ns + 1):
             u = m / ns
             w = (0.010 + 0.028 * math.sin(math.pi * min(1.0, u * 1.15)) ** 0.7) * sc
-            if hi: w *= 1.0 + 0.22 * abs(math.sin(u * 55.0))   # fluffy barbs
+            
             prof_.append((u, w, 0.0055, 0.0055))
         out.append(limb('lpplume', pth, prof_, ns, 8 if hi else 6, fwd=BER_R @ V(0, 0, 1), slot=slot, e=2.6))
     return out

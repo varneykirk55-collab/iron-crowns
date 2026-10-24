@@ -1,5 +1,5 @@
 {
- "vertices": 7390,
+ "vertices": 7426,
  "fps": 24,
  "clips": {
   "idle": {
@@ -1379,12 +1379,12 @@
   ]
  },
  "weapon_tip_note": "per clip, per frame position of the unweighted 'weapon_tip' bone (child of prop, bayonet tip) in the same Godot model space as the .vat rows",
- "tris": 11224,
- "near_verts": 5823,
- "mid_verts": 6952,
+ "tris": 11288,
+ "near_verts": 5855,
+ "mid_verts": 6986,
  "tris_mid": 1996,
- "tris_far": 691,
- "tris_stored": 13911,
+ "tris_far": 692,
+ "tris_stored": 13976,
  "maps": {
   "nrm": "v3_em_musket_nrm.vtex",
   "id": "v3_em_musket_id.vtex",
@@ -1415,12 +1415,12 @@
   [
    -0.5999244451522827,
    -0.13070976734161377,
-   -1.4466075897216797
+   -1.4464901685714722
   ],
   [
-   0.9889150857925415,
+   0.9896832704544067,
    2.328092098236084,
-   1.3663349151611328
+   1.3679791688919067
   ]
  ],
  "max_reach": 1.005

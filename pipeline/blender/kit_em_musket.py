@@ -261,7 +261,7 @@ def hat(hi=False):
     for m in range(ns + 1):
         u = m / ns
         w = 0.004 + 0.013 * math.sin(math.pi * min(1.0, u * 1.08)) ** 0.8
-        if hi: w *= 1.0 + 0.18 * abs(math.sin(u * 70.0))
+        
         prof.append((u, w, 0.0045, 0.0045))
     out.append(limb('lmhat.plume', pth, prof, ns, 8 if hi else 6, fwd=HAT_R @ V(0, 0, 1), slot='plume', e=2.6))
     return out
