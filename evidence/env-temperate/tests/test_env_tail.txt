@@ -1,0 +1,20 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[GameData] loaded 641 provinces, 189 countries, 346 sea zones in 239 ms
+== Biome selection (present biome files: ["boreal", "temperate", "east_asia", "tropical"]) ==
+  [PASS] every province maps to a known biome profile  -- 0 unknown
+  [PASS] every Nordic province (Norway/Sweden/Denmark/Finland/Åland) gets the boreal biome  -- 21/21
+  [PASS] provinces of a present biome get it, absent biomes keep the legacy ground
+  [PASS] every model a present biome references exists  -- []
+  [PASS] all eras get the biome (no era gate)
+  [PASS] profile follows the data (Oslo: higher mountains than Malmö)  -- malmo 180.0 oslo 917.6
+== Determinism ==
+  [PASS] boreal: same seed -> identical plan, different seed -> different plan  -- 3a4af47aa9587b718a2853b1eecd23a4
+  [PASS] temperate: same seed -> identical plan, different seed -> different plan  -- 6e91f3e4e734da53601dfa82951f81ec
+  [PASS] tropical: same seed -> identical plan, different seed -> different plan  -- 1d090e4d64ba840b1a98cd8fc4a49615
+  [PASS] east_asia: same seed -> identical plan, different seed -> different plan  -- 1d601458fa395d98d39249bd746aabcd
+== Obstacle clearance over real battles ==
+  [PASS] no fighting regiment footprint ever meets an obstacle  -- min clearance 82.5 m over 71316 samples, 761689 obstacles
+  [INFO] routing regiments: min clearance 81.6 m, 0 overlapping samples (props are render-only; no sim effect)
+
+==== test_env: 0 failures ====
