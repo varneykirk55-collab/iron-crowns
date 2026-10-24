@@ -37,7 +37,11 @@ Stills: `xvfb-run -a -s "-screen 0 1600x1600x24" $G --path game --resolution 120
       the existing cavalry rig via v3_rider.py (variant med_knight lance clips, no rig/clip changes). Horse body/mane/tail
       and generic tack = the shared kit-3 horse code unchanged (horses are Bill's; no barding). tris 9399 / 1989 / 686
 - [x] push + report (kits 5-6): 54ef049 (knight) + 232d933 (archer); tests 163/163, outcome hash + 3 sim hashes = main
-- [~] 7 musketeer + pikeman (1500) units em_musket / em_pike (Landsknechte, c.1500-1520; low gathered shirt neck on both)
+- [x] 7 musketeer + pikeman (1500) units em_musket / em_pike (Landsknechte, c.1500-1520; low gathered shirt neck on both)
+  - [x] 7a pikeman     kid v3_em_pike    (kit_em_pike.py): team doublet with slashed puffed upper sleeves, low neck over a
+        gathered shirt, slashed Pluderhose, mi-parti lower hose + garters, Kuhmaul shoes, globose breastplate on straps,
+        slashed beret + two plumes, Katzbalger on a sword belt, ash pike with langets. Assets = the neck-fix rebuild
+        committed in 15fbdef (unchanged). tris 11420 / 1992 / 693
   - [x] 7b musketeer   kid v3_em_musket  (kit_em_musket.py): team slashed doublet (stacked puffs, spiral forearms, chest
         chevrons), gathered shirt + frill, paned upper hose, saffron lower hose, latchet shoes, broad felt hat + feather,
         powder flask / ball bag / slow match / Bauernwehr, matchlock arquebus. Rebuilt with the neck fix. tris 11288 / 1998 / 689

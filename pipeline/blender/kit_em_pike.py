@@ -2,7 +2,7 @@
 Patches char_v2 (loaded by char_v2_build.py when V3_KIT=kit_em_pike). Only the base human (MakeHuman head / eyes /
 hands, ear fix), body cage, rig and material library are shared; every garment / item is built fresh here:
   * doublet in the team colour: big puffed upper sleeves slashed lengthwise over a pale linen lining, tight forearm,
-    rows of short slashes across the back; low neck over a white linen shirt with a small stand collar
+    rows of short slashes across the back; low neck over a gathered white linen shirt (no stand collar)
   * puffed, slashed upper hose (Pluderhose to the knee, team panels over the lining); mi-parti lower hose (right leg
     off-white, left leg red) with cloth garters tied below the knee
   * blunt, broad-toed 'cow-mouth' (Kuhmaul) shoes
