@@ -48,8 +48,8 @@ The demo scene is `game/tests/anim_demo.tscn --scene=cav`. The sim never makes c
 
 | File | What it shows |
 |---|---|
-| `knight_gaits_side.mp4` / `hussar_gaits_side.mp4` | Side tracking cam on a front-rank horse: stand → walk (≈4–13 s) → trot (≈15–24 s) → canter (≈26–31 s) → gallop (≈33–38 s) → decelerate to stand (≈39–48 s) |
-| `knight_walk.mp4`, `knight_trot.mp4`, `knight_gallop.mp4` (and `hussar_*`) | Clips cut from the gaits_side videos |
+| `knight_gaits_side.mp4` / `hussar_gaits_side.mp4` | Side tracking cam on a front-rank horse: stand → walk (≈4–13 s) → trot (≈15–24 s) → canter (≈26–31 s) → gallop (≈33–38 s) → decelerate to stand (≈39–48 s). Filmed from the sun-lit flank (`anim_demo --sideflip`, demo-only camera flag) |
+| `knight_walk.mp4`, `knight_trot.mp4`, `knight_gallop.mp4` (and `hussar_*`) | Clips cut from the gaits_side videos: walk 4–13 s, trot 15–24 s, gallop 32–39 s |
 | `knight_turn_stop.mp4` / `hussar_turn_stop.mp4` | The formation wheels at a trot, then halts at about 24 s |
 | `knight_combat.mp4` / `hussar_combat.mp4` | Charge into infantry, melee, horse and rider deaths |
 | `knight_multi.mp4` / `hussar_multi.mp4` | 4 cavalry regiments vs 3 infantry regiments |
@@ -60,4 +60,4 @@ The demo scene is `game/tests/anim_demo.tscn --scene=cav`. The sim never makes c
 - Perf was measured on shared llvmpipe (load 12–17), so frame times are noisy. The GPU cost has not been measured on real hardware. The HX vertex count is about 2.7–3.1× the legacy count.
 - The legacy (`--no-cav-v2`) hv cavalry never returns to the stand clip (threshold −0.05). This is **out of scope and not fixed**; it is only noted here.
 - Demo HUD text ("Battle of Moscow", Russia vs Canada) is a demo placeholder.
-- In the multi videos the battle ends at about 27 s, so the last seconds show the post-battle state.
+- In `knight_multi` the battle ends at about 27 s, so the last seconds show the post-battle state. `hussar_multi` is trimmed to 0–19 s: the hussars rout off-frame at about 18 s.

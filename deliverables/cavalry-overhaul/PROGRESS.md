@@ -9,3 +9,8 @@ Times are America/New_York.
 - 2026-10-23 21:10 — knight_multi.mp4 (4 knight regts vs 3 levies) recorded + checked: 4 units charge/melee/pursue, no rig pops; battle ends ~27 s so the tail is post-battle. Hussar set recording.
 - 2026-10-23 21:23 — hussar_turn_stop.mp4 recorded + checked (the wheel turns, the trot is clean, the halt is square with riders seated). README now has the videos and known-issues sections.
 - 2026-10-23 21:34 — hussar_combat.mp4 checked: the charge into 1800 musket line, volleys, horse falls with the rider thrown, the regiment routs; the sim outcome is unchanged. hussar_multi.mp4 trimmed to 0–19 s because the hussars rout off-frame under fire by about 18 s and the rest is empty field (full take kept off-repo). Waiting on lit gaits_side re-records (rec_flip.sh).
+
+## 2026-10-23 21:49 EDT — lit gait videos
+- knight_gaits_side / hussar_gaits_side re-recorded from the sun-lit flank (--sideflip). Self-checked (stand → walk → trot → canter → gallop → stop, rider seated).
+- Cuts: knight_/hussar_ walk (4–13 s), trot (15–24 s), gallop (32–39 s).
+- Integration worktree /workspace/ic_cav_int (branch rob/cavalry-integration) started on Bill's ab70c61.
