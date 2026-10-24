@@ -1,9 +1,9 @@
-# Horse skeleton spec v1 (`hx` rig): the shared contract for the new horse
+# Horse skeleton spec v1.2 (`hx` rig): the shared contract for the new horse
 
 - Owners:
   - **Rob:** rig behaviour, locomotion, rider sync and cavalry combat animation (`pipeline/blender/horse_rig.py`, `horse_anim.py`, `game/scripts/battle/anim_combat.gd`).
   - **Bill** (horse mesh specialist, branch `agent/horse-visual-overhaul`): horse mesh, tack meshes and materials.
-- **Status:** v1 proposal. The bone list below is final unless Bill and Rob agree a change. Neither side renames or reparents a bone on its own. New bones may only be added as **leaf helpers**.
+- **Status:** v1.2 (v1.1 + Bill's asks of 2026-10-23: VAT/normals format (section 3), per-LOD vertex/frame budgets (section 6), one combined bake vs two batches (section 9)). The bone list below is final unless Bill and Rob agree a change. Neither side renames or reparents a bone on its own. New bones may only be added as **leaf helpers**.
 - **Agreed with Bill (2026-10-23):**
   1. Bill builds the mesh on main (`agent/horse-visual-overhaul`). The v3 riders (proto/eras-v3) come in at integration.
   2. The horse has its own armature. The char_rig rider is parented to the `rider_seat` socket.
@@ -11,7 +11,7 @@
   4. There are no new rider bones. `rein_hand.L/R` are horse sockets that the rider's `hand.L/R` snap to, and the reins run from `rein_bit` to `rein_hand`.
   - Scale: keep the current horse scale (withers about 1.55 m), with the seated hip at 1.488 m.
 - **Source of truth in code:** `pipeline/blender/horse_rig.py` `HX_BONES`. This table mirrors it.
-- **Legacy:** the legacy horse (`pipeline/blender/cavalry.py`, 2-segment legs, rows 0–569) stays untouched and is the **fallback**. The new rig lives in new model ids `hx_<variant>`. The runtime uses them only when the switch is on (see section 8).
+- **Legacy:** the legacy horse (`pipeline/blender/cavalry.py`, 2-segment legs, rows 0–569) stays untouched and is the **fallback**. The new rig lives in new **asset files** `hx_<variant>` (section 6). At runtime they are loaded under the **legacy model key** (`med_knight`, `c19_hussar`, `em_cuirassier`) when the switch is on (sections 8 and 9), so unit defs, multimesh keys and `render_models` do not change.
 
 ## 1. Conventions
 - **Units and axes:** metres, Blender axes. The horse faces **+Y**, **Z is up**, and **+X is the horse's RIGHT**. This matches `char_rig.py`: `.R` = +X and `.L` = −X.
@@ -91,7 +91,12 @@
 - **Bake:**
   - `horse_anim.py` evaluates the poses in Python and skins the vertices with numpy LBS, using the mesh's own vertex groups. This is the same maths as Blender's Armature modifier without preserve volume.
   - A Bill mesh with vertex groups named after these bones therefore bakes with no code change.
-- **Per-frame normals:** `.vatn` (rgba8, like c19sr) is **recommended for the final mesh**, because the smooth horse needs it for shading. The proxy bakes positions only (rest normals), the same as the legacy horse.
+- **Positions (`.vat`) — same as the v3 humans (`char_build.py bake`):** float32 RGB, Godot coords `(x, z, −y)`, texel (vertex id, row), width = vertex count, height = total rows, 24 fps. The VID is UV2.x = (vi + 0.5)/n (UV2.y = team amount), so glTF vertex splitting does not matter.
+- **Normals (`.vatn`) — match the v3 humans' method exactly:** RGBA8, `n * 0.5 + 0.5` in Godot coords, alpha 255, same rows/cols as `.vat`, json key `"normals": "vatn rgba8 (n*0.5+0.5), same rows/cols as .vat"`.
+  - v3 reads Blender's evaluated vertex normals of the Armature-deformed mesh. `horse_anim.py` skins in numpy (no depsgraph), so it recomputes the same thing per frame: angle-weighted face normals of the deformed triangles accumulated per vertex (Blender's vertex-normal rule), then normalised. Acceptance test in the bake: on 3 frames per clip, dot(numpy normal, Blender evaluated normal) ≥ 0.999 for every vertex.
+  - Hard edges (tack, armour plates, hooves): Bill marks them sharp and splits them in the mesh (Edge Split applied), so each side has its own vertex and normal. No custom split normals (they cannot survive a per-vertex VAT).
+  - Shading: the hx material samples the two neighbouring rows and normalises the mix, the same as `char_vat.gdshaderinc` (`CHAR_NRM1` = one nearest fetch for LOD1). It lives in a new Rob file `game/shaders/hx_vat.gdshader`; BJORN's char_vat shader is not edited.
+  - The current proxy bakes positions only (flat shading from the legacy `vat.gdshader`). `.vatn` lands with Bill's mesh, because the proxy is faceted on purpose.
 
 ## 4. Rider
 - **Skeleton:** the full infantry `char_rig.py` human skeleton (`root hips spine chest neck head clav.* upper_arm.* forearm.* hand.* thigh.* shin.* foot.* prop`), with **no renames**.
@@ -119,24 +124,25 @@
 | hx_em_cuirassier | 1650 | cuirassier (cuirass, lobster pot) | broadsword / – | troop saddle, holsters |
 
 ## 6. Mesh layers, budgets (Bill's mesh) and VAT sizes
-- **Mesh delivery:** Bill builds on main (`agent/horse-visual-overhaul`). The mesh comes as **separate layers**:
-  - `body`: horse flesh, weighted to horse bones only;
-  - `tack`: saddle, stirrups, reins, bridle, weighted to `saddle`, `stirrup.L/R`, `rein_01..04.*`, `rein_bit`, `bridle` and `head`;
-  - `barding`: caparison, chanfron, shabraque, weighted to the trunk bones and `saddle`.
+- **Mesh delivery (Bill):** a .blend (or glb) in the section 1 rest pose with separate objects per layer, vertex groups named after section 2 bones and sockets, ≤ 4 weights per vertex:
+  - `body`: horse flesh, weighted to horse bones only (shared by all eras);
+  - `tack_<era>`: saddle, stirrups, reins, bridle, weighted to `saddle`, `stirrup.L/R`, `rein_01..04.*`, `rein_bit`, `bridle` and `head`;
+  - `barding_<era>`: caparison, chanfron, shabraque, weighted to the trunk bones and `saddle`;
+  - one coat material (shader class `MAT_HIDE` = 8, coat variants by parameter); tack uses the existing material ids (UV.y).
   - Bill's notes: `docs/horse_mesh_notes.md` on his branch.
-- **Bake:** the new pipeline (`horse_anim.py`) re-bakes **all** clips for the hx rig. It takes any number of layers, each with its own vertex groups (horse bones, sockets and tack bones), plus the rider layer on the rider armature. The legacy 144-frame `cavalry_anim_combat.py` path is kept only as the legacy fallback.
-- **Triangles:**
-  - horse LOD0 6–8k tris, plus tack 2–3k per era;
-  - LOD1 ~2.5k, LOD2 < 1k (LOD2 = far set inside LOD1, like c19sr's near/mid/far);
-  - one shared coat material with parameter variants (shader `horse_coat`, class `MAT_HIDE` = 8).
-- **VAT size check:**
-  - Texture width = Blender vertex count. Keep each VAT ≤ **8192 vertices wide**: GL Compatibility guarantees 8192, and desktop is usually 16384.
-  - LOD0 is about 4.5k horse verts + 1.5k tack + about 6k rider. That is over 8k if horse, tack and rider are combined, so the final asset must use **split VATs**:
-    - `hx_horse_lod*`: horse flesh, shared by every era;
-    - `hx_<variant>_tack_rider_lod*`: tack, rider and weapons.
-    - They share the same row table and are drawn as two MultiMeshes with identical instance data (an integration task, Rob).
-  - Rows: the current hx clip set is ~900 rows. At float32 that is LOD0 4.5k × 900 × 12 B ≈ 49 MB for the horse and ≈ 81 MB per rider kit. **Recommended:** half-float VATs (RGBH, 6 B), which give ~1 mm precision within ±4 m and halve this. This is a renderer switch on integration.
-- The proxy used for development is small (about 4k tris and 2.3k verts total), so it bakes combined.
+- **Bake:** `horse_anim.py` re-bakes **all** clips for the hx rig, horse + tack + barding + rider + weapon **into one VAT per variant and LOD file** (section 9). The legacy 144-frame `cavalry_anim_combat.py` path stays only as the fallback.
+- **Budgets per LOD** (tris = Bill's targets; VAT verts = Blender vertex count after the sharp-edge split, ≈ 0.55 × tris for this kind of mesh). The width cap is hard: **≤ 8,192 VAT vertices per file** (our safety line for GL Compatibility; llvmpipe and desktop GPUs give 16,384).
+
+  | file | set (drawn) | horse body | tack + barding (per era) | rider + weapon (v3) | file total |
+  |---|---|---|---|---|---|
+  | `hx_<v>_lod0` | LOD0, camera < `LOD_DIST` | 6–8k tris, ≤ 4.4k verts | 2–3k tris, ≤ 1.7k verts | ≤ 3.0k tris, ≤ 2.1k verts (= v3 near set, c19sr_line 2,081 v) | ≤ 14k tris, **≤ 8,192 verts** |
+  | `hx_<v>_lod1`, set 1 | LOD1, `LOD_DIST` .. far switch | ~2.5k tris (horse + tack), ≤ 1.5k verts | (included) | ≤ 1.4k tris, ≤ 0.9k verts (= v3 mid set) | ≤ 4k tris, ≤ 2.4k verts |
+  | `hx_<v>_lod1`, set 2 | LOD2, beyond the far switch | < 1k tris (horse + tack), ≤ 0.6k verts | (included) | ≤ 0.6k tris, ≤ 0.45k verts (= v3 far set, 432 v) | < 1.6k tris, ≤ 1.05k verts |
+
+  - LOD2 lives **inside** the LOD1 file as a second vertex set (json `near_verts` = end of set 1), exactly like c19sr's near/mid/far sets: the hx shader collapses the set not drawn. `battle_view` keeps its two LOD files, so `_vat_model` needs no third LOD.
+  - Proxy today (for scale): knight LOD0 1,548 verts / 2,598 tris, LOD1 905 / 1,421 (hussar 1,412 / 2,395 and 856 / 1,360; cuirassier 1,387 and 824 verts).
+- **Frame budget:** one row table per variant, identical in its LOD files, 24 fps, append-only. **≤ 768 rows per variant.** Today: knight 697 rows (its draw / ready_idle are 12 frames longer: lance → sword), hussar and cuirassier 673. `docs/cav/HX_CLIPS.md` is the table.
+- **Memory at the caps (float32 `.vat` 12 B + `.vatn` 4 B per vertex-row):** LOD0 8,192 × 768 × 16 B ≈ 101 MB, LOD1 ≈ 3.45k × 768 × 16 B ≈ 42 MB per variant. A battle loads only the variants on the field (normally one era). The realistic mesh (~7k LOD0 verts × ~700 rows) is ≈ 78 MB + 30 MB. If that is too heavy, the agreed fallback is half-float positions (RGBH, 6 B, ~1 mm at ±4 m) in `hx_vat.gdshader` only, which cuts it by about 40%. That switch needs no change from Bill.
 
 ## 7. Clip table (hx models)
 See `docs/cav/HX_CLIPS.md`, which is generated by the bake and lists names, rows, frames, loop, `v_nom` and event times (strike contact frame).
@@ -147,4 +153,27 @@ See `docs/cav/HX_CLIPS.md`, which is generated by the bake and lists names, rows
   - `IRONCROWNS_CAV_V2=0/1`;
   - project setting `iron_crowns/battle/cav_v2`.
 - **Fallback:** with anim v1 off, the legacy horse and the legacy loop are used, unchanged. A missing hx asset also falls back to the legacy model.
-- **Presentation only:** BattleSim, rng order and outcomes are identical whichever horse is drawn.
+- **Presentation only:** BattleSim, rng order and outcomes are identical whichever horse is drawn. Verified on `d51e69e`: all BATTLERESULT (SWE1300/1650/1800, USA1914) and reinforce hashes equal main 41bdd75 with cav v2 on, `--no-cav-v2` and `--no-anim-v1`.
+- **Code:** `game/scripts/battle/cavalry_v2.gd` (`CavV2.resolve_on`, `files_for`, `has_assets`). BattleView.setup applies it after `AC.on`.
+
+## 9. One combined bake vs two VAT batches (horse | rider): decision
+**Recommendation: one combined bake per variant (horse + tack + barding + rider + weapon in one VAT and one glb), drawn as one MultiMesh batch per model|side|LOD. This is what is implemented.**
+
+| | A: one combined bake (recommended) | B: two batches (shared `hx_horse` + `hx_<v>_kit`) |
+|---|---|---|
+| draw calls | 1 per model / side / LOD (same as legacy cavalry) | 2 per model / side / LOD |
+| sync | horse and rider cannot drift: one instance, one custom-data clip/time | two MultiMeshes must be written with identical transform + clip data every frame (`_put` twice per rider) |
+| row tables | per variant: the horse can react to its rider (knight 36-frame draw, per-weapon strike lunge, per-kit death falls) | the horse table is shared, so every kit is locked to the same clip lengths and the horse cannot follow per-weapon timing |
+| `_vat_model` (battle_view.gd) | unchanged API. One line: `CavV2.files_for(name, AC.on)` picks `cavalry_hx_<name>_lod<n>.glb` + `hx_<name>_lod<n>.{vat,vatn,json}` under the legacy key | must load two sets per name (`vat[name]["horse"]`), `_build_reg` reserves a second multimesh key (e.g. `med_knight~horse\|side\|lod`), `_size_mms`, LOD switch and `BattleVisuals.apply` idempotence all handle two keys |
+| fingerprints | multimesh keys unchanged, so `render_models` and BATTLERESULT are unchanged (verified) | the extra multimesh key appears in `verification_summary().render_models`, so BATTLERESULT changes unless the summary is edited to fold it |
+| width | must fit 8,192 verts per file (the budget above does) | more headroom (horse and kit each ≤ 8k) |
+| memory | horse verts are stored once per variant (×3 if all three eras load) | the horse is stored once |
+
+- **Why A:** it cannot desync, has half the batches, keeps per-variant horse motion, needs no change to battle_view's model keys or to the fingerprinted summary, and is already implemented and verified. B's only wins are width headroom and horse memory. The budget above removes the width issue. The memory one is per loaded variant (normally one), and half-float positions cover it if needed.
+- **Asset naming (final):**
+  - `game/assets/models/cavalry_hx_<variant>_lod{0,1}.glb` (static rest mesh with VID UV2, layers merged)
+  - `game/assets/models/cavalry_hx_<variant>_rigged.glb` + `blend/cavalry_hx_<variant>.blend` (skinned rest-pose handoff: hx armature + rider on `rider_seat`)
+  - `game/assets/vat/hx_<variant>_lod{0,1}.vat` / `.vatn` / `.json` (json: `vertices, fps, frames, aabb, clips{start,count,loop,v_nom?}, layers, near_verts?, normals?`). `layers` is a name list today; it becomes `{name: [v0, v1)}` vertex ranges with Bill's mesh)
+  - variants: `med_knight`, `c19_hussar`, `em_cuirassier`. The legacy `cavalry_<variant>` / `<variant>` files stay as the fallback.
+- **Layers stay separable:** the json `layers` (vertex ranges from the mesh bake on) and the source .blend keep body / tack / barding / rider / weapon apart, so a later split into B is a bake option, not a re-model.
+
