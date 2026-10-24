@@ -17,6 +17,9 @@
 ### Region: east_asia (env/east_asia)
 - New `east_asia` biome: East Asian hill-country biome (Japan, Taiwan, Korea, eastern / southern China): sugi, red pine, evergreen broadleaf, maple, bamboo, sasa, azalea, susuki, mossy andesite, humid light; latitude gradient Hokkaido -> Okinawa / Taiwan. Render only. Evidence: evidence/env-east_asia/.
 
+### Region: mediterranean (env/mediterranean; branch only, NOT on main until all regions are complete)
+- New `mediterranean` biome (the Med basin 30-45 N, California, central Chile, southern Australia): summer-dry hill country with olive groves, umbrella pines and cypress lines, dark holm-oak woods and maquis, low garrigue, pale karst limestone and red terra-rossa soil. Sub-regions from province data: coast, sub-Mediterranean interior (Atlantic N Spain, Pyrenees, Balkan interior: deciduous oak + black pine), Anatolian / Caucasus plateau (open scrub oak, juniper, cushion steppe), California (live oak, valley oak, grey pine, chaparral; pinyon-juniper on the high Great Basin side), Chile (matorral), Australia (eucalypt woodland, mallee / saltbush). Wet / dry season from the battle month and hemisphere (north dry Jun-Oct; `--env-season=wet|dry`). 15 procedural models in `pipeline/blender/env_mediterranean.py`; no shader changes. Rendering only; sim hashes and BATTLERESULT unchanged. Evidence: `evidence/env-mediterranean/`.
+
 ## v0.6.0 — 2026-10-23 (UI and main menu refinement)
 Presentation only: battle logic, movement, reinforcement, AI, economy and diplomacy calculations are unchanged (`sim_hash` fingerprints are identical to v0.5.0).
 ### Design system
