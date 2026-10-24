@@ -31,6 +31,9 @@
 - Framework: optional `lone_n` profile field (default 90, so other biomes are unchanged).
 - Rendering only; sim hashes and BATTLERESULT unchanged. Evidence: `evidence/env-steppe/` (tests, battle-result check, perf numbers; no images or videos, per Kirk's 9:24 PM directive).
 
+### Region: arid (env/arid; merged to main 2026-10-23 on Kirk's instruction)
+- New `arid` biome for every `desert`-tagged province plus Arabia / Mexican plateau: dry earth / gravel-pavement mosaic with drift sand on crests, regional scrub (saguaro / creosote / prickly pear / mesquite in the Americas; acacia, date palm, tamarisk, saltbush in N Africa / Arabia; saxaul, poplar oases in Central Asia; spinifex + mulga in Australia), sandstone boulders and banded mesa outcrops, harsh dusty light. Graded by a desert `core` factor so semi-arid margins get more grass and softer light. 20 procedural models (`pipeline/blender/env_arid.py`), terrain `lichen` / `lichen_amt` uniforms (defaults = old look). Rendering only; sim hashes unchanged. Evidence: `evidence/env-arid/`.
+
 ## v0.6.0 — 2026-10-23 (UI and main menu refinement)
 Presentation only: battle logic, movement, reinforcement, AI, economy and diplomacy calculations are unchanged (`sim_hash` fingerprints are identical to v0.5.0).
 ### Design system

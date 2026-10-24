@@ -16,6 +16,8 @@ uniform vec3 rock : source_color = vec3(0.47, 0.46, 0.43);
 uniform vec3 scree : source_color = vec3(0.42, 0.4, 0.36);
 uniform vec3 snow_col : source_color = vec3(0.9, 0.92, 0.95);
 uniform vec3 far_forest : source_color = vec3(0.13, 0.19, 0.11);
+uniform vec3 lichen : source_color = vec3(0.45, 0.47, 0.36);   // rock lichen tint (biomes: dust / varnish)
+uniform float lichen_amt = 0.4;
 uniform float dryness = 0.25;
 uniform float snow_h = 1000.0;
 uniform float treeline = 600.0;
@@ -78,7 +80,7 @@ void fragment() {
 	// rock: steep slopes + the granite knoll shows through as polished slabs
 	float rk = smoothstep(0.22, 0.42, slope + (n3 - 0.5) * 0.18) + knoll * smoothstep(0.55, 0.7, n2 * 0.6 + n3 * 0.4);
 	vec3 rc = rock * mix(0.78, 1.08, n3) * mix(0.92, 1.05, n4);
-	rc = mix(rc, vec3(0.45, 0.47, 0.36), smoothstep(0.6, 0.8, n2) * 0.4 * (1.0 - slope));   // lichen
+	rc = mix(rc, lichen, smoothstep(0.6, 0.8, n2) * lichen_amt * (1.0 - slope));   // lichen
 	g = mix(g, rc, clamp(rk, 0.0, 1.0));
 	// alpine: above the treeline grass gives way to heath / scree, summer snow only on the highest peaks + gullies
 	float alp = smoothstep(treeline * 0.9, treeline * 1.25, wpos.y + (n2 - 0.5) * 80.0);
