@@ -34,23 +34,22 @@ def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 def all_bones():
-    bones = [(n, h, t, p, d) for n, h, t, p, d in C.BONES] + [(n, h, t, p, d) for n, h, t, p, d in C.SOCKETS]
-    for side in ('R', 'L'):
-        prev = 'head'
-        for name, a, b in HP.rein_bones(side):
-            bones.append((name, tuple(a), tuple(b), prev, True))
-            prev = name
-    return bones
+    """modelling-frame segments used for weighting (anatomical bones, sockets, spec tail / rein chains)."""
+    return list(C.BONES) + list(C.SOCKETS) + list(C.MODEL_EXTRA_BONES)
+
+NON_DEFORM = {'root', 'rider_seat', 'lance', 'bridle'}
 
 def build_armature():
+    """the exported armature is Rob's HX rig (spec v1.2 coords and names, C.SPEC_BONES)."""
     arm = bpy.data.armatures.new('horse_v3_rig')
     rig = bpy.data.objects.new('horse_v3_rig', arm)
     bpy.context.scene.collection.objects.link(rig)
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode='EDIT')
     eb = {}
-    for n, h, t, p, d in all_bones():
-        b = arm.edit_bones.new(rn(n))
+    for n, h, t, p in C.SPEC_BONES:
+        d = n not in NON_DEFORM
+        b = arm.edit_bones.new(n)
         b.head = Vector(h); b.tail = Vector(t)
         if (b.tail - b.head).length < 1e-4:
             b.tail = b.head + Vector((0, 0.05, 0))
@@ -170,7 +169,7 @@ def process(part, lod, target):
             m = ob.modifiers.new('sm', 'SMOOTH'); m.factor = 0.5; m.iterations = part['smooth']
         if part.get('voxel'):
             # surface-nets output has non-manifold edges that stall collapse decimation: voxel remesh first
-            m = ob.modifiers.new('rm', 'REMESH'); m.mode = 'VOXEL'; m.voxel_size = part['voxel']; m.adaptivity = 0.0
+            m = ob.modifiers.new('rm', 'REMESH'); m.mode = 'VOXEL'; m.voxel_size = part['voxel'] * (part.get('lod_voxel') or (1, 1, 1))[lod]; m.adaptivity = 0.0
             m.use_smooth_shade = True
         me = _eval_mesh(ob)
         ntri = sum(len(p.vertices) - 2 for p in me.polygons)
@@ -179,9 +178,37 @@ def process(part, lod, target):
         bpy.context.scene.collection.objects.link(ob)
         ratio = target / max(ntri, 1)
         if ratio < 0.999:
-            m = ob.modifiers.new('dec', 'DECIMATE'); m.decimate_type = 'COLLAPSE'; m.ratio = max(ratio, 0.002)
-            if part.get('sym'):
-                m.use_symmetry = True; m.symmetry_axis = 'X'
+            # chain collapse stages of ratio >= ~0.15 (one very small ratio stalls on these meshes), then tighten the
+            # last stage until the result fits (+8 %); fall back to non-symmetric collapse if symmetry gets stuck
+            stages = max(1, int(math.ceil(math.log(ratio) / math.log(0.15))))
+            r1 = ratio ** (1.0 / stages)
+            mods = []
+            for k in range(stages):
+                m = ob.modifiers.new('dec%d' % k, 'DECIMATE'); m.decimate_type = 'COLLAPSE'; m.ratio = r1
+                if part.get('sym'):
+                    m.use_symmetry = True; m.symmetry_axis = 'X'
+                mods.append(m)
+            m = mods[-1]
+            def count():
+                me2 = _eval_mesh(ob)
+                n = sum(len(p.vertices) - 2 for p in me2.polygons)
+                bpy.data.meshes.remove(me2)
+                return n
+            for attempt in range(2):
+                for _ in range(6):
+                    nt2 = count()
+                    if nt2 <= target * 1.08:
+                        break
+                    m.ratio = max(m.ratio * target / nt2 * 0.97, 0.01)
+                if nt2 <= target * 1.08 or not part.get('sym'):
+                    break
+                for mm in mods:
+                    mm.use_symmetry = False
+                m.ratio = r1
+    if part.get('sharp'):
+        # spec v1.2: normals are recomputed per frame in the bake -> hard edges must be real splits
+        m = ob.modifiers.new('es', 'EDGE_SPLIT'); m.split_angle = math.radians(part['sharp'])
+        m.use_edge_angle = True; m.use_edge_sharp = True
     m = ob.modifiers.new('tri', 'TRIANGULATE')
     me = _eval_mesh(ob)
     Vo, T, fc = _read(me)
@@ -241,7 +268,7 @@ def build_layer_object(name, datas, rig, coll):
         for cn, c in d['coats'].items():
             coats.setdefault(cn, []).append((sum(len(x['T']) for x in datas[:i]) * 3, c))
         o += len(d['V'])
-    V = np.concatenate(V); T = np.concatenate(T); fm = np.concatenate(fm); rgb = np.concatenate(rgb)
+    V = C.WARP(np.concatenate(V)); T = np.concatenate(T); fm = np.concatenate(fm); rgb = np.concatenate(rgb)
     team = np.concatenate(team); u = np.concatenate(u); pid = np.concatenate(pid)
     me = bpy.data.meshes.new(name)
     me.vertices.add(len(V)); me.vertices.foreach_set('co', V.ravel())
@@ -283,7 +310,7 @@ def build_layer_object(name, datas, rig, coll):
     ob.parent = rig
     md = ob.modifiers.new('rig', 'ARMATURE'); md.object = rig
     ob['parts'] = json.dumps([d['name'] for d in datas])
-    return ob, len(T)
+    return ob, len(T), len(V)
 
 def vcol_material():
     if 'VertexColour' in bpy.data.materials:
@@ -315,20 +342,30 @@ def main():
         stats['lods'][lod] = {}
         for lname, parts in layers.items():
             target = LAYER_TARGET[lname][lod]
-            if target <= 0:
+            vb = C.VBUDGET[lname][lod]
+            if vb <= 0:
                 continue
-            # parametric parts first; fixed per-part budgets next; remainder split over SDF parts by raw size
-            gen_tris = 0
-            for p in parts:
-                if 'gen' in p:
-                    g = p['gen'](lod)
-                    if g is not None:
-                        gen_tris += tri_count_raw(g[1])
+            parts = [p for p in parts if lod not in p.get('skip', ())]
             geo = [p for p in parts if 'geo' in p]
             fixed = sum(p['budget'][lod] for p in geo if 'budget' in p)
             free = [p for p in geo if 'budget' not in p]
             raw = sum(len(p['geo'][1]) for p in free)
-            rest = max(0, target - gen_tris - fixed)
+            free_t = target if free else 0
+            # vertex budget (spec v1.2 counts Blender verts after splits): pick the largest parametric resolution
+            # multiplier that fits; SDF parts are estimated at ~0.52 verts / tri
+            for res in C.RES_STEPS:
+                HP.PM.RES = res
+                gv = 0
+                for p in parts:
+                    if 'gen' in p:
+                        g = p['gen'](lod)
+                        if g is not None:
+                            gv += len(g[0]) * p.get('vmul', 1.0)
+                est = gv + 0.52 * (fixed + free_t)
+                if est <= vb:
+                    break
+            log('LOD%d %-13s RES %.2f est %d / budget %d verts' % (lod, lname, HP.PM.RES, est, vb))
+            stats.setdefault('res', {}).setdefault(lname, {})[lod] = HP.PM.RES
             datas = []
             for p in parts:
                 if 'gen' in p:
@@ -336,14 +373,14 @@ def main():
                 elif 'budget' in p:
                     r = p['budget'][lod]
                 else:
-                    r = rest * len(p['geo'][1]) / max(raw, 1)
+                    r = free_t * len(p['geo'][1]) / max(raw, 1)
                 if lname == 'horse_body' and lod == 0 and ctx.body is None:
                     pass
                 d = part_data(p, lod, r, ctx)
                 if d is None:
                     continue
                 datas.append(d)
-                stats['parts'].setdefault(lname, {}).setdefault(p['name'], {})[lod] = int(len(d['T']))
+                stats['parts'].setdefault(lname, {}).setdefault(p['name'], {})[lod] = [int(len(d['T'])), int(len(d['V']))]
                 if lname == 'horse_body':
                     kd = kdtree.KDTree(len(d['V']))
                     for i, v in enumerate(d['V']):
@@ -352,10 +389,11 @@ def main():
                     ctx.body = (kd, d['V'], d['W'])
             if not datas:
                 continue
-            ob, nt = build_layer_object('%s_lod%d' % (lname, lod), datas, rig, coll)
+            HP.PM.RES = 1.0
+            ob, nt, nv = build_layer_object('%s_lod%d' % (lname, lod), datas, rig, coll)
             lod_objs[lod].append(ob)
-            stats['lods'][lod][lname] = nt
-            log('LOD%d %-13s %6d tris  parts %s' % (lod, lname, nt, [(d['name'], len(d['T'])) for d in datas]))
+            stats['lods'][lod][lname] = {'tris': nt, 'verts': nv}
+            log('LOD%d %-13s %6d tris %5d verts  parts %s' % (lod, lname, nt, nv, [(d['name'], len(d['T']), len(d['V'])) for d in datas]))
     # export
     for lod in (0, 1, 2):
         bpy.ops.object.select_all(action='DESELECT')
@@ -373,8 +411,25 @@ def main():
         bpy.data.collections['LOD%d' % lod].hide_render = True
         bpy.data.collections['LOD%d' % lod].hide_viewport = True
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'horse_v3.blend'), compress=True)
-    stats['sockets'] = {n: {'head': list(h), 'tail': list(t), 'parent': p} for n, h, t, p, d in C.SOCKETS}
-    stats['bones'] = [rn(b[0]) for b in bones]
+    stats['sockets'] = {n: {'head': list(h), 'tail': list(t), 'parent': p} for n, h, t, p in C.SPEC_BONES
+                        if n in C.SOCKET_NAMES}
+    stats['bones'] = [b[0] for b in C.SPEC_BONES]
+    groups = {}
+    for lod in (0, 1, 2):
+        for o in lod_objs[lod]:
+            groups[o.name] = sorted(g.name for g in o.vertex_groups)
+    stats['vertex_groups'] = groups
+    spec_names = set(stats['bones'])
+    stats['unknown_groups'] = sorted({g for v in groups.values() for g in v if g not in spec_names})
+    # per-variant totals (verts), spec v1.2 budgets: LOD0 horse <= 4.4k, tack+barding <= 1.7k; LOD1 horse+tack
+    # <= 1.5k; LOD2 horse+tack <= 0.6k
+    L = stats['lods']
+    def tot(lod, names):
+        return sum(L[lod][n]['verts'] for n in names if n in L[lod])
+    horse = ['horse_body', 'horse_hair', 'horse_eyes']
+    stats['totals'] = {v: {lod: {'horse': tot(lod, horse), 'kit': tot(lod, kit), 'horse+kit': tot(lod, horse + kit)}
+                           for lod in (0, 1, 2)}
+                       for v, kit in (('hx_c19_hussar', ['tack_1800']), ('hx_med_knight', ['tack_1300', 'barding_1300']))}
     with open(os.path.join(OUT, 'horse_v3_stats.json'), 'w') as f:
         json.dump(stats, f, indent=1)
     log('done', json.dumps(stats['lods']))

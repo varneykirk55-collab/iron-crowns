@@ -324,5 +324,5 @@ EYES = [((sx * 0.092, 1.125, 1.675), 0.021) for sx in (1, -1)]
 CHAINS = {
     'torso': ['pelvis', 'spine01', 'spine02', 'chest'],
     'neck': ['chest', 'neck01', 'neck02', 'neck03', 'head'],
-    'tail': ['pelvis', 'tail01', 'tail02', 'tail03', 'tail04'],
+    'tail': ['pelvis', 'tail_01', 'tail_02', 'tail_03'],
 }

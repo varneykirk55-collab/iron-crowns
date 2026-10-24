@@ -19,7 +19,7 @@ CFG = {
     'side':       ('bay',      ['horse_body', 'horse_hair', 'horse_eyes'], (4.6, 0.20, 1.05), (0, 0.18, 1.0), 50),
     'front34':    ('chestnut', ['horse_body', 'horse_hair', 'horse_eyes'], (2.7, 3.6, 1.55), (0, 0.15, 1.0), 50),
     'rear34':     ('grey',     ['horse_body', 'horse_hair', 'horse_eyes'], (2.6, -3.6, 1.65), (0, -0.15, 0.95), 50),
-    'head':       ('dark_bay', ['horse_body', 'horse_hair', 'horse_eyes'], (1.05, 2.05, 1.85), (0, 1.12, 1.58), 70),
+    'head':       ('dark_bay', ['horse_body', 'horse_hair', 'horse_eyes'], (1.10, 2.15, 1.95), (0, 1.20, 1.66), 70),
     'medieval':   ('grey',     ['horse_body', 'horse_eyes', 'tack_1300', 'barding_1300'], (3.6, 2.9, 1.65), (0, 0.10, 1.0), 50),
     'napoleonic': ('bay',      ['horse_body', 'horse_hair', 'horse_eyes', 'tack_1800'], (3.7, 2.6, 1.6), (0, 0.10, 1.0), 50),
 }
@@ -96,7 +96,10 @@ sc.render.resolution_x = RES; sc.render.resolution_y = int(RES * 0.75)
 sc.view_settings.view_transform = 'AgX'; sc.view_settings.look = 'AgX - Medium High Contrast'
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
 
-lod0 = {o.name.rsplit('_lod', 1)[0]: o for o in bpy.data.collections['LOD0'].objects}
+LOD = int(os.environ.get('HV3_LOD', '0'))   # 1 / 2: quick looks at the lower LODs (file names get _lodN)
+for i in (0, 1, 2):
+    bpy.data.collections['LOD%d' % i].hide_render = (i != LOD)
+lod0 = {o.name.rsplit('_lod', 1)[0]: o for o in bpy.data.collections['LOD%d' % LOD].objects}
 tackmat = mk_mat('prev_tack', 'Col')
 for v in VIEWS:
     coat, layers, loc, tgt, lens = CFG[v]
@@ -108,6 +111,6 @@ for v in VIEWS:
         o.data.materials.append(bodymat if name in ('horse_body', 'horse_hair', 'horse_eyes') else tackmat)
     cam.location = Vector(loc); cam.data.lens = lens
     cam.rotation_euler = (Vector(tgt) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
-    sc.render.filepath = os.path.join(OUTDIR, 'horse_v3_%s.png' % v)
+    sc.render.filepath = os.path.join(OUTDIR, 'horse_v3_%s%s.png' % (v, '_lod%d' % LOD if LOD else ''))
     bpy.ops.render.render(write_still=True)
     print('rendered', sc.render.filepath, flush=True)

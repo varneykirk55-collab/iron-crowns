@@ -22,3 +22,4 @@ out/
 # split transfer parts
 deliverables/**/*.zip.0*
 deliverables/**/laptop_xfer/
+*.blend1

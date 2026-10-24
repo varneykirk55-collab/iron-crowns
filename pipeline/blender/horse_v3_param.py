@@ -55,9 +55,12 @@ def arc_resample(curve, s_targets):
     return np.stack([np.interp(s_targets, L, curve[:, i]) for i in range(3)], -1), L[-1]
 
 # ---------------------------------------------------------------------------------------------------------------------
-def grid_mesh(G, fcls, thick, outward_ref=None, rim_cls=None):
-    """G (nr, nc, 3) sheet -> closed slab of given thickness (inner layer offset along -normal).
-    fcls (nr-1, nc-1) class codes.  outward_ref: point inside the body, used to orient normals outward."""
+SINGLE_SIDED = True   # VAT vertex budget (spec v1.2): cloth sheets are one surface; the hx shader must draw both sides
+
+def grid_mesh(G, fcls, thick, outward_ref=None, rim_cls=None, single=None):
+    """G (nr, nc, 3) sheet -> closed slab of given thickness (inner layer offset along -normal), or (single /
+    SINGLE_SIDED) just the outer surface.  fcls (nr-1, nc-1) class codes.  outward_ref: point inside the body."""
+    single = SINGLE_SIDED if single is None else single
     nr, nc, _ = G.shape
     # vertex normals from grid tangents
     du = np.gradient(G, axis=1); dv = np.gradient(G, axis=0)
@@ -70,6 +73,20 @@ def grid_mesh(G, fcls, thick, outward_ref=None, rim_cls=None):
         s = np.sign(np.sum((G - ref) * Nn, axis=2).mean())
         Nn = Nn * (s if s != 0 else 1)
     idx = np.arange(nr * nc).reshape(nr, nc)
+    if single:
+        F = []; C = []
+        for j in range(nr - 1):
+            for i in range(nc - 1):
+                a, b, c, d = idx[j, i], idx[j, i + 1], idx[j + 1, i + 1], idx[j + 1, i]
+                F.append([a, b, c, d]); C.append(fcls[j, i])
+        F = np.array(F)
+        # orient along Nn
+        fa = G.reshape(-1, 3)
+        e1 = fa[F[:, 1]] - fa[F[:, 0]]; e2 = fa[F[:, 2]] - fa[F[:, 0]]
+        fn = np.cross(e1, e2); vn = Nn.reshape(-1, 3)[F[:, 0]]
+        if np.sum(np.sum(fn * vn, 1)) < 0:
+            F = F[:, ::-1]
+        return G.reshape(-1, 3).copy(), F, np.array(C, int)
     Vo = G.reshape(-1, 3); Vi = (G - thick * Nn).reshape(-1, 3)
     V = np.concatenate([Vo, Vi], 0); off = nr * nc
     F = []; C = []
@@ -92,8 +109,9 @@ def grid_mesh(G, fcls, thick, outward_ref=None, rim_cls=None):
     # orientation: outer faces must face along Nn
     return V, F, np.array(C, int)
 
-def ribbon(path, normals, half_w, half_t, cls_code, closed=False):
-    """flat strap following path, lying on the surface with the given normals -> (V, F, fcls)."""
+def ribbon(path, normals, half_w, half_t, cls_code, closed=False, flat=False):
+    """strap following path, lying on the surface with the given normals -> (V, F, fcls).  flat: one outward-facing
+    strip (2 verts per section, lifted by half_t) for straps that lie on the coat."""
     p = np.asarray(path, float); n = np.asarray(normals, float)
     T = np.gradient(p, axis=0)
     if closed:
@@ -104,6 +122,18 @@ def ribbon(path, normals, half_w, half_t, cls_code, closed=False):
     B = np.cross(T, n)
     hw = np.broadcast_to(np.asarray(half_w, float), (len(p),))[:, None]
     ht = np.broadcast_to(np.asarray(half_t, float), (len(p),))[:, None]
+    if flat:
+        V = np.stack([p + hw * B + ht * n, p - hw * B + ht * n], 1).reshape(-1, 3)
+        M = len(p); F = []
+        for i in (range(M) if closed else range(M - 1)):
+            i2 = (i + 1) % M
+            F.append([i * 2, i2 * 2, i2 * 2 + 1, i * 2 + 1])
+        F = np.array(F)
+        e1 = V[F[:, 1]] - V[F[:, 0]]; e2 = V[F[:, 2]] - V[F[:, 0]]
+        if np.sum(np.cross(e1, e2) * n[F[:, 0] // 2]) < 0:
+            F = F[:, ::-1]
+        cc = np.broadcast_to(np.asarray(cls_code), (len(F),)) if np.ndim(cls_code) == 0 else np.asarray(cls_code)
+        return V, F, np.array(cc, int)
     corners = [p + hw * B + ht * n, p - hw * B + ht * n, p - hw * B - ht * n, p + hw * B - ht * n]
     V = np.stack(corners, 1).reshape(-1, 3)
     F = []; M = len(p)
@@ -149,5 +179,7 @@ def join3(*ms):
         V.append(np.asarray(v, float)); F += [[int(i) + o for i in face] for face in f]; C += list(c); o += len(v)
     return np.concatenate(V, 0), F, np.array(C, int)
 
+RES = 1.0   # global resolution multiplier (budget search in horse_v3.py)
+
 def lod_n(n0, lod, scale=(1.0, 0.5, 0.28), minimum=3):
-    return max(minimum, int(round(n0 * scale[lod])))
+    return max(minimum, int(round(n0 * scale[lod] * RES)))

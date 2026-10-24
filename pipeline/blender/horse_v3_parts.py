@@ -248,12 +248,12 @@ def body_part():
                 out[n] = out.get(n, 0) + W[:, i]
         return out
 
-    return {'name': 'body', 'layer': 'horse_body', 'geo': (V, Q), 'smooth': 3, 'sym': True, 'solidify': 0, 'voxel': C.VOXEL['body'] * 0.9,
+    return {'name': 'body', 'layer': 'horse_body', 'geo': (V, Q), 'smooth': 3, 'sym': True, 'solidify': 0, 'voxel': C.VOXEL['body'] * 0.9, 'lod_voxel': (1.0, 1.5, 2.2),
             'cls': cls, 'col': col, 'w': w, 'wsmooth': 4, 'coat': True}
 
 def eye_part():
     def gen(lod):
-        segs, rings = ((10, 6), (6, 4), (0, 0))[lod]
+        segs, rings = ((8, 5), (0, 0), (0, 0))[lod]
         if segs == 0:
             return None
         Vs = []; Fs = []
@@ -314,9 +314,9 @@ def hair_field():
         ox, oz = 0.03 * math.cos(a), 0.025 * math.sin(a)
         p0 = np.array([ox, -0.74 + 0.02 * math.sin(a), 1.31 + oz])
         p1 = np.array([1.4 * ox, -0.86, 1.10 + oz])
-        p2 = np.array([2.0 * ox + 0.01 * rng.standard_normal(), -0.90 - 0.02 * rng.random(), 0.86 + oz])
-        p3 = np.array([2.4 * ox + 0.015 * rng.standard_normal(), -0.90 - 0.03 * rng.random(), 0.58 + 0.04 * rng.random()])
-        Hh.u(S.chain([tuple(p0), tuple(p1), tuple(p2), tuple(p3)], [0.032, 0.030, 0.022, 0.008]), 0.012, 'tail')
+        p2 = np.array([2.0 * ox + 0.01 * rng.standard_normal(), -0.91 - 0.02 * rng.random(), 0.82 + oz])
+        p3 = np.array([2.7 * ox + 0.02 * rng.standard_normal(), -0.93 - 0.03 * rng.random(), 0.43 + 0.05 * rng.random()])
+        Hh.u(S.chain([tuple(p0), tuple(p1), tuple(p2), tuple(p3)], [0.032, 0.034, 0.028, 0.010]), 0.012, 'tail')
     # strand grooves
     def grooves(P, d):
         g = 0.0016 * np.sin(P[:, 0] * 260 + P[:, 1] * 40) + 0.0012 * np.sin(P[:, 1] * 300 + P[:, 2] * 90)
@@ -327,7 +327,7 @@ def hair_field():
 def hair_part():
     Hh = hair_field()
     st = C.VOXEL['hair']
-    lo, hi = (-0.20, -1.05, 0.50), (0.22, 1.12, 1.92)
+    lo, hi = (-0.20, -1.08, 0.32), (0.22, 1.12, 1.92)
     F, lo, st = Hh.grid(lo, hi, st)
     V, Q = nets(F, lo, st)
 
@@ -337,14 +337,14 @@ def hair_part():
     def w(P, ctx):
         tail = (P[:, 1] < -0.6)
         out = {}
-        wt = ctx.chain(P, ['tail01', 'tail02', 'tail03', 'tail04'], 0.07)
+        wt = ctx.chain(P, C.TAIL_CHAIN, 0.07)
         wb = ctx.transfer(P)
         for b, v in wb.items():
             out[b] = out.get(b, 0) + np.where(tail, 0, v)
         for b, v in wt.items():
             out[b] = out.get(b, 0) + np.where(tail, v, 0)
         return out
-    return {'name': 'hair', 'layer': 'horse_hair', 'geo': (V, Q), 'smooth': 1, 'voxel': C.VOXEL['hair'] * 0.8, 'sym': False, 'solidify': 0,
+    return {'name': 'hair', 'layer': 'horse_hair', 'geo': (V, Q), 'smooth': 1, 'voxel': C.VOXEL['hair'] * 0.8, 'lod_voxel': (1.0, 1.5, 2.2), 'sym': False, 'solidify': 0,
             'cls': lambda Pc: np.full(len(Pc), MAT_HAIR), 'col': col, 'w': w, 'wsmooth': 2, 'hair': True}
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -433,24 +433,20 @@ def rein_path(side, low=0.0, hand_dx=0.0):
     return _rein_cache[key].copy()
 
 def _rein_path(side, low, hand_dx):
+    """spec rest rein (bit ring -> rein_hand line, sag 0.10 * 4t(1-t)) built in spec coords, inverse-warped to the
+    modelling frame, then kept off the neck (push_out; ends stay on the bit ring / rein_hand)."""
     sx = 1 if side == 'R' else -1
-    soc = {n: (np.array(h), np.array(t)) for n, h, t, p, d in C.SOCKETS}
-    bit = soc['rein_bit'][0]
-    a = np.array([sx * C.BIT_RING_X, bit[1] - 0.012, bit[2] - 0.018 - low])
-    b = soc['rein_hand.' + side][0] + np.array([-sx * hand_dx, 0, 0])
+    a = np.array([sx * C.SPEC_BIT_RING_X, 1.30, 1.44 - low]); b = np.array([sx * (0.09 - hand_dx), 0.40, 1.66])
     t = np.linspace(0, 1, 40)[:, None]
-    p = a * (1 - t) + b * t
-    p[:, 2] -= 0.05 * np.sin(math.pi * t[:, 0]) ** 1.5          # slack
-    p = push_out(hd, p, 0.022, 14)
-    p = smooth_path(p, 3)
-    return push_out(hd, p, 0.020, 6)
+    ps = a * (1 - t) + b * t
+    ps[:, 2] -= 0.10 * 4 * t[:, 0] * (1 - t[:, 0])
+    p = C.to_model(ps)
+    q = push_out(hd, p, 0.020, 14)
+    q[0] = p[0]; q[-1] = p[-1]
+    return q
 
 def rein_bones(side):
-    """(name, head, tail) for rein.<side>.01..N following the rein path (config REIN_SEGS)."""
-    p = rein_path(side)
-    L = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(p, axis=0), axis=1))])
-    cuts = [np.array([np.interp(L[-1] * k / C.REIN_SEGS, L, p[:, i]) for i in range(3)]) for k in range(C.REIN_SEGS + 1)]
-    return [('rein.%s.%02d' % (side, k + 1), cuts[k], cuts[k + 1]) for k in range(C.REIN_SEGS)]
+    return [(n, np.array(h), np.array(t)) for n, h, t, par, d in C.MODEL_EXTRA_BONES if n.startswith('rein_') and n.endswith(side)]
 
 # ---------------------------------------------------------------------------------------------------------------------
 # saddle cores (SDF) – the hussar tree hides under the sheepskin; the 1300 war saddle is the visible saddle
@@ -520,9 +516,10 @@ def hn(P):
 def part_gen(name, layer, gen, w, col):
     cache = {}
     def cached(lod):
-        if lod not in cache:
-            cache[lod] = gen(lod)
-        return cache[lod]
+        k = (lod, PM.RES)
+        if k not in cache:
+            cache[k] = gen(lod)
+        return cache[k]
     return {'name': name, 'layer': layer, 'gen': cached, 'w': w, 'col': col, 'cls': None}
 
 def code_col(table):
@@ -649,7 +646,7 @@ def strap(name, layer, pts, off, half_w, half_t, code, res, w, col, closed=False
         p = resample(base, n) if not closed else resample(np.concatenate([base, base[:1]], 0), n + 1)[:-1]
         if project:
             p = S.project(hd, p, off + half_t, 4)
-        return PM.ribbon(p, hn(p), half_w, half_t, code, closed=closed)
+        return PM.ribbon(p, hn(p), half_w, half_t, code, closed=closed, flat=True)
     return part_gen(name, layer, gen, w, col)
 
 def section_path(center, normal, a0, a1, off, n=60, down=(0, 0, -1.0)):
@@ -699,7 +696,7 @@ def bridle_parts(layer, rgb, noseband, brass):
             n = PM.lod_n(60 if not closed else 40, lod, minimum=6)
             q = resample(p, n) if not closed else resample(p, n + 1)[:-1]
             q = S.project(hd, q, BRIDLE_OFF + 0.0035, 4)
-            return PM.ribbon(q, hn(q), 0.010, 0.0035, MAT_LEATHER, closed=closed)
+            return PM.ribbon(q, hn(q), 0.010, 0.0035, MAT_LEATHER, closed=closed, flat=True)
         out.append(part_gen(nm, layer, gen, 'bone:head', col))
     if brass:
         def ros(lod):
@@ -708,7 +705,7 @@ def bridle_parts(layer, rgb, noseband, brass):
             ms = []
             for sx in (1, -1):
                 c = S.project(hd, np.array([[sx * 0.088, 0.99, 1.77]]), BRIDLE_OFF + 0.009, 8)[0]
-                ms.append(PM.ellipsoid_mesh(c, (0.016, 0.016, 0.016), segs=(8, 6)[lod], rings=(5, 4)[lod], cls_code=MAT_BRASS))
+                ms.append(PM.ellipsoid_mesh(c, (0.016, 0.016, 0.016), segs=(6, 5)[lod], rings=(4, 3)[lod], cls_code=MAT_BRASS))
             return PM.join3(*ms)
         out.append(part_gen('rosettes', layer, ros, 'bone:head', col))
     return out
@@ -717,7 +714,7 @@ def bit_part(layer, curb=False):
     bx = C.BIT_RING_X
     bit = np.array([h for n, h, t, p, d in C.SOCKETS if n == 'rein_bit'][0], float)
     def gen(lod):
-        sides = (6, 4, 3)[lod]; rn_ = (14, 8, 6)[lod]
+        sides = (4, 3, 3)[lod]; rn_ = (8, 6, 5)[lod]
         ms = [tube_mesh(np.array([[-bx, bit[1], bit[2]], [bx, bit[1], bit[2]]]), 0.0065, sides)]
         for sx in (1, -1):
             ring = np.array([[sx * bx, bit[1] + 0.022 * math.cos(a), bit[2] + 0.022 * math.sin(a)]
@@ -732,11 +729,11 @@ def bit_part(layer, curb=False):
 
 def reins_part(layer, rgb, double=False):
     def gen(lod):
-        n = (22, 12, 7)[lod]; sides = (4, 4, 3)[lod]
+        n = PM.lod_n(22, lod, (1.0, 0.55, 0.32), 5); sides = (4, 3, 3)[lod]
         ms = []
         for side in ('R', 'L'):
             ms.append(tube_mesh(resample(rein_path(side), n), 0.0065, sides))
-            if double and lod < 2:
+            if double and lod < 1:
                 ms.append(tube_mesh(resample(rein_path(side, low=0.05, hand_dx=0.018), n), 0.0055, sides))
         V, F = join(*ms)
         return V, F, np.full(len(F), MAT_LEATHER)
@@ -745,8 +742,14 @@ def reins_part(layer, rgb, double=False):
         for side in ('R', 'L'):
             sel = (P[:, 0] > 0) if side == 'R' else (P[:, 0] <= 0)
             names = [b[0] for b in rein_bones(side)]
+            a = np.array(C.REIN_REST[side][0]); e = np.array(C.REIN_REST[side][-1])
+            wa = 1 - _sstep(0.02, 0.06, np.linalg.norm(P - a, axis=1))     # spec: rein ends on rein_bit / rein_hand
+            we = 1 - _sstep(0.02, 0.06, np.linalg.norm(P - e, axis=1))
+            mid = np.clip(1 - wa - we, 0, 1)
             for b, v in ctx.chain(P, names, 0.05).items():
-                out[b] = np.where(sel, v, 0)
+                out[b] = out.get(b, 0) + np.where(sel, v * mid, 0)
+            out['rein_bit'] = out.get('rein_bit', 0) + np.where(sel, wa, 0)
+            out['rein_hand.' + side] = np.where(sel, we, 0)
         return out
     return part_gen('reins', layer, gen, w, code_col({MAT_LEATHER: (rgb, 0)}))
 
@@ -772,20 +775,21 @@ def stirrup_part(layer, cloth_fn, iron_style, leather_rgb):
         return cache[side].copy(), eye, tread, sx
     def gen(lod):
         ms = []
-        sides = (8, 5, 4)[lod]; na = (14, 8, 5)[lod]
+        sides = (5, 5, 5)[lod]; na = (9, 6, 4)[lod]
         for side in ('R', 'L'):
             p, eye, tread, sx = leather_path(side)
-            p = resample(p, (12, 6, 3)[lod])
+            p = resample(p, PM.lod_n(12, lod, (1.0, 0.5, 0.25), 3))
             nrm = np.tile([sx, 0, 0], (len(p), 1)).astype(float)
-            ms.append(PM.ribbon(p, nrm, 0.014, 0.003, MAT_LEATHER))
+            ms.append(PM.ribbon(p, nrm, 0.014, 0.003, MAT_LEATHER, flat=True))
             w_ = 0.062 if iron_style == '1800' else 0.07
             ex = 1.0 if iron_style == '1800' else 0.75
             arch = np.array([tread + np.array([w_ * math.cos(a), 0, (eye_h - 0.005) * math.sin(a) ** ex])
                              for a in np.linspace(0, math.pi, na)])
             V, F = tube_mesh(arch, 0.0065 if iron_style == '1800' else 0.008, max(3, sides - 2))
             ms.append((V, F, np.full(len(F), MAT_STEEL)))
-            V, F = box_mesh(tread + np.array([0, 0, -0.004]), (w_ + 0.006, 0.024 if iron_style == '1800' else 0.03, 0.005))
-            ms.append((V, F, np.full(len(F), MAT_STEEL)))
+            if lod < 2:
+                V, F = box_mesh(tread + np.array([0, 0, -0.004]), (w_ + 0.006, 0.024 if iron_style == '1800' else 0.03, 0.005))
+                ms.append((V, F, np.full(len(F), MAT_STEEL)))
         return PM.join3(*ms)
     def w(P, ctx):
         out = {'saddle': np.zeros(len(P))}
@@ -805,7 +809,7 @@ def girth_part(layer, rgb, off, half_w):
     p = p[p[:, 2] < 1.24]
     def gen(lod):
         q = resample(p, PM.lod_n(40, lod, minimum=8))
-        return PM.ribbon(q, hn(q), half_w, 0.004, MAT_LEATHER)
+        return PM.ribbon(q, hn(q), half_w, 0.004, MAT_LEATHER, flat=True)
     return part_gen('girth', layer, gen, 'bone:saddle', code_col({MAT_LEATHER: (rgb, 0)}))
 
 def dock_loop(layer, rgb, off):
@@ -816,8 +820,8 @@ def dock_loop(layer, rgb, off):
         a = np.linspace(0, 2 * math.pi, k, endpoint=False)
         Dd = np.cos(a)[:, None] * e1 + np.sin(a)[:, None] * e2
         P, ok = PM.raycast(hd, np.tile(c, (k, 1)), Dd, off, rmax=0.2, steps=60)
-        return PM.ribbon(P, Dd, 0.012, 0.004, MAT_LEATHER, closed=True)
-    return part_gen('crupper_dock', layer, gen, lambda P, ctx: ctx.chain(P, ['tail01', 'tail02'], 0.05),
+        return PM.ribbon(P, Dd, 0.012, 0.004, MAT_LEATHER, closed=True, flat=True)
+    return part_gen('crupper_dock', layer, gen, lambda P, ctx: ctx.chain(P, ['tail_01', 'tail_02'], 0.05),
                     code_col({MAT_LEATHER: (rgb, 0)}))
 
 def crupper_w(P, ctx):
@@ -853,7 +857,7 @@ def tack_1800():
         return np.linalg.norm(np.maximum(q, 0), axis=1) + np.minimum(q.max(1), 0) - 0.012
     val = sdf_part('valise', L, valise, (-0.24, yv - 0.10, zc - 0.10), (0.24, yv + 0.10, zc + 0.10), 0.0045,
                    lambda Pc: np.where(np.abs(Pc[:, 0]) > 0.180, MAT_BRASS, MAT_WOOL), wool, 'bone:saddle', smooth=1)
-    val['budget'] = (260, 90, 40)
+    val['budget'] = (170, 60, 0); val['skip'] = (2,); val['sharp'] = 60
     parts.append(val)
     parts.append(girth_part(L, (0.30, 0.20, 0.12), 0.012, 0.035))
     lcol = code_col({MAT_LEATHER: (black, 0), MAT_BRASS: (GOLD, 0)})
@@ -892,7 +896,7 @@ def tack_1300():
     sad_col = code_col({MAT_LEATHER: (brown, 0), MAT_WOOD: (TEAM, 1)})
     sp = sdf_part('saddle', L, sad, (-0.34, -0.22, 1.08), (0.34, 0.46, 1.70), C.VOXEL['saddle'] * 0.8,
                   sad_cls, sad_col, 'bone:saddle', smooth=1)
-    sp['budget'] = (1700, 520, 170)
+    sp['budget'] = (880, 280, 100)
     parts.append(sp)
     parts.append(girth_part(L, brown, 0.009, 0.04))
     lcol = code_col({MAT_LEATHER: (brown, 0)})
@@ -908,6 +912,8 @@ def tack_1300():
     parts.append(stirrup_part(L, lambda P: drape_field('1300')(P) - 0.034, '1300', brown))
     return parts
 
+CAP_HEM = 0.60   # spec: caparison skirt cut at the forearm so the gait reads (was 0.36, above the fetlocks)
+
 def barding_1300():
     L = 'barding_1300'
     parts = []
@@ -918,7 +924,7 @@ def barding_1300():
     # rear / body caparison: from behind the shoulder over the back and quarters, hem just above the fetlocks
     parts.append(cloth_part('caparison', L, '1300', 0.010, 0.005,
                             y_back=lambda t: -0.80 - 0.06 * t, y_front=lambda t: 0.50 + 0.02 * t,
-                            hem=lambda y: 0.36 + 0 * y, res=(36, 28), band=0.06,
+                            hem=lambda y: CAP_HEM + 0 * y, res=(36, 28), band=0.06,
                             main_code=MAT_WOOL, trim_code=MAT_WOOL + V_TRIM, w=torso_w, col=cap_col,
                             edges=('hem',), zc=1.02))
     # front (chest) curtain: horizontal rays round a vertical axis
@@ -936,8 +942,7 @@ def barding_1300():
         G = np.zeros((len(rows), na, 3))
         for i, a in enumerate(th):
             top = zt(a)
-            zs = 0.36 + (1 - rows) * 0 + (top - 0.36) * (1 - rows)       # row 0 = top, last = hem
-            zs = top - (top - 0.36) * rows
+            zs = top - (top - CAP_HEM) * rows
             O = np.stack([np.zeros(len(zs)), np.full(len(zs), 0.30), zs], 1)
             Dd = np.tile([math.sin(a), math.cos(a), 0.0], (len(zs), 1))
             P, ok = PM.raycast(df, O, Dd, 0.017, rmax=0.8, steps=160)
@@ -965,7 +970,7 @@ def barding_1300():
         return d
     ch = sdf_part('chanfron', L, chanfron, (-0.14, 0.94, 1.30), (0.14, 1.42, 1.86), 0.003,
                   lambda Pc: np.full(len(Pc), MAT_STEEL), code_col({MAT_STEEL: (STEEL, 0)}), 'bone:head', smooth=1)
-    ch['budget'] = (420, 160, 60)
+    ch['budget'] = (300, 110, 50)   # no edge split: on a 7 mm plate it doubles the verts (rim reads fine smooth)
     parts.append(ch)
     return parts
 
@@ -975,4 +980,10 @@ def all_parts():
     for k, fn in (('body', lambda: [body_part()]), ('hair', lambda: [hair_part()]), ('eyes', lambda: [eye_part()]),
                   ('tack_1800', tack_1800), ('tack_1300', tack_1300), ('barding_1300', barding_1300)):
         t = time.time(); out[k] = fn(); print('  parts %-12s %.1fs' % (k, time.time() - t), flush=True)
+    for k in out:   # far set (LOD2, <= 0.6k verts horse + tack): drop the small bits
+        for p in out[k]:
+            if p['name'] in LOD2_SKIP:
+                p['skip'] = tuple(sorted(set(p.get('skip', ())) | {2}))
     return out
+
+LOD2_SKIP = {'heart', 'crupper_dock', 'martingale', 'bridle_throat', 'bridle_brow', 'bit', 'rosettes'}
