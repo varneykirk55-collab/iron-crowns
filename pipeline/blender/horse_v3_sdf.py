@@ -247,32 +247,35 @@ def horse_field():
     H = Field()
     # --- torso (tag 'torso' -> spine chain weights) --------------------------------------------------------------
     H.u(ellipsoid((0, 0.20, 1.10), (0.215, 0.38, 0.235), rot_x(-4)), 0.0, 'torso')           # rib cage
-    H.u(ellipsoid((0, -0.08, 1.10), (0.24, 0.40, 0.225)), 0.10, 'torso')                   # barrel / belly
-    H.u(ellipsoid((0, 0.06, 0.99), (0.17, 0.30, 0.11)), 0.10, 'torso')                      # belly floor
+    H.u(ellipsoid((0, -0.04, 1.12), (0.235, 0.34, 0.215), rot_x(-5)), 0.10, 'torso')        # barrel / belly (short, rises to the flank)
+    H.u(ellipsoid((0, 0.14, 0.99), (0.17, 0.24, 0.11)), 0.10, 'torso')                      # belly floor (lowest just behind the girth)
     for sx in (1, -1):
-        H.u(ellipsoid((sx * 0.10, -0.48, 1.215), (0.17, 0.30, 0.20), rot_x(10)), 0.09, 'pelvis')    # glutes / quarters
-        H.u(roundcone((sx * 0.11, -0.60, 1.16), (sx * 0.13, -0.58, 0.88), 0.15, 0.06, (0.85, 1, 1)), 0.07, 'pelvis')  # hamstrings
-    H.u(chain([(0, -0.15, 1.25), (0, -0.44, 1.32), (0, -0.70, 1.26)], [0.075, 0.08, 0.055]), 0.07, 'pelvis')   # croup line
+        H.u(ellipsoid((sx * 0.10, -0.47, 1.24), (0.17, 0.29, 0.20), rot_x(10)), 0.09, 'pelvis')     # glutes / quarters
+        H.u(ellipsoid((sx * 0.115, -0.56, 1.03), (0.12, 0.19, 0.22), rot_x(12)), 0.10, 'pelvis')     # thigh / hamstring mass (tapers into the gaskin)
+    H.u(chain([(0, -0.15, 1.26), (0, -0.44, 1.335), (0, -0.68, 1.30)], [0.075, 0.085, 0.07]), 0.08, 'pelvis')  # croup line (round, high tail set)
     H.u(chain([(0, 0.48, 1.37), (0, 0.32, 1.36), (0, 0.08, 1.228), (0, -0.20, 1.26)],
               [0.06, 0.075, 0.07, 0.08]), 0.08, 'torso')                                      # withers -> back -> loin
     # --- shoulders / chest -------------------------------------------------------------------------------------------
     for sx in (1, -1):
         H.u(ellipsoid((sx * 0.13, 0.53, 1.18), (0.07, 0.15, 0.26), rot_x(40)), 0.10, 'chest')        # shoulder blade
         H.u(ellipsoid((sx * 0.15, 0.56, 0.98), (0.09, 0.13, 0.13), rot_x(-30)), 0.06, 'f_humerus' + ('.R' if sx > 0 else '.L'))  # triceps / upper arm
-    H.u(ellipsoid((0, 0.62, 1.03), (0.18, 0.14, 0.17)), 0.07, 'chest')                      # breast
+    H.u(ellipsoid((0, 0.61, 1.01), (0.15, 0.12, 0.15)), 0.06, 'chest')                      # breast
+    for sx in (1, -1):
+        H.u(sphere((sx * 0.125, 0.685, 1.07), 0.062), 0.035, 'chest')                     # point of shoulder
+    H.s(ellipsoid((0, 0.725, 1.0), (0.035, 0.05, 0.09)), 0.04)                              # pectoral groove between the shoulder points
     H.u(ellipsoid((0, 0.47, 0.92), (0.14, 0.15, 0.085)), 0.07, 'chest')                      # brisket / girth floor
     # --- neck (lateral squash) ---------------------------------------------------------------------------------------
     nk = (0.62, 1.0, 1.0)
-    H.u(chain([(0, 0.52, 1.17), (0, 0.72, 1.42), (0, 0.83, 1.63), (0, 0.93, 1.75)], [0.30, 0.20, 0.12, 0.08], nk),
-        0.08, 'neck')
-    H.u(chain([(0, 0.42, 1.385), (0, 0.66, 1.56), (0, 0.86, 1.69), (0, 0.99, 1.78)], [0.06, 0.07, 0.06, 0.045],
-              (0.75, 1.0, 1.0)), 0.07, 'neck')                                                # crest
+    H.u(chain([(0, 0.53, 1.22), (0, 0.70, 1.43), (0, 0.83, 1.62), (0, 0.94, 1.74)], [0.20, 0.145, 0.105, 0.075], nk),
+        0.06, 'neck')
+    H.u(chain([(0, 0.42, 1.385), (0, 0.66, 1.56), (0, 0.86, 1.69), (0, 0.99, 1.78)], [0.05, 0.06, 0.05, 0.04],
+              (0.75, 1.0, 1.0)), 0.06, 'neck')                                                # crest
     # --- head ------------------------------------------------------------------------------------------------------
-    H.u(ellipsoid((0, 1.02, 1.735), (0.095, 0.10, 0.085), rot_x(-35)), 0.05, 'head')        # poll / cranium
-    H.u(ellipsoid((0, 1.06, 1.57), (0.10, 0.125, 0.125), rot_x(-30)), 0.035, 'jaw')         # cheeks / jowl
-    H.u(roundcone((0, 1.08, 1.72), (0, 1.29, 1.45), 0.082, 0.056, (0.95, 1, 1)), 0.05, 'head')    # face / nasal
-    H.u(ellipsoid((0, 1.325, 1.39), (0.066, 0.075, 0.072), rot_x(-40)), 0.04, 'head')       # muzzle
-    H.u(roundcone((0, 1.07, 1.575), (0, 1.29, 1.335), 0.05, 0.034, (0.95, 1, 1)), 0.05, 'jaw')     # lower jaw / chin
+    H.u(ellipsoid((0, 1.02, 1.74), (0.10, 0.115, 0.095), rot_x(-35)), 0.05, 'head')        # poll / cranium
+    H.u(ellipsoid((0, 1.05, 1.56), (0.105, 0.145, 0.14), rot_x(-30)), 0.03, 'jaw')         # cheeks / jowl
+    H.u(roundcone((0, 1.08, 1.72), (0, 1.31, 1.43), 0.088, 0.06, (0.95, 1, 1)), 0.05, 'head')    # face / nasal
+    H.u(ellipsoid((0, 1.34, 1.38), (0.07, 0.085, 0.08), rot_x(-40)), 0.04, 'head')       # muzzle
+    H.u(roundcone((0, 1.07, 1.565), (0, 1.30, 1.325), 0.052, 0.036, (0.95, 1, 1)), 0.05, 'jaw')     # lower jaw / chin
     for sx in (1, -1):
         H.u(ellipsoid((sx * 0.074, 1.13, 1.695), (0.022, 0.03, 0.016)), 0.025, 'head')      # brow over the eye
         H.u(ellipsoid((sx * 0.072, 1.17, 1.60), (0.02, 0.07, 0.02), rot_x(-45)), 0.04, 'head')    # facial crest
@@ -297,9 +300,9 @@ def horse_field():
         H.u(roundcone(_m((0.12, 0.47, 0.13), sx), _m((0.12, 0.502, 0.07), sx), 0.027, 0.031), 0.015, g('f_fetlock'))  # pastern
         H.u(roundcone(_m((0.12, 0.505, 0.07), sx), _m((0.12, 0.525, 0.012), sx), 0.036, 0.049, (1.0, 1.08, 1.0)), 0.010, g('f_hoof'))
         # hind
-        H.u(roundcone(_m((0.14, -0.50, 1.10), sx), L['h_stifle'], 0.14, 0.08), 0.07, g('h_femur'))
+        H.u(roundcone(_m((0.14, -0.50, 1.10), sx), L['h_stifle'], 0.12, 0.065), 0.07, g('h_femur'))
         H.u(roundcone(_m((0.15, -0.47, 0.86), sx), _m((0.13, -0.625, 0.53), sx), 0.08, 0.042), 0.04, g('h_tibia'))
-        H.u(ellipsoid(_m((0.14, -0.56, 0.74), sx), (0.06, 0.08, 0.13), rot_x(-30)), 0.045, g('h_tibia'))   # gaskin
+        H.u(ellipsoid(_m((0.14, -0.56, 0.76), sx), (0.055, 0.075, 0.13), rot_x(-30)), 0.06, g('h_tibia'))   # gaskin
         H.u(roundcone(_m((0.135, -0.66, 0.78), sx), _m((0.13, -0.69, 0.58), sx), 0.035, 0.03), 0.04, g('h_tibia'))   # achilles
         H.u(ellipsoid(_m((0.13, -0.635, 0.51), sx), (0.045, 0.065, 0.06)), 0.035, g('h_tibia'))         # hock joint
         H.u(sphere(_m((0.13, -0.695, 0.575), sx), 0.030), 0.02, g('h_tibia'))                             # point of hock
@@ -309,7 +312,7 @@ def horse_field():
         H.u(roundcone(_m((0.125, -0.615, 0.13), sx), _m((0.125, -0.582, 0.07), sx), 0.026, 0.030), 0.015, g('h_fetlock'))
         H.u(roundcone(_m((0.125, -0.58, 0.07), sx), _m((0.125, -0.562, 0.012), sx), 0.034, 0.047, (1.0, 1.08, 1.0)), 0.010, g('h_hoof'))
     # tail dock
-    H.u(chain([(0, -0.71, 1.285), (0, -0.78, 1.25), (0, -0.84, 1.16)], [0.048, 0.042, 0.034]), 0.06, 'tail')   # dock, flush with the croup (no lump)
+    H.u(chain([(0, -0.71, 1.32), (0, -0.785, 1.28), (0, -0.85, 1.17)], [0.05, 0.044, 0.034]), 0.06, 'tail')   # dock, flush with the croup (no lump)
     # --- carving -----------------------------------------------------------------------------------------------------
     for sx in (1, -1):
         H.s(ellipsoid((sx * 0.037, 1.388, 1.402), (0.011, 0.015, 0.021), rot_x(-40)), 0.008)   # nostrils (comma-shaped)
