@@ -36,6 +36,7 @@ const QUALITY := [
 ]
 static var _quality := 1          # medium until apply_quality() is called
 static var _bv_ref: WeakRef = null # last BattleView passed to apply(); weak so a freed battle is simply skipped
+static var proto_v2 := false       # PROTO v2 (--vx-proto=1): c19_line draws the sculpted c19v2_line bake (docs/char/PROTO_V2.md)
 static var char_sr := true         # character refinement: semi-realistic c19 soldiers (c19sr_*); --vx-char=0 = previous blocky models
 static var polish := true          # polish pass (terrain-aware light, snow ground, grenadier / gun-crew models); false = v0.2.1 look
 static var terrain_preview := ""   # PREVIEW-ONLY (--vx-terrain=<t>, bench logger): light / ground as if b.terrain were <t>
@@ -394,10 +395,10 @@ static func _swap_char(bv: Node) -> void:
 	var vat = bv.get("vat"); var mms = bv.get("mms")
 	if not (vat is Dictionary) or not (mms is Dictionary):
 		return
-	for orig in CHAR_MODEL:
+	for orig in _swap_ids():
 		if not vat.has(orig) or vat[orig].has("sr"):
 			continue
-		var d := sr_vat(CHAR_MODEL[orig])
+		var d := sr_vat(_char_model(orig))
 		if d.is_empty():
 			continue
 		var ok := true
@@ -410,6 +411,45 @@ static func _swap_char(bv: Node) -> void:
 			var parts := str(key).split("|")
 			if parts.size() == 3 and parts[0] == orig:
 				(mms[key]["mm"] as MultiMesh).mesh = d["mesh"][int(parts[2])]
+
+## Proto v2: only c19_line is swapped (to c19v2_line, if baked); everything else keeps its c19sr_* model.
+## The flag is read from the command line directly too, so it also works without the debug node (normal play).
+static var _proto_cmd := -1
+static func proto_on() -> bool:
+	if _proto_cmd < 0:
+		_proto_cmd = 0
+		for a in OS.get_cmdline_user_args() + OS.get_cmdline_args():
+			if a == "--vx-proto" or (a.begins_with("--vx-proto=") and a.substr(11) != "0"): _proto_cmd = 1
+	return proto_v2 or _proto_cmd == 1
+
+## Eras v3 (docs/char/ERAS_PROGRESS.md, --vx-proto only): v3 kits swapped in under the existing unit ids (render only).
+const V3_MODEL := {"c19_grenadier": "v3_c19_grenadier", "c19_artillery": "v3_c19_artillery", "c19_hussar": "v3_c19_hussar", "med_spear": "v3_med_pike",
+	"med_archer": "v3_med_archer", "em_musket": "v3_em_musket", "em_pike": "v3_em_pike", "c20_rifle": "v3_c20_rifle",
+	"mod_rifle": "v3_mod_rifle", "med_knight": "v3_med_knight"}
+
+static func _char_model(orig: String) -> String:
+	if proto_on() and orig == "c19_line" and _has_vat("c19v2_line"):
+		return "c19v2_line"
+	if proto_on() and V3_MODEL.has(orig) and _has_vat(V3_MODEL[orig]):
+		return V3_MODEL[orig]
+	return CHAR_MODEL.get(orig, "")
+
+## ids _swap_char may replace: the c19sr set always, the v3 ids only with --vx-proto
+static func _swap_ids() -> Array:
+	var r: Array = CHAR_MODEL.keys()
+	if proto_on():
+		for k in V3_MODEL:
+			if not r.has(k): r.append(k)
+	return r
+
+## per-kit palette: nation palette + the kit's era-fixed slot colours (json "pal", e.g. fur / brass / era cloth)
+static func kit_palette(p: Dictionary, j: Dictionary) -> Dictionary:
+	if not j.has("pal"):
+		return p
+	var q := p.duplicate()
+	for k in j["pal"]:
+		q[k] = Color(str(j["pal"][k]))
+	return q
 
 ## vat entry (BattleView vat[id] layout: mesh / tex / json per LOD, plus "sr") for a c19sr_* bake; {} if missing.
 static func sr_vat(sr: String) -> Dictionary:
@@ -481,6 +521,7 @@ static func _char_materials(bv: Node) -> void:
 	var ptex := [_palette_tex(pals[0]), _palette_tex(pals[1])]
 	var sc = bv.get("side_col")
 	var shaders := [_char_shader(0), _char_shader(1)]
+	var v2_shader: Shader = null
 	for key in mms.keys():
 		var parts := str(key).split("|")
 		if parts.size() != 3 or not vat.has(parts[0]) or not vat[parts[0]].has("sr"):
@@ -488,6 +529,10 @@ static func _char_materials(bv: Node) -> void:
 		var mmi: MultiMeshInstance3D = mms[key]["mmi"]
 		var name := parts[0]; var side := int(parts[1]); var lod := int(parts[2])
 		var shader: Shader = shaders[clampi(lod, 0, 1)]
+		var v2 := (str(vat[name]["sr"]).begins_with("c19v2_") or str(vat[name]["sr"]).begins_with("v3_")) and lod == 0
+		if v2:
+			if v2_shader == null: v2_shader = load("res://shaders/char_vat_v2.gdshader")
+			shader = v2_shader
 		if mmi.material_override is ShaderMaterial and (mmi.material_override as ShaderMaterial).shader == shader:
 			continue   # idempotent
 		var d: Dictionary = vat[name]
@@ -497,7 +542,7 @@ static func _char_materials(bv: Node) -> void:
 		m.set_shader_parameter("vat_tex", d["tex"][lod])
 		m.set_shader_parameter("vat_verts", int(j["vertices"]))
 		m.set_shader_parameter("vat_fps", float(j["fps"]))
-		m.set_shader_parameter("palette", ptex[side])
+		m.set_shader_parameter("palette", ptex[side] if not j.has("pal") else _palette_tex(kit_palette(pals[side], j)))
 		if sc is Array and side < sc.size(): m.set_shader_parameter("team_color", sc[side])
 		var nt := _vatn_tex(str(d["sr"]), lod, int(j["vertices"]), int(j["frames"]))
 		m.set_shader_parameter("has_normals", 1.0 if nt != null else 0.0)
@@ -513,6 +558,11 @@ static func _char_materials(bv: Node) -> void:
 		if cl.has("die") and cl.has("die_b"):
 			m.set_shader_parameter("die_row", float(cl["die"]["start"]))
 			m.set_shader_parameter("die_b_row", float(cl["die_b"]["start"]))
+		if v2 and j.has("maps"):
+			var mt := _v2_maps(j["maps"])
+			if mt.size() >= 2:
+				m.set_shader_parameter("v2_nmap", mt[0]); m.set_shader_parameter("v2_idmap", mt[1])
+				if mt.size() > 2: m.set_shader_parameter("v2_albmap", mt[2])
 		mmi.material_override = m
 
 ## Clip crossfade for the c19sr_* shader (char_vat.gdshader reads instance COLOR = prev clip + weight). Call once per
@@ -565,6 +615,27 @@ static func xfade_crew(v: Dictionary, k: int, q: int, cur: int, c: Vector2, ct: 
 	if q < 0 or q >= per:
 		return Color(1, 1, 1, 1)
 	return xfade(v["xf_crew"], k * per + q, cur, c, ct, spd, vt, fps)
+
+## Proto v2 maps: PNG bytes (.vtex, not imported) for the normal + AO map and the slot-id map (c19v2_line_lod0.json "maps").
+static var _v2_cache := {}
+static func _v2_maps(mj: Dictionary) -> Array:
+	var k := "%s|%s|%s" % [mj.get("nrm", ""), mj.get("id", ""), mj.get("alb", "")]
+	if _v2_cache.has(k):
+		return _v2_cache[k]
+	var out := []
+	var ni := Image.new(); var ii := Image.new()
+	if ni.load_png_from_buffer(FileAccess.get_file_as_bytes("res://assets/vat/%s" % str(mj.get("nrm", "")))) == OK \
+			and ii.load_png_from_buffer(FileAccess.get_file_as_bytes("res://assets/vat/%s" % str(mj.get("id", "")))) == OK:
+		ni.convert(Image.FORMAT_RGBA8); ii.convert(Image.FORMAT_RGBA8)
+		ni.generate_mipmaps()
+		out = [ImageTexture.create_from_image(ni), ImageTexture.create_from_image(ii)]
+		var ap := "res://assets/vat/%s" % str(mj.get("alb", ""))
+		var ai := Image.new()
+		if mj.has("alb") and FileAccess.file_exists(ap) and ai.load_png_from_buffer(FileAccess.get_file_as_bytes(ap)) == OK:   # optional painted skin albedo
+			ai.convert(Image.FORMAT_RGBA8); ai.generate_mipmaps()
+			out.append(ImageTexture.create_from_image(ai))
+	_v2_cache[k] = out
+	return out
 
 static var _vatn := {}
 static func _vatn_tex(name: String, lod: int, verts: int, frames: int) -> ImageTexture:
@@ -724,6 +795,7 @@ func _ready() -> void:
 	# --vx-terrain=tundra|mountains = PREVIEW-ONLY winter ground + light on the demo battle (see PREVIEW_TERRAIN)
 	polish = args.get("vx-polish", "1") != "0"
 	char_sr = args.get("vx-char", "1") != "0"
+	proto_v2 = args.get("vx-proto", "0") != "0"
 	char_lite_override = [args.get("vx-charlite0", ""), args.get("vx-charlite1", "")]
 	xfade_on = args.get("vx-xfade", "1") != "0"
 	lod_override = float(args.get("vx-lod", "-1"))

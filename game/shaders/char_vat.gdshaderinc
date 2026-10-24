@@ -21,6 +21,9 @@
 // Team tint (stage 9): by instance camera distance (team_near -> team_far) coats blend towards team_color (the
 // BattleView side colour, = HUD / banner) up to team_tint, and trousers / belts / shako / plume up to team_tint_acc,
 // so two blue (or two white-trousered) sides separate at mid / top zoom. Close up (< team_near) = nation colours.
+// Proto v2 (CHAR_NMAP, c19v2_* bakes only, char_vat_v2*.gdshader): a shared atlas in UV3 (Godot CUSTOM0) carries a
+// baked tangent-space normal map + AO (v2_nmap) and a slot-id map (v2_idmap: r = slot*8, g = material*16) so the near
+// set gets crisp sculpted uniform detail; the mid set uses the normal map with per-face slots; the far set is unchanged.
 
 uniform sampler2D vat_tex : filter_nearest, repeat_disable;
 uniform sampler2D vat_nrm : filter_nearest, repeat_disable;
@@ -60,6 +63,17 @@ varying float rest_h;
 varying float inst_k;
 varying float coat_k;   // 1 = mid / far set: lift dark coats
 
+#ifdef CHAR_NMAP
+uniform sampler2D v2_nmap : hint_default_white, filter_linear_mipmap, repeat_disable;
+uniform sampler2D v2_idmap : hint_default_black, filter_nearest, repeat_disable;
+uniform sampler2D v2_albmap : hint_default_black, filter_linear_mipmap, repeat_disable;   // painted skin / eye albedo (MH base), black = none
+uniform float nmap_strength = 1.0;
+uniform float nmap_ao = 0.85;
+uniform float v3_grade = 1.0;   // stage 5b material grade (desaturated indigo wool, off-white pipeclay, darker semi-gloss leather, brass)
+varying vec2 atl_uv;
+varying float nmap_k;   // 1 = near set (id map + normal map), 0.6 = mid set (normal map only), 0 = far
+#endif
+
 #ifdef CHAR_VPAL
 varying vec3 v_alb;
 varying vec4 v_rsm;   // rough, metal, spec, ao
@@ -94,6 +108,8 @@ void vmat(float slot_u_, float team_amt_, float mat_id_, float rest_h_, float sh
 	else if (m == 10) { rough = 0.5; metal = 0.6; spec = 0.5; }                // blackened iron
 	else if (m == 11) { rough = 0.75; spec = 0.3; alb *= mix(0.7, 1.3, inst_k_); } // hair
 	else if (m == 13) { rough = 0.9; spec = 0.2; alb *= sv; }                  // canvas / linen
+	else if (m == 14) { rough = 0.8; spec = 0.25; alb *= sv; }                 // worn matte leather (v3 pre-1700 kits)
+	else if (m == 15) { rough = 0.62; spec = 0.3; }                             // waxed blackened shoe leather (v3)
 	float ao = mix(1.0 - contact_dark, 1.0, smoothstep(0.0, contact_height, rest_h_));
 	if (m == 7 || m == 13) { ao = 1.0; }
 	alb_o = alb * brightness * mix(1.0, ao, 0.6); rough_o = rough; metal_o = metal; spec_o = spec; ao_o = ao;
@@ -136,6 +152,10 @@ void vertex() {
 	coat_k = coat_lift;
 #else
 	coat_k = 0.0;
+#endif
+#ifdef CHAR_NMAP
+	atl_uv = CUSTOM0.xy;
+	nmap_k = near_verts < vat_verts ? (vid < near_verts ? 1.0 : (vid < max(mid_verts, near_verts) ? 0.6 : 0.0)) : 0.0;
 #endif
 	if (near_verts < vat_verts) {   // LOD0 only: pick the near / mid / far geometry set per instance, collapse the others
 		float d2 = dot(dcam, dcam);
@@ -185,7 +205,85 @@ void vertex() {
 }
 
 void fragment() {
-#ifdef CHAR_VPAL
+#if defined(CHAR_NMAP) && !defined(CHAR_VPAL)
+	float su = slot_u; float mi = mat_id; float tm = team_amt;
+	float nao = 1.0;
+	vec4 id4 = vec4(-1.0); vec2 idf = vec2(0.0); vec4 idm = vec4(0.0);
+	float dlum = 0.5; float dk = 8.0 / 15.0;   // painted detail (v2 id map: g low nibble, b), neutral by default
+	if (nmap_k > 0.0) {
+		if (nmap_k > 0.9) {   // near set: per-texel slot / material from the baked id map (2x2 taps, colours blended at edges)
+			ivec2 isz = textureSize(v2_idmap, 0);
+			vec2 fp = atl_uv * vec2(isz) - 0.5;
+			ivec2 i0 = ivec2(floor(fp)); idf = fract(fp);
+			vec4 a = texelFetch(v2_idmap, clamp(i0, ivec2(0), isz - 1), 0);
+			vec4 b = texelFetch(v2_idmap, clamp(i0 + ivec2(1, 0), ivec2(0), isz - 1), 0);
+			vec4 c = texelFetch(v2_idmap, clamp(i0 + ivec2(0, 1), ivec2(0), isz - 1), 0);
+			vec4 d = texelFetch(v2_idmap, clamp(i0 + ivec2(1, 1), ivec2(0), isz - 1), 0);
+			id4 = floor(vec4(a.r, b.r, c.r, d.r) * 255.0 / 8.0 + 0.5);
+			idm = floor(floor(vec4(a.g, b.g, c.g, d.g) * 255.0 + 0.5) / 16.0);   // g = material * 16 + detail nibble
+			vec4 nb = (idf.x < 0.5) ? (idf.y < 0.5 ? a : c) : (idf.y < 0.5 ? b : d);   // nearest texel: material params
+			float sid = floor(nb.r * 255.0 / 8.0 + 0.5); float gi = floor(nb.g * 255.0 + 0.5);
+			su = (sid + 0.5) / 32.0; mi = floor(gi / 16.0); tm = sid == 0.0 ? 1.0 : 0.0;   // coat (slot 0) takes the team colour
+			dk = mod(gi, 16.0) / 15.0;
+			dlum = mix(mix(a.b, b.b, idf.x), mix(c.b, d.b, idf.x), idf.y);   // luminance detail, bilinear
+		}
+		vec4 nt = texture(v2_nmap, atl_uv);
+		vec3 ts = nt.xyz * 2.0 - 1.0;
+		ts.y = -ts.y;   // Blender (OpenGL, V up) bake vs Godot's flipped V
+		ts.xy *= nmap_strength * nmap_k;
+		vec3 n = normalize(NORMAL);
+		vec3 dp1 = dFdx(VERTEX); vec3 dp2 = dFdy(VERTEX);
+		vec2 du1 = dFdx(atl_uv); vec2 du2 = dFdy(atl_uv);
+		vec3 p2 = cross(dp2, n); vec3 p1 = cross(n, dp1);
+		vec3 t = p2 * du1.x + p1 * du2.x; vec3 b2 = p2 * du1.y + p1 * du2.y;
+		float im = inversesqrt(max(max(dot(t, t), dot(b2, b2)), 1.0e-20));
+		NORMAL = normalize(mat3(t * im, b2 * im, n) * normalize(ts));
+		nao = mix(1.0, nt.a, nmap_ao * nmap_k);
+	}
+	vec3 alb; float rough; float metal; float spec; float ao;
+	vmat(su, tm, mi, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, alb, rough, metal, spec, ao);
+	if (id4.x >= 0.0 && (id4.x != id4.y || id4.x != id4.z || id4.x != id4.w)) {   // slot edge: bilinear blend of the 4 colours
+		vec3 c0; vec3 c1; vec3 c2; vec3 c3; float r_; float m_; float s_; float a_;
+		vmat((id4.x + 0.5) / 32.0, id4.x == 0.0 ? 1.0 : 0.0, idm.x, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c0, r_, m_, s_, a_);
+		vmat((id4.y + 0.5) / 32.0, id4.y == 0.0 ? 1.0 : 0.0, idm.y, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c1, r_, m_, s_, a_);
+		vmat((id4.z + 0.5) / 32.0, id4.z == 0.0 ? 1.0 : 0.0, idm.z, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c2, r_, m_, s_, a_);
+		vmat((id4.w + 0.5) / 32.0, id4.w == 0.0 ? 1.0 : 0.0, idm.w, rest_h, shade_var, inst_k, coat_k, team_tc, team_w, c3, r_, m_, s_, a_);
+		alb = mix(mix(c0, c1, idf.x), mix(c2, c3, idf.x), idf.y);
+	}
+	{   // stage 5b grade (near / mid / far alike, faded out where the distance team tint takes over)
+		float gk = clamp((1.0 - team_w.x) * v3_grade, 0.0, 1.0);
+		float lum = dot(alb, vec3(0.2126, 0.7152, 0.0722));
+		if (mi == 1.0) {   // wool: indigo-navy / madder red desaturated, whites to warm off-white, matte 0.86-0.94
+			float red = smoothstep(0.05, 0.25, alb.r - alb.b);
+			vec3 g = mix(vec3(lum), alb, mix(0.25, 0.75, red)) * mix(vec3(0.78, 0.82, 0.86), vec3(0.86, 0.80, 0.80), red);
+			vec3 w = alb * vec3(0.92, 0.90, 0.83);
+			alb = mix(alb, mix(g, w, smoothstep(0.35, 0.6, lum)), gk);
+			rough = mix(rough, 0.86 + 0.08 * clamp(dlum * 2.0 - 0.5, 0.0, 1.0), gk); spec = mix(spec, 0.18, gk);
+		} else if (mi == 7.0) { alb = mix(alb, alb * vec3(0.93, 0.91, 0.85), gk); rough = mix(rough, 0.82, gk); }   // pipeclayed buff
+		else if (mi == 2.0 || mi == 8.0) { alb = mix(alb, alb * 0.62, gk); rough = mix(rough, 0.33, gk); spec = mix(spec, 0.55, gk); }   // blackened leather, semi-gloss
+		else if (mi == 4.0) { metal = mix(metal, 1.0, gk); rough = mix(rough, 0.30, gk); }   // brass
+		else if (mi == 14.0) { rough = mix(rough, 0.78, gk); spec = mix(spec, 0.22, gk); }   // worn leather: matte, keeps its brown
+		else if (mi == 15.0) { alb = mix(alb, alb * 0.62, gk); rough = mix(rough, 0.6, gk); spec = mix(spec, 0.28, gk); }   // waxed black shoes
+	}
+	if (id4.x >= 0.0) {   // painted detail: wool fibre / leather / skin variation, stubble + ruddy skin, eyes, edge wear
+		alb *= 0.55 + 0.9 * dlum;
+		float sid = floor(su * 32.0);
+		vec3 pa = (mi == 5.0) ? texture(v2_albmap, atl_uv).rgb : vec3(0.0);
+		if (mi == 5.0 && max(pa.r, max(pa.g, pa.b)) > 0.015) {   // painted skin / eye albedo from the base human (sRGB in a linear texture)
+			alb = pow(pa, vec3(2.2)) * (0.92 + 0.16 * dlum);
+			if (sid == 18.0) rough = 0.2;
+		} else if (mi == 5.0) {
+			if (sid == 18.0) { alb = mix(vec3(0.075, 0.048, 0.030), vec3(0.62, 0.60, 0.56), smoothstep(0.3, 0.7, dk)); rough = 0.25; }   // iris / sclera
+			else {
+				float stub = clamp((8.0 / 15.0 - dk) * 1.875, 0.0, 1.0); float rud = clamp((dk - 8.0 / 15.0) * 2.14, 0.0, 1.0);
+				alb = mix(alb, alb * vec3(0.50, 0.47, 0.47), stub * 0.8);
+				alb = mix(alb, alb * vec3(1.06, 0.74, 0.70), rud * 0.75);
+			}
+		} else if (mi == 4.0 || mi == 3.0) { alb *= 1.0 + 0.6 * dk; rough = max(0.12, rough - 0.18 * dk); }   // polished worn edges
+		else if (mi == 2.0 || mi == 8.0 || mi == 14.0 || mi == 15.0) { alb = mix(alb, alb * 1.7 + 0.03, dk * 0.45); rough = min(1.0, rough + 0.25 * dk); }   // scuffed leather
+	}
+	ALBEDO = alb * mix(1.0, nao, 0.5); ROUGHNESS = rough; METALLIC = metal; SPECULAR = spec * nao; AO = ao * nao;
+#elif defined(CHAR_VPAL)
 	ALBEDO = v_alb; ROUGHNESS = v_rsm.x; METALLIC = v_rsm.y; SPECULAR = v_rsm.z; AO = v_rsm.w;
 #else
 	vec3 alb; float rough; float metal; float spec; float ao;
