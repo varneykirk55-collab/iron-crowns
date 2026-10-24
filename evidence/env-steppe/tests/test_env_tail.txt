@@ -1,0 +1,5 @@
+== Obstacle clearance over real battles ==
+  [PASS] no fighting regiment footprint ever meets an obstacle  -- min clearance 74.8 m over 71316 samples, 627227 obstacles
+  [INFO] routing regiments: min clearance 74.6 m, 0 overlapping samples (props are render-only; no sim effect)
+
+==== test_env: 0 failures ====

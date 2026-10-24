@@ -17,7 +17,7 @@
 ### Region: east_asia (env/east_asia)
 - New `east_asia` biome: East Asian hill-country biome (Japan, Taiwan, Korea, eastern / southern China): sugi, red pine, evergreen broadleaf, maple, bamboo, sasa, azalea, susuki, mossy andesite, humid light; latitude gradient Hokkaido -> Okinawa / Taiwan. Render only. Evidence: evidence/env-east_asia/.
 
-### Region: steppe (env/steppe; branch only, NOT on main until all regions are complete)
+### Region: steppe (env/steppe; merged to main 2026-10-23 on Kirk's instruction)
 - New `steppe` biome: an open, nearly treeless grass sea under a huge sky, covering the Kazakh / Pontic-Caspian and Central Asian steppe, the Mongolian plateau and the southern Siberian forest-steppe, the Tibetan / Pamir / Hindu Kush high steppe, the Great Plains, the pampa and the Andean-foot monte (37 provinces). It has feather grass and wormwood, pea-shrub scrub, weathered granite tors and kurgan mounds; trees appear only as groves, gallery trees and north-slope stands. Sub-regions from province data:
   - kazakh: birch kolki from 50 N;
   - semi: Caspian / Aral / Caucasus-Iranian semi-desert;
