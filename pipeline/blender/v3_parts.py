@@ -87,3 +87,20 @@ def ribbon(name, pn, w, hi=False, th=None, slot='gold', caps=True):
         if (p1 - p0).cross(p2 - p0).dot(pn[i][1]) < 0: f = f[::-1]
         faces.append(f)
     return C.mk(name, verts, faces, slot)
+
+def orient_out(o):
+    """force outward faces on a thin (nearly) closed shell: grid_sweep's recalc_face_normals can pick the inside of
+    an open-rimmed shell (cape / plate). Signed volume about the centroid < 0 -> reverse every face."""
+    import bmesh
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.faces.ensure_lookup_table()
+    c = sum((v.co for v in bm.verts), V((0, 0, 0))) / max(1, len(bm.verts))
+    vol = 0.0
+    for f in bm.faces:
+        vs = [v.co - c for v in f.verts]
+        for k in range(1, len(vs) - 1):
+            vol += vs[0].dot(vs[k].cross(vs[k + 1]))
+    if vol < 0:
+        bmesh.ops.reverse_faces(bm, faces=bm.faces)
+        bm.to_mesh(o.data); o.data.update()
+    bm.free()
+    return o

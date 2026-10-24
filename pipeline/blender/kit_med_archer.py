@@ -247,9 +247,9 @@ def hood(hi=False):
                     slot='felt', cap0=True, cap1=True))
     # liripipe: long tail from the crown hanging down the back
     p0 = HC + V(0, -0.86, 0.50).normalized() * 0.112
-    lp = [(0, p0), (0.15, V(0.0, -0.124, 1.665)), (0.45, V(0.006, -0.142, 1.560)), (0.75, V(0.013, -0.150, 1.460)), (1, V(0.018, -0.150, 1.385))]
-    out.append(limb('arlirip', lp, [(0, 0.020, 0.018, 0.018), (0.2, 0.015, 0.013, 0.013), (0.85, 0.010, 0.009, 0.009), (1, 0.005, 0.005, 0.005)],
-                    20 if hi else 5, 10 if hi else 5, fwd=V(0, -1, 0), slot='felt'))
+    lp = [(0, p0), (0.2, V(0.0, -0.118, 1.640)), (0.5, V(0.004, -0.128, 1.575)), (0.8, V(0.009, -0.122, 1.515)), (1, V(0.012, -0.112, 1.480))]
+    out.append(limb('arlirip', lp, [(0, 0.013, 0.008, 0.008), (0.3, 0.010, 0.006, 0.006), (0.85, 0.007, 0.0045, 0.0045), (1, 0.004, 0.003, 0.003)],
+                    16 if hi else 4, 8 if hi else 4, fwd=V(0, -1, 0), slot='felt'))
     return out
 
 CAPE_NR, CAPE_NA = 30, 96   # hi grid; lo takes every 6th row / column (same fitted surface)
@@ -304,11 +304,14 @@ def cape(hi=False):
         secs.append(outer)
     ins = [[V(p.x - (p.x) / max(1e-6, math.hypot(p.x, p.y - cy)) * 0.005, p.y - (p.y - cy) / max(1e-6, math.hypot(p.x, p.y - cy)) * 0.005, p.z)
             for p in s] for s in secs]
-    return [grid_sweep('arcape', ins + secs[::-1], closed_u=True, cap0=False, cap1=False, slot='felt')]   # outward winding
+    return [V3P.orient_out(grid_sweep('arcape', secs + ins[::-1], closed_u=True, cap0=False, cap1=False, slot='felt'))]
 
 def fit(htree, body_tree):
     _FIT['hood_hi'] = _fit_hood(htree, 40, 72)
-    _FIT['hood_lo'] = _fit_hood(htree, 7, 14)
+    dirs, D = _FIT['hood_hi']   # lo hood: subsample of the hi fit, padded by the local max (ears / hair between samples stay inside)
+    ri = list(range(0, 41, 5)); cj = list(range(0, 73, 6))
+    Dl = np.array([[D[max(0, i - 3):i + 4, max(0, j - 4):j + 5].max() + 0.002 for j in cj] for i in ri])
+    _FIT['hood_lo'] = ([[dirs[i][j] for j in cj] for i in ri], Dl)
     _FIT['cape'] = _fit_cape([body_tree, htree])
     print('[archer] cape radius range', round(float(_FIT['cape'][0].min()), 3), round(float(_FIT['cape'][0].max()), 3))
 
