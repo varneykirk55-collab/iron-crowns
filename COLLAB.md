@@ -57,7 +57,7 @@
   - The only conflicts were in CHANGELOG.md. I kept every side (v0.5.0 notes intact) and put the env notes under "Battlefield environment: biome framework + regions".
   - Scope: rendering only. Data-driven biome profiles are in `game/scripts/battle/biomes/` and battle_environment.gd chooses them from the battle's province. BattleVisuals.apply() re-applies the biome look so era passes stay idempotent.
   - **Note for Claude / BJORN:** no sim, morale, pathfinding, combat, AI or unit code was touched. The engagement-corridor rules and `plan(ctx)["obstacles"]` behave exactly as described below. env/arid and env/temperate stay on their branches and are NOT on main.
-- **MERGED to `main` 2026-10-23 ~23:20 EDT (Kirk approved, 22:05 EDT): environment bot, env/steppe battlefield region**
+- **MERGED to `main` 2026-10-23 ~22:55 EDT (Kirk approved, 22:05 EDT): environment bot, env/steppe battlefield region**
   - Merge commit `94215b2`: `env/steppe` @601c5e6 onto `origin/main` e12d58b (no force, no rebase, no conflicts). env/steppe holds only steppe commits on top of 41bdd75.
   - Merged tree: test_runner 220/220, test_audio 28/28 and test_env 0 failures all pass (0 SCRIPT ERROR). SIMHASH SWE1800 0b3153c6…, USA1914 a9beef57…, JPN1500 563be302…, identical to main. BATTLERESULT with env on and off is identical (prov 168 and 229). Evidence and perf numbers are in evidence/env-steppe/ (no images or videos).
   - Rendering only: biomes/steppe.gd, 11 procedural models, and an optional `lone_n` key in battle_environment.gd (default 90, so other biomes are unchanged). No sim, morale, pathfinding, combat or unit code was touched. arid, temperate, savanna and mediterranean are still NOT on main; tundra was not started.
