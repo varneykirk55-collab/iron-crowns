@@ -922,7 +922,7 @@ def barding_1300():
         Q = P.copy(); Q[:, 0] = 0; Q[:, 2] = np.maximum(Q[:, 2], 1.05)
         return ctx.chain(Q, ['pelvis', 'spine01', 'spine02', 'chest'], 0.08)
     # rear / body caparison: from behind the shoulder over the back and quarters, hem just above the fetlocks
-    parts.append(cloth_part('caparison', L, '1300', 0.010, 0.005,
+    parts.append(cloth_part('caparison', L, '1300', 0.024, 0.005,
                             y_back=lambda t: -0.80 - 0.06 * t, y_front=lambda t: 0.50 + 0.02 * t,
                             hem=lambda y: CAP_HEM + 0 * y, res=(36, 28), band=0.06,
                             main_code=MAT_WOOL, trim_code=MAT_WOOL + V_TRIM, w=torso_w, col=cap_col,
@@ -932,7 +932,7 @@ def barding_1300():
     def front(lod):
         na = PM.lod_n(24, lod, minimum=6); nz = PM.lod_n(18, lod, minimum=5)
         th = np.radians(np.linspace(-98, 98, na))
-        zt = lambda a: 1.30 - 0.12 * (np.abs(a) / np.radians(98)) ** 1.5
+        zt = lambda a: 1.36 - 0.10 * (np.abs(a) / np.radians(98)) ** 1.5
         band = 0.06
         G = np.zeros((nz + 1, na, 3)); fc = np.zeros((nz, na - 1), int)
         rows = []
@@ -945,7 +945,7 @@ def barding_1300():
             zs = top - (top - CAP_HEM) * rows
             O = np.stack([np.zeros(len(zs)), np.full(len(zs), 0.30), zs], 1)
             Dd = np.tile([math.sin(a), math.cos(a), 0.0], (len(zs), 1))
-            P, ok = PM.raycast(df, O, Dd, 0.017, rmax=0.8, steps=160)
+            P, ok = PM.raycast(df, O, Dd, 0.026, rmax=0.8, steps=160)
             G[:, i] = P
         rr = 0.5 * (rows[:-1] + rows[1:])
         hemrow = (1 - rr) * 1.0 < band / 0.9 + 1e-6
@@ -954,7 +954,7 @@ def barding_1300():
         return PM.grid_mesh(G, fc, 0.005, outward_ref=ref)
     parts.append(part_gen('caparison_front', L, front, torso_w, cap_col))
     # crinet over the crest
-    cr = neck_sheet(0.016, 0.005, 100, (16, 18), 14, MAT_WOOL, MAT_WOOL + V_TRIM)
+    cr = neck_sheet(0.028, 0.005, 118, (16, 18), 14, MAT_WOOL, MAT_WOOL + V_TRIM)
     parts.append(part_gen('crinet', L, cr, w_transfer, cap_col))
     # chanfron: steel plate over the face with eye holes
     eyes = [np.array(c) for c, r in S.EYES]
