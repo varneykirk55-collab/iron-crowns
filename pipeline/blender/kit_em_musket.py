@@ -45,7 +45,7 @@ C.SHOE_PROF = [(0.0, 0.034, 0.030, 0.030), (0.15, 0.040, 0.050, 0.040), (0.45, 0
 
 KNEE_Z = 0.565
 PUFFS = ((0.035, 0.125), (0.14, 0.26), (0.275, 0.43))   # stacked sleeve puffs (arm path param)
-N_PANE, W_LIN = 9, 0.40
+N_PANE, W_LIN = 6, 0.30
 
 def _arm_t(p, s):
     pts = C.arm_path(s, True)

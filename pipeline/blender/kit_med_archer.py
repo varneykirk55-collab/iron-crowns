@@ -312,7 +312,7 @@ def fit(htree, body_tree):
     _FIT['hood_hi'] = _fit_hood(htree, 40, 72)
     dirs, D = _FIT['hood_hi']   # lo hood: subsample of the hi fit, padded by the local max (ears / hair between samples stay inside)
     ri = list(range(0, 41, 5)); cj = list(range(0, 73, 6))
-    Dl = np.array([[D[max(0, i - 3):i + 4, max(0, j - 4):j + 5].max() + 0.002 for j in cj] for i in ri])
+    Dl = np.array([[D[max(0, i - 3):i + 4, max(0, j - 4):j + 5].max() + 0.0055 for j in cj] for i in ri])
     _FIT['hood_lo'] = ([[dirs[i][j] for j in cj] for i in ri], Dl)
     _FIT['cape'] = _fit_cape([body_tree, htree])
     print('[archer] cape radius range', round(float(_FIT['cape'][0].min()), 3), round(float(_FIT['cape'][0].max()), 3))
